@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { parse } from 'yaml';
 
-import { color, edge, fontFamily, rounded, size, solid, spacing, sunk, typography } from '../tokens';
+import { color, edge, fontFamily, overlay, rounded, size, solid, spacing, sunk, typography } from '../tokens';
 
 const ROOT = join(__dirname, '../../..');
 const design = parse(readFileSync(join(ROOT, 'src/ui/tokens/design.yaml'), 'utf8'));
@@ -60,10 +60,39 @@ describe('tokens vs. DESIGN.md (design.yaml)', () => {
       card: px(design.spacing['edge-card']),
       chip: px(design.spacing['edge-chip']),
     });
+    const border = (value: string) => px(String(value).split(' ')[0] ?? '');
+    const box = (value: string) => String(value).split(' ').map(px);
+    const [xpTop, xpRight, xpBottom, xpLeft] = box(c['xp-chip'].padding);
+    const [tagY, tagX] = box(c['mode-tag'].padding);
     expect(size).toEqual({
       buttonHeight: px(c['button-primary'].height),
       buttonSmallHeight: px(c['button-small'].height),
+      buttonPaddingX: px(c['button-primary'].paddingX),
+      buttonIcon: 20, // DESIGN.md, Components: "ícone opcional de 20 px à esquerda"
+      border: border(c.card.border),
+      cardPadding: px(c.card.padding),
+      xpChipRadius: px(c['xp-chip'].rounded),
+      xpChipPaddingTop: xpTop,
+      xpChipPaddingRight: xpRight,
+      xpChipPaddingBottom: xpBottom,
+      xpChipPaddingLeft: xpLeft,
+      xpChipIcon: 16, // [ASSUMPTION] protótipo
+      stateIcon: 20, // [ASSUMPTION] ✓/✕ do cartão
+      stateIconSmall: 16, // [ASSUMPTION] ✓/✕ do chip de palavra
+      progressHeight: px(c['progress-bar'].height),
+      progressMinFill: px(c['progress-bar'].minFill),
+      wordChipHeight: px(c['word-chip'].height),
+      wordChipPaddingX: px(c['word-chip'].paddingX),
+      modeTagPaddingY: tagY,
+      modeTagPaddingX: tagX,
+      modeTagLetterSpacing: px(c['mode-tag'].letterSpacing),
+      touchMin: 48, // EXPERIENCE.md, Accessibility Floor
     });
+    // Todas as bordas de componente têm a mesma espessura.
+    for (const key of ['button-ghost', 'card', 'word-chip', 'word-chip-placed', 'word-chip-right', 'word-chip-wrong']) {
+      expect(border(c[key].border)).toBe(size.border);
+    }
+    expect(overlay).toEqual({ progressHighlight: c['progress-bar'].highlight });
   });
 
   const planning = join(ROOT, '../_bmad-output/planning-artifacts/ux-designs/ux-Fluveny-2026-11-13/DESIGN.md');

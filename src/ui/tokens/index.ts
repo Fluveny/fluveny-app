@@ -123,10 +123,41 @@ export const edge = {
   chip: spacing.edgeChip,
 } as const;
 
-/** Medidas de componente do DESIGN.md (`components`). */
+/** Medidas de componente do DESIGN.md (`components`). As alturas são da face, sem a sombra sólida. */
 export const size = {
   buttonHeight: 54,
   buttonSmallHeight: 46,
+  buttonPaddingX: 18,
+  /** Ícone opcional à esquerda do rótulo (DESIGN.md, Components). */
+  buttonIcon: 20,
+  /** Borda de cartões, chips e do botão ghost (`2px solid`). */
+  border: 2,
+  cardPadding: 14,
+  xpChipRadius: 12,
+  xpChipPaddingTop: 6,
+  xpChipPaddingRight: 10,
+  xpChipPaddingBottom: 6,
+  xpChipPaddingLeft: 8,
+  /** Estrela do chip de XP [ASSUMPTION: 16 px, como no protótipo; o DESIGN.md não fixa]. */
+  xpChipIcon: 16,
+  /** Ícone ✓/✕ de estado no cartão [ASSUMPTION: 20, como o ícone do botão]. */
+  stateIcon: 20,
+  /** Ícone ✓/✕ de estado no chip de palavra [ASSUMPTION: 16, cabe na face de 44]. */
+  stateIconSmall: 16,
+  progressHeight: 16,
+  progressMinFill: 26,
+  wordChipHeight: 44,
+  wordChipPaddingX: 14,
+  modeTagPaddingY: 6,
+  modeTagPaddingX: 10,
+  modeTagLetterSpacing: 1.3,
+  /** Área de toque mínima (EXPERIENCE.md, Accessibility Floor; UX-DR137). */
+  touchMin: 48,
+} as const;
+
+/** Cores translúcidas de componente que não são da paleta (`components`). */
+export const overlay = {
+  progressHighlight: 'rgba(255,255,255,0.4)',
 } as const;
 
 /** Coluna do App: retrato, centralizada até 440 dp (UX-DR12). 360 dp é a menor largura suportada, não um piso. */
@@ -134,4 +165,4 @@ export const layout = {
   columnMax: 440,
 } as const;
 
-export { solid, sunk } from './shadow';
+export { solid, sunk, type SolidStyle } from './shadow';

@@ -33,3 +33,7 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 - O header `X-App-Version` faz o navegador mandar preflight `OPTIONS`. Até a API tratar CORS (história 4.2), o `/meta` falha no web contra a API real e o App segue sem checar a versão.
 
 <!-- /bmad:context -->
+
+## Kit de UI
+
+- Telas usam as peças de `src/ui` (importe de `src/ui/index.ts`): `Button`, `Card`, `WordChip`, `XpChip`, `ProgressBar`, `ModeTag`. Nada de estilo de botão, cartão ou chip solto numa tela nem `Pressable` com `solid()`/`sunk()` à mão; peça nova do kit usa `Pressable3D`. Regras, variantes e copy em `src/ui/README.md`; catálogo em `/kit` (só com `__DEV__`).
