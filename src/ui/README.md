@@ -27,13 +27,13 @@ Em desenvolvimento, a rota `/kit` mostra todas as peças e estados (`npx expo st
 
 Botão "de borracha": face de 54 dp (46 no `small`), sombra de 5 (4 no `small`), rótulo em caixa alta peso 900, ícone opcional de 20 dp à esquerda, `fullWidth` no rodapé.
 
-| Variante | Quando usar |
-|---|---|
-| `primary` (azul) | A ação principal da tela: VERIFICAR, CONTINUAR, COMEÇAR. |
-| `ghost` (branco com borda) | Ação secundária: VER RESPOSTA, CRIAR CONTA na boas-vindas. |
-| `success` (turquesa, rótulo `ink`) | CONTINUAR depois de um Acerto. |
-| `danger` (vermelho) | Só I DON'T LIKE no swipe. |
-| `reward` (ouro, rótulo `ink`) | EXTRA HELP e RESPONDER PESQUISA RÁPIDA. |
+| Variante                               | Quando usar                                                                                 |
+| -------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `primary` (azul)                       | A ação principal da tela: VERIFICAR, CONTINUAR, COMEÇAR.                                    |
+| `ghost` (branco com borda)             | Ação secundária: VER RESPOSTA, CRIAR CONTA na boas-vindas.                                  |
+| `success` (turquesa, rótulo `ink`)     | CONTINUAR depois de um Acerto.                                                              |
+| `danger` (vermelho)                    | Só I DON'T LIKE no swipe.                                                                   |
+| `reward` (ouro, rótulo `ink`)          | EXTRA HELP e RESPONDER PESQUISA RÁPIDA.                                                     |
 | variante `disabled` ou prop `disabled` | Ação ainda indisponível (resposta incompleta, SEM CONEXÃO). Cinza, não afunda, não dispara. |
 
 `busy` desabilita e anuncia "ocupado" enquanto a ação roda (por exemplo, SALVANDO…).
@@ -44,13 +44,13 @@ Botão "de borracha": face de 54 dp (46 no `small`), sombra de 5 (4 no `small`),
 
 Borda de 2 dp, cantos de 20, sombra sólida de 4 na cor da borda. Tocável quando recebe `onPress` (e então exige `accessibilityLabel`) e afunda como o botão. A prop `disabled` do cartão tocável tira o toque e o afundar e o anuncia como desabilitado, sem mudar o visual: quem precisa de uma aparência própria a acrescenta (por exemplo, o cartão de Estágio bloqueado da história 2.5). Peça tocável sem `onPress` é sempre inerte.
 
-| Tom | Quando usar |
-|---|---|
-| `neutral` | Padrão. |
+| Tom        | Quando usar                                                                    |
+| ---------- | ------------------------------------------------------------------------------ |
+| `neutral`  | Padrão.                                                                        |
 | `selected` | Item selecionado, Estágio atual. Anunciado como selecionado só quando tocável. |
-| `wrong` | Item errado depois de Verificar. Mostra ✕ e diz "errado". |
-| `right` | Acerto, resposta-modelo. Mostra ✓ e diz "certo". |
-| `reward` | Recompensa, convite de cadastro do Visitante, parágrafo do aluno. |
+| `wrong`    | Item errado depois de Verificar. Mostra ✕ e diz "errado".                      |
+| `right`    | Acerto, resposta-modelo. Mostra ✓ e diz "certo".                               |
+| `reward`   | Recompensa, convite de cadastro do Visitante, parágrafo do aluno.              |
 
 ### `XpChip` e `XpChipLight`
 
@@ -64,11 +64,11 @@ Barra de 16 dp com brilho no terço superior e preenchimento mínimo de 26 dp (n
 
 Chip de palavra de 44 dp de face, com área de toque estendida a 48 dp. Bancos de palavras, Build a Sentence, lista de países, opções do avatar e do perfil. Chips quebram linha com 8 dp de espaço.
 
-| Estado | Quando usar |
-|---|---|
-| `idle` | No banco, disponível. |
-| `placed` | Escolhido ou colocado na frase. Anunciado como selecionado. |
-| `used` | Fantasma no banco depois de usado: sem sombra, não tocável, anunciado como "usado". |
+| Estado            | Quando usar                                                                                                      |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `idle`            | No banco, disponível.                                                                                            |
+| `placed`          | Escolhido ou colocado na frase. Anunciado como selecionado.                                                      |
+| `used`            | Fantasma no banco depois de usado: sem sombra, não tocável, anunciado como "usado".                              |
 | `right` / `wrong` | Depois de Verificar: ✓ ou ✕, e "certo" ou "errado" no rótulo. Passe `disabled` enquanto a resposta está travada. |
 
 ### `ModeTag`
@@ -85,9 +85,9 @@ A folha de feedback é da 1.11, e o player, da 1.10.
 
 Balão de fala (`speech-bubble`): o `Card` neutro com o nome do falante em eyebrow vermelho, caixa alta e peso 900 ("ALEX"; `speaker` muda o nome), e a fala em `bubble`. Texto (string, número ou `Hi, {name}!`) vira `bubble` e o leitor ouve falante e fala juntos ("Alex: Hi, Júlia!"); um nó (por exemplo, a frase com Expressões Úteis tocáveis da 1.12) entra como veio. O rabicho é um quadrado de 14 dp girado 45°, oculto do leitor, e aponta para o personagem:
 
-| Uso | Props | Rabicho |
-|---|---|---|
-| Sobre a cena, no topo (Diálogo) | `tail="top"` (padrão) | Sai da borda de baixo, apontando para Alex embaixo. |
+| Uso                                                 | Props                                | Rabicho                                                                                   |
+| --------------------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Sobre a cena, no topo (Diálogo)                     | `tail="top"` (padrão)                | Sai da borda de baixo, apontando para Alex embaixo.                                       |
 | Fora da cena (Expressão Útil, Resposta Livre, Fala) | `avatar="wave"` ou `avatar="listen"` | Avatar de 60 dp à esquerda; o rabicho sai da borda esquerda, na altura do meio do avatar. |
 
 **Sem botão nem ícone de áudio** no Lançamento 1 (o DESIGN.md mostra um; o EXPERIENCE.md o tira).
@@ -112,10 +112,10 @@ Campo de texto (`text-field`): face mínima de 54 dp, borda de 2 em `line`, cant
 
 Alternativa A–D: o `Card` tocável com a letra num selo à esquerda e o texto em `item`. `index` vai de 0 (A) a 3 (D); fora disso é erro em desenvolvimento (máximo de 4 alternativas). O leitor de tela ouve a letra, o texto e o estado: "B, I'm from Brazil., errado".
 
-| `state` | Quando usar |
-|---|---|
-| `neutral` | Disponível. |
-| `selected` | Escolhida, antes de Verificar. Anunciada como selecionada. |
+| `state`           | Quando usar                                                   |
+| ----------------- | ------------------------------------------------------------- |
+| `neutral`         | Disponível.                                                   |
+| `selected`        | Escolhida, antes de Verificar. Anunciada como selecionada.    |
 | `wrong` / `right` | Depois de Verificar: ✕ ou ✓, e "errado" ou "certo" no rótulo. |
 
 Depois de Verificar, **todas** as alternativas do grupo recebem `locked` (não só a certa e a errada), senão o aluno troca a resposta avaliada.
@@ -124,11 +124,11 @@ Depois de Verificar, **todas** as alternativas do grupo recebem `locked` (não s
 
 Faixa de estado global, só a peça visual: quem mostra e esconde é a tela (a lógica de rede não é do kit). O texto e a ação vêm de quem usa; a ação opcional é um `Button` pequeno ghost (área de toque de 48 dp).
 
-| `tone` | Quando usar |
-|---|---|
-| `offline` | Sem conexão: fundo `ink`, texto branco. É o único tom anunciado como alerta. |
-| `notice` | Aviso do que é do aluno (consentimento do responsável): `gold-text` sobre `gold-lt`. |
-| `quiet` | Lembrete discreto (confirmar e-mail): `muted-strong` sobre `canvas`. |
+| `tone`    | Quando usar                                                                          |
+| --------- | ------------------------------------------------------------------------------------ |
+| `offline` | Sem conexão: fundo `ink`, texto branco. É o único tom anunciado como alerta.         |
+| `notice`  | Aviso do que é do aluno (consentimento do responsável): `gold-text` sobre `gold-lt`. |
+| `quiet`   | Lembrete discreto (confirmar e-mail): `muted-strong` sobre `canvas`.                 |
 
 ## Padrões proibidos (UX-DR133)
 
@@ -146,22 +146,22 @@ Nada disto entra no App: contagem de dias seguidos, ranking, notificações push
 
 Textos do EXPERIENCE.md (Voice and Tone). Use estes; os que não estão aqui e são novos ficam marcados `[ASSUMPTION]` nas telas.
 
-| Situação | Use | Evite |
-|---|---|---|
-| Boas-vindas | "Seu primeiro dia na universidade. Em inglês." / "Conheça o Alex, seu colega de quarto, e aprenda a se apresentar falando, escrevendo e jogando. Grátis." | "Aprenda inglês rápido!" |
-| Painel | "Hi, Júlia!" / "Bora continuar o seu primeiro dia?" | Contagem de dias seguidos, culpa por ausência |
-| Acerto | "Mandou bem!" · "Perfect!" (fala) · "Perfil criado!" (perfil final) | "Correto." seco |
-| Erro | "Quase lá!" + "Os itens marcados em vermelho estão errados. Tente de novo ou veja a resposta com a explicação." | "Errado!", "Resposta incorreta" |
-| Ver resposta | "Vamos revisar" + "RESPOSTA ESPERADA" | "Você errou, a resposta era…" |
-| Fala | "Go ahead, I'm listening!" / "Toque no microfone e fale; ele para sozinho." / "A gente confere as palavras, não o sotaque. Seu nome não entra na conferência." / "A gente ouviu: “…”" | "Pronúncia ruim" |
-| Pular fala | "Não posso falar agora" | "Pular" (soa como desistência) |
-| Resposta Livre | "Travou? O Extra Help transforma a pergunta num exercício guiado." / "Uma resposta possível" / "Compare com a sua. Não existe uma única resposta certa aqui." | "Sua resposta está errada" |
-| Expressão Útil | "Toque no trecho azul para ver o significado" / botão "Entendi" | — |
-| Resumo do Estágio | "Meet & Greet: check!" / "Você já sabe se apresentar e dizer de onde é." / "1 atividade de fala pulada. Você pode refazer quando quiser." | — |
-| Visitante | "Seu progresso está só neste aparelho" / "Crie uma conta grátis para guardar o Estágio 1 e continuar no Estágio 2." | Bloqueio sem explicação |
-| Cadastro | "Nas histórias, o Alex fala de você como…" / "O Fluveny é para quem tem 12 anos ou mais." / "Menor de 18: pediremos o e-mail de um responsável para confirmar o consentimento." | "Gênero" |
-| Conclusão | "Campus Explorer" / "Júlia se apresentou, descreveu pessoas, pediu um café e criou o perfil na universidade." / "Em breve: novas aventuras com o Alex." | — |
-| Pesquisa | "Pesquisa rápida · opcional" / "Valeu pela resposta!" / "Ela ajuda a equipe de Letras a melhorar as próximas unidades." | Pesquisa obrigatória |
+| Situação          | Use                                                                                                                                                                                   | Evite                                         |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Boas-vindas       | "Seu primeiro dia na universidade. Em inglês." / "Conheça o Alex, seu colega de quarto, e aprenda a se apresentar falando, escrevendo e jogando. Grátis."                             | "Aprenda inglês rápido!"                      |
+| Painel            | "Hi, Júlia!" / "Bora continuar o seu primeiro dia?"                                                                                                                                   | Contagem de dias seguidos, culpa por ausência |
+| Acerto            | "Mandou bem!" · "Perfect!" (fala) · "Perfil criado!" (perfil final)                                                                                                                   | "Correto." seco                               |
+| Erro              | "Quase lá!" + "Os itens marcados em vermelho estão errados. Tente de novo ou veja a resposta com a explicação."                                                                       | "Errado!", "Resposta incorreta"               |
+| Ver resposta      | "Vamos revisar" + "RESPOSTA ESPERADA"                                                                                                                                                 | "Você errou, a resposta era…"                 |
+| Fala              | "Go ahead, I'm listening!" / "Toque no microfone e fale; ele para sozinho." / "A gente confere as palavras, não o sotaque. Seu nome não entra na conferência." / "A gente ouviu: “…”" | "Pronúncia ruim"                              |
+| Pular fala        | "Não posso falar agora"                                                                                                                                                               | "Pular" (soa como desistência)                |
+| Resposta Livre    | "Travou? O Extra Help transforma a pergunta num exercício guiado." / "Uma resposta possível" / "Compare com a sua. Não existe uma única resposta certa aqui."                         | "Sua resposta está errada"                    |
+| Expressão Útil    | "Toque no trecho azul para ver o significado" / botão "Entendi"                                                                                                                       | —                                             |
+| Resumo do Estágio | "Meet & Greet: check!" / "Você já sabe se apresentar e dizer de onde é." / "1 atividade de fala pulada. Você pode refazer quando quiser."                                             | —                                             |
+| Visitante         | "Seu progresso está só neste aparelho" / "Crie uma conta grátis para guardar o Estágio 1 e continuar no Estágio 2."                                                                   | Bloqueio sem explicação                       |
+| Cadastro          | "Nas histórias, o Alex fala de você como…" / "O Fluveny é para quem tem 12 anos ou mais." / "Menor de 18: pediremos o e-mail de um responsável para confirmar o consentimento."       | "Gênero"                                      |
+| Conclusão         | "Campus Explorer" / "Júlia se apresentou, descreveu pessoas, pediu um café e criou o perfil na universidade." / "Em breve: novas aventuras com o Alex."                               | —                                             |
+| Pesquisa          | "Pesquisa rápida · opcional" / "Valeu pela resposta!" / "Ela ajuda a equipe de Letras a melhorar as próximas unidades."                                                               | Pesquisa obrigatória                          |
 
 ## Divergências conhecidas
 

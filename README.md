@@ -25,12 +25,12 @@ npx expo export -p web     # build web em dist/ (output single, SPA)
 
 Toda configuração vem do ambiente; nenhum segredo fica em arquivo. Para rodar local, copie `.env.example` para `.env.local` (ignorado pelo git). As variáveis `EXPO_PUBLIC_*` entram no bundle, então nunca ponha segredo nelas.
 
-| Variável | Uso |
-| --- | --- |
-| `EXPO_PUBLIC_API_URL` | Base da API, sem barra no fim (por exemplo, `http://localhost:8080`). No emulador Android, `http://10.0.2.2:8080` (o host visto pelo emulador). Num aparelho físico, o IP da máquina na rede; HTTP sem TLS só funciona em build de debug. |
-| `EXPO_PUBLIC_SENTRY_DSN` | Opcional. Sem ela, o Sentry fica desligado. Com ela, os erros vão sem PII (`sendDefaultPii: false` e o `beforeSend` remove usuário, IP, cookies, cabeçalhos de autenticação e corpo). |
-| `EXPO_PUBLIC_SENTRY_ENVIRONMENT` | Opcional. Nome do ambiente no Sentry. |
-| `EXPO_PUBLIC_STORE_URL` | Opcional. Para onde o botão ATUALIZAR leva no Android. Padrão: a página do pacote na Play. |
+| Variável                         | Uso                                                                                                                                                                                                                                       |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EXPO_PUBLIC_API_URL`            | Base da API, sem barra no fim (por exemplo, `http://localhost:8080`). No emulador Android, `http://10.0.2.2:8080` (o host visto pelo emulador). Num aparelho físico, o IP da máquina na rede; HTTP sem TLS só funciona em build de debug. |
+| `EXPO_PUBLIC_SENTRY_DSN`         | Opcional. Sem ela, o Sentry fica desligado. Com ela, os erros vão sem PII (`sendDefaultPii: false` e o `beforeSend` remove usuário, IP, cookies, cabeçalhos de autenticação e corpo).                                                     |
+| `EXPO_PUBLIC_SENTRY_ENVIRONMENT` | Opcional. Nome do ambiente no Sentry.                                                                                                                                                                                                     |
+| `EXPO_PUBLIC_STORE_URL`          | Opcional. Para onde o botão ATUALIZAR leva no Android. Padrão: a página do pacote na Play.                                                                                                                                                |
 
 ## Estrutura
 

@@ -42,7 +42,10 @@ describe('ProgressBar (UX-DR33)', () => {
     const { rerender } = await render(<ProgressBar value={0.2} />);
     timing.mockClear();
     await rerender(<ProgressBar value={0.6} />);
-    expect(timing).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ toValue: 0.6, duration: motion.progressMs }));
+    expect(timing).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ toValue: 0.6, duration: motion.progressMs }),
+    );
   });
 
   it('com "remover animações", pula direto para o valor', async () => {

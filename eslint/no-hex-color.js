@@ -10,9 +10,32 @@ const COLOR_KEY = /color|fill|stroke|tint/i;
 
 // Nomes de cor CSS mais comuns; o `currentColor` é permitido (herda a cor do token).
 const CSS_NAMES = new Set([
-  'aqua', 'black', 'blue', 'brown', 'cyan', 'fuchsia', 'gold', 'gray', 'green', 'grey', 'indigo', 'lime',
-  'magenta', 'maroon', 'navy', 'olive', 'orange', 'pink', 'purple', 'red', 'silver', 'teal', 'transparent',
-  'violet', 'white', 'yellow',
+  'aqua',
+  'black',
+  'blue',
+  'brown',
+  'cyan',
+  'fuchsia',
+  'gold',
+  'gray',
+  'green',
+  'grey',
+  'indigo',
+  'lime',
+  'magenta',
+  'maroon',
+  'navy',
+  'olive',
+  'orange',
+  'pink',
+  'purple',
+  'red',
+  'silver',
+  'teal',
+  'transparent',
+  'violet',
+  'white',
+  'yellow',
 ]);
 
 /** A cor proibida em `text`; `inColorProp` liga as regras de hex só de dígitos e de nomes. */
@@ -37,7 +60,10 @@ function keyName(node) {
 function inColorProperty(node) {
   let current = node.parent;
   // Template, expressão condicional e container JSX ficam entre o valor e a chave.
-  while (current && ['TemplateLiteral', 'ConditionalExpression', 'LogicalExpression', 'JSXExpressionContainer'].includes(current.type)) {
+  while (
+    current &&
+    ['TemplateLiteral', 'ConditionalExpression', 'LogicalExpression', 'JSXExpressionContainer'].includes(current.type)
+  ) {
     current = current.parent;
   }
   if (!current) return false;

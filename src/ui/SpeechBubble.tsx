@@ -43,7 +43,13 @@ const TAIL_OUT = Math.round((size.bubbleTail * Math.SQRT2) / 2);
  * O rabicho é um quadrado girado 45° que aponta para o personagem. Sem botão de
  * áudio no Lançamento 1 (EXPERIENCE.md, Component Patterns).
  */
-export function SpeechBubble({ children, speaker = 'Alex', tail = 'top', avatar, testID = 'speech-bubble' }: SpeechBubbleProps) {
+export function SpeechBubble({
+  children,
+  speaker = 'Alex',
+  tail = 'top',
+  avatar,
+  testID = 'speech-bubble',
+}: SpeechBubbleProps) {
   const side: SpeechBubbleTail = avatar ? 'left' : tail;
   const line = textOf(children);
   const bubble = (

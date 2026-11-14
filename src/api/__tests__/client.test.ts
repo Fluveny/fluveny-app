@@ -88,9 +88,20 @@ describe('cliente da API', () => {
 describe('catálogo de erros', () => {
   it('tem texto para todos os códigos da platform', () => {
     const platform = [
-      'BAD_REQUEST', 'VALIDATION_FAILED', 'INVALID_ID', 'UNAUTHENTICATED', 'ACCESS_DENIED', 'NOT_FOUND',
-      'CONFLICT', 'PAYLOAD_TOO_LARGE', 'UNPROCESSABLE', 'TOO_MANY_REQUESTS', 'METHOD_NOT_ALLOWED',
-      'NOT_ACCEPTABLE', 'UNSUPPORTED_MEDIA_TYPE', 'INTERNAL_ERROR',
+      'BAD_REQUEST',
+      'VALIDATION_FAILED',
+      'INVALID_ID',
+      'UNAUTHENTICATED',
+      'ACCESS_DENIED',
+      'NOT_FOUND',
+      'CONFLICT',
+      'PAYLOAD_TOO_LARGE',
+      'UNPROCESSABLE',
+      'TOO_MANY_REQUESTS',
+      'METHOD_NOT_ALLOWED',
+      'NOT_ACCEPTABLE',
+      'UNSUPPORTED_MEDIA_TYPE',
+      'INTERNAL_ERROR',
     ];
     for (const code of platform) expect(ERROR_MESSAGES[code]).toEqual(expect.any(String));
   });
@@ -120,7 +131,9 @@ describe('cliente da API: Loop 1', () => {
   it('sem Accept de quem chama, pede JSON e problem+json', async () => {
     global.fetch = respond(200, JSON.stringify({ data: 1 }));
     await request('/api/v1/x');
-    expect(new Headers((global.fetch as jest.Mock).mock.calls[0][1].headers).get('Accept')).toContain('application/json');
+    expect(new Headers((global.fetch as jest.Mock).mock.calls[0][1].headers).get('Accept')).toContain(
+      'application/json',
+    );
   });
 
   it('timeout de 10 s: aborta e vira NETWORK_ERROR', async () => {

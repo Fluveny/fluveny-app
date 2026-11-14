@@ -73,8 +73,10 @@ function validateLock(lock) {
   if (lock.repo !== API_REPO) problems.push(`repo deveria ser ${API_REPO}`);
   if (lock.path !== CONTRACT_PATH) problems.push(`path deveria ser ${CONTRACT_PATH}`);
   if (typeof lock.sha !== 'string' || !/^[0-9a-f]{40}$/.test(lock.sha)) problems.push('sha deveria ter 40 hex');
-  if (typeof lock.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(lock.sha256)) problems.push('sha256 deveria ter 64 hex');
-  if (problems.length > 0) throw new Error(`src/api/openapi.lock inválido: ${problems.join('; ')}. Rode \`npm run api:sync\`.`);
+  if (typeof lock.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(lock.sha256))
+    problems.push('sha256 deveria ter 64 hex');
+  if (problems.length > 0)
+    throw new Error(`src/api/openapi.lock inválido: ${problems.join('; ')}. Rode \`npm run api:sync\`.`);
   return lock;
 }
 

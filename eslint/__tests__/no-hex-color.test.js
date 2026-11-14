@@ -10,7 +10,7 @@ const ruleTester = new RuleTester({
 
 ruleTester.run('fluveny/no-hex-color', rule, {
   valid: [
-    "const c = color.blue;",
+    'const c = color.blue;',
     "const href = '#alex-wave';",
     "const s = 'Estágio #1';",
     "const s = 'Item #100';",
@@ -18,8 +18,8 @@ ruleTester.run('fluveny/no-hex-color', rule, {
     "const s = { label: 'Unidade #100' };",
     "const s = 'Fundo white na foto';",
     "const s = { name: 'white' };",
-    "const el = <Text>Unidade #100</Text>;",
-    "const t = `Unit ${n}`;",
+    'const el = <Text>Unidade #100</Text>;',
+    'const t = `Unit ${n}`;',
   ],
   invalid: [
     { code: "const c = '#155DFC';", errors: [{ messageId: 'literal' }] },

@@ -28,7 +28,9 @@ describe('api: shaOnMain()', () => {
   it.each(['identical', 'ahead'])('aceita %s e devolve o sha completo', async (status) => {
     global.fetch = compare(status);
     await expect(api.shaOnMain('aaaaaaa')).resolves.toBe(full);
-    expect(global.fetch.mock.calls[0][0]).toBe('https://api.github.com/repos/Fluveny/fluveny-api/compare/aaaaaaa...main');
+    expect(global.fetch.mock.calls[0][0]).toBe(
+      'https://api.github.com/repos/Fluveny/fluveny-api/compare/aaaaaaa...main',
+    );
   });
 
   it.each(['behind', 'diverged'])('recusa %s (sha fora da main)', async (status) => {
@@ -50,7 +52,12 @@ describe('api: shaOnMain()', () => {
 });
 
 describe('api: validateLock()', () => {
-  const lock = { repo: 'Fluveny/fluveny-api', path: 'openapi/openapi.json', sha: 'b'.repeat(40), sha256: 'c'.repeat(64) };
+  const lock = {
+    repo: 'Fluveny/fluveny-api',
+    path: 'openapi/openapi.json',
+    sha: 'b'.repeat(40),
+    sha256: 'c'.repeat(64),
+  };
 
   it('aceita o formato gravado pelo api:sync', () => {
     expect(api.validateLock(lock)).toBe(lock);

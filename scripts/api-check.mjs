@@ -25,7 +25,9 @@ async function main() {
   try {
     const upstream = await contractAt(lock.sha);
     if (sha256(upstream) !== lock.sha256) {
-      failures.push(`O contrato da API em ${lock.sha.slice(0, 12)} não é o do lock. Rode \`npm run api:sync ${lock.sha}\`.`);
+      failures.push(
+        `O contrato da API em ${lock.sha.slice(0, 12)} não é o do lock. Rode \`npm run api:sync ${lock.sha}\`.`,
+      );
     }
   } catch (error) {
     failures.push(error.message);
@@ -44,7 +46,9 @@ async function main() {
   try {
     const head = await mainSha();
     if (head !== lock.sha && sha256(await contractAt(head)) !== lock.sha256) {
-      warn(`A cópia do contrato (${lock.sha.slice(0, 12)}) está atrás da main da API (${head.slice(0, 12)}). Rode \`npm run api:sync\` quando quiser os tipos novos.`);
+      warn(
+        `A cópia do contrato (${lock.sha.slice(0, 12)}) está atrás da main da API (${head.slice(0, 12)}). Rode \`npm run api:sync\` quando quiser os tipos novos.`,
+      );
     }
   } catch (error) {
     warn(`Não deu para comparar com a main da API: ${error.message}`);

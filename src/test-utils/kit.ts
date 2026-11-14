@@ -6,7 +6,7 @@ export const styleOf = (el: Host): ViewStyle & TextStyle =>
   (StyleSheet.flatten(el.props.style as ViewStyle & TextStyle) ?? {}) as ViewStyle & TextStyle;
 
 const translateY = (s: ViewStyle) =>
-  ((s.transform as { translateY?: number }[] | undefined)?.find((t) => 'translateY' in t)?.translateY ?? 0);
+  (s.transform as { translateY?: number }[] | undefined)?.find((t) => 'translateY' in t)?.translateY ?? 0;
 
 /** O que interessa da sombra sólida: borda inferior, margem, deslocamento e altura mínima. */
 export function edgeOf(el: Host) {

@@ -8,7 +8,10 @@ import { color, edge, rounded, size, spacing, typography } from './tokens';
 export type WordChipState = 'idle' | 'placed' | 'used' | 'right' | 'wrong';
 
 /** Cores de cada estado (DESIGN.md `components.word-chip*`). */
-export const WORD_CHIP_STATES: Record<WordChipState, { background: string; border: string; label: string; edge: string | null }> = {
+export const WORD_CHIP_STATES: Record<
+  WordChipState,
+  { background: string; border: string; label: string; edge: string | null }
+> = {
   idle: { background: color.surface, border: color.line, label: color.ink, edge: color.line },
   placed: { background: color.surface, border: color.blue, label: color.blue, edge: color.blue },
   // Fantasma no banco: o texto some (mesma cor do fundo) e não há sombra.
