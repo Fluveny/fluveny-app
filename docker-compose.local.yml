@@ -31,4 +31,5 @@ services:
       SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/fluveny?replicaSet=rs0
       LOCAL_SEED_PASSWORD: ${LOCAL_SEED_PASSWORD:-}
     ports:
-      - '8080:8080'
+      # Só no loopback: o /local/reset é público e não pode ficar exposto na rede.
+      - '127.0.0.1:8080:8080'

@@ -1,14 +1,18 @@
 // Mock da API no nativo (Android): intercepta o `fetch` global, que é o que o
 // `request()` de client.ts usa. Requisição sem handler segue para a rede.
 import 'react-native-url-polyfill/auto';
-import { FetchInterceptor } from '@mswjs/interceptors/fetch';
+// O build web do interceptor: patcha o `fetch` global. O padrão (`/fetch`) é o do
+// Node, que intercepta no socket do Undici e não existe no React Native.
+import { FetchInterceptor } from '@mswjs/interceptors/fetch/web';
 import { defineNetwork, InterceptorSource } from 'msw/experimental';
+import type { Interceptor } from '@mswjs/interceptors';
 
 import { handlers } from './handlers';
 
 export async function start(): Promise<void> {
   const network = defineNetwork({
-    sources: [new InterceptorSource({ interceptors: [new FetchInterceptor()] })],
+    // O d.ts do build web declara a própria cópia da classe Interceptor; em runtime é a mesma.
+    sources: [new InterceptorSource({ interceptors: [new FetchInterceptor() as unknown as Interceptor<never>] })],
     handlers,
     onUnhandledFrame: 'bypass',
   });

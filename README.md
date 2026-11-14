@@ -21,6 +21,7 @@ npx expo start --web         # web em http://localhost:8081
 ```
 
 - O `mise run api` sobe, com o `docker-compose.local.yml`, a imagem da API no sha do lock do contrato (`ghcr.io/fluveny/fluveny-api:sha-<sha do lock>`, no perfil `local`) e um `mongo:8` em replica set de um nó. App e API ficam sempre no mesmo contrato. Se a imagem não existir, a tarefa diz o que fazer: `npm run api:sync` (lock anterior ao perfil `local` da API) ou `docker login ghcr.io` (enquanto a imagem for privada no GHCR; use um token do GitHub com `read:packages`).
+- Senha dos usuários que os carregadores da API criam: `LOCAL_SEED_PASSWORD=... mise run api`. O compose lê a variável do terminal, não do `.env.local` do Expo.
 - O banco persiste entre um `up` e outro; `mise run api:down` derruba tudo e apaga o banco. Para recarregar os dados com a API no ar: `curl -X POST localhost:8080/local/reset`.
 - No web, o `/meta` contra a API real falha por CORS até a história 4.2, e o App segue sem checar a versão.
 
@@ -41,7 +42,7 @@ EXPO_PUBLIC_API_MOCK=1 npx expo start --web
 
 Os perfis de build ficam no `eas.json`: `development` (APK com o `expo-dev-client`, para abrir o Metro da sua máquina), `preview` (APK interno) e `production`.
 
-- APK de desenvolvimento: _ainda não gerado (pendente: `eas init` e `eas build --profile development -p android`)_.
+- APK de desenvolvimento (build de 14/11/2026): [baixar o APK](https://expo.dev/artifacts/eas/mG1mbrF0qv00bjEjQ-L4XoSfswDp0Mr8VEDPBnTUqtg.apk) ou abrir a [página do build](https://expo.dev/accounts/fluveny/projects/fluveny-app/builds/68a94c25-49de-4a94-ba88-affb0143ad00) (pede conta na org `fluveny` do Expo). O link direto do APK expira; o build de desenvolvimento mais recente fica sempre na [lista de builds do projeto](https://expo.dev/accounts/fluveny/projects/fluveny-app/builds). Só precisa de APK novo quando muda dependência nativa; para gerar: `npx eas-cli build --profile development -p android`, e troque o link aqui.
 - Instale o APK, rode `npx expo start` e abra o projeto pelo dev client. No emulador, a API fica em `http://10.0.2.2:8080`; num aparelho, no IP da sua máquina na rede.
 
 ## Comandos

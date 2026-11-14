@@ -17,6 +17,7 @@ npx expo start --web         # em outro terminal: http://localhost:8081
 
 - Se o `mise run api` disser que a imagem não existe, siga a mensagem: `npm run api:sync` ou `docker login ghcr.io` (token do GitHub com `read:packages`, enquanto a imagem da API for privada).
 - Se o Mongo parar com "exited with code 1", o kernel do Docker está na faixa 6.19 a 7.0.13, em que o `mongo:8` não sobe (SERVER-121912): confira com `docker info --format '{{.KernelVersion}}'` e atualize o Docker Desktop.
+- Senha dos usuários de seed da API: `LOCAL_SEED_PASSWORD=... mise run api` (o compose lê o ambiente do terminal, não o `.env.local` do Expo).
 - Sem Docker ou sem a API, `EXPO_PUBLIC_API_MOCK=1 npx expo start --web` abre o App com os mocks.
 - Android: instale o APK de desenvolvimento do [README](README.md#android-eas) e rode `npx expo start`.
 
@@ -35,7 +36,7 @@ npx expo start --web         # em outro terminal: http://localhost:8081
 | ---------- | --------------------------------------- | --------------------------------------- |
 | `feat`     | funcionalidade de uma história          | `feat/1-9-kit-balao-cena-campos-faixas` |
 | `fix`      | correção de bug                         | `fix/2-3-sessao-expirada`               |
-| `chore`    | build, CI, dependências, ferramentas    | `chore/1-4-ambiente-local`              |
+| `chore`    | build, CI, dependências, ferramentas    | `chore/atualiza-expo`                   |
 | `docs`     | só documentação                         | `docs/readme-ambiente-local`            |
 | `refactor` | mudança interna sem mudar comportamento | `refactor/api-client`                   |
 
