@@ -72,3 +72,20 @@ describe('api: validateLock()', () => {
     expect(() => api.validateLock(bad)).toThrow();
   });
 });
+
+describe('api: apiImage()', () => {
+  it('é a tag sha-<sha completo> que a CI da API publica no GHCR', () => {
+    const sha = 'b'.repeat(40);
+    expect(api.apiImage(sha)).toBe(`ghcr.io/fluveny/fluveny-api:sha-${sha}`);
+  });
+
+  it('recusa sha curto', () => {
+    expect(() => api.apiImage('bbbbbbb')).toThrow('40 hex');
+  });
+
+  it('a mensagem de imagem ausente manda rodar api:sync ou docker login', () => {
+    const message = api.missingImageMessage('ghcr.io/fluveny/fluveny-api:sha-x');
+    expect(message).toContain('npm run api:sync');
+    expect(message).toContain('docker login ghcr.io');
+  });
+});

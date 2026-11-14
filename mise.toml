@@ -1,0 +1,41 @@
+# Ponto único de entrada do ambiente local e da CI (história 1.4). A CI roda
+# `mise run check`, a mesma tarefa do dev (NFR13).
+# Primeira vez: `mise trust && mise install && mise run setup`.
+
+[tools]
+node = "24"
+lefthook = "2.2.2"
+
+[tasks.setup]
+description = "Instala as dependências, o gerador de tipos da API e os hooks do lefthook"
+run = ["npm ci", "npm run api:tools", "lefthook install"]
+
+[tasks.api]
+description = "Sobe a API (imagem do sha do lock) e um Mongo 8 em replica set, em http://localhost:8080"
+run = '''
+image="$(node scripts/api-image.mjs)" || exit 1
+echo "API: $image"
+FLUVENY_API_IMAGE="$image" docker compose -f docker-compose.local.yml up
+'''
+
+[tasks."api:down"]
+description = "Derruba a API e o Mongo locais e apaga o banco"
+run = "FLUVENY_API_IMAGE=unused docker compose -f docker-compose.local.yml down -v"
+
+[tasks.check]
+description = "Os mesmos passos da CI: tipos, lint, formatação, testes, contrato e build web"
+run = [
+  "npm ci",
+  "npm run api:tools",
+  "npm run routes:types",
+  "npx tsc --noEmit",
+  "npx eslint .",
+  "npx prettier --check .",
+  "npx jest --ci",
+  "npm run api:check",
+  "npx expo export -p web",
+]
+
+[tasks.format]
+description = "Formata o código com o Prettier"
+run = "npx prettier --write ."

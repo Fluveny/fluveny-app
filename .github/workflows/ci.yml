@@ -1,4 +1,4 @@
-# CI do App: segredos, verificação (tsc, eslint, testes, contrato da API) e
+# CI do App: segredos, verificação (mise run check: tsc, eslint, prettier, testes, contrato da API) e
 # build web, em todo PR e em todo push na main.
 name: CI
 
@@ -46,41 +46,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      # Node 24 e lefthook, nas versões do mise.toml.
+      - uses: jdx/mise-action@v5
+
+      - uses: actions/cache@v4
         with:
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            tools/openapi-types/package-lock.json
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'tools/openapi-types/package-lock.json') }}
+          restore-keys: npm-${{ runner.os }}-
 
-      - run: npm ci
-
-      # Gerador dos tipos do contrato, isolado (typescript 5 + openapi-typescript 7.13).
-      - name: Gerador de tipos da API
-        run: npm run api:tools
-
-      # typedRoutes: os tipos das rotas (.expo/types/router.d.ts) não vão para o
-      # git. O `expo customize tsconfig.json` gera os tipos sem subir o Metro; sem
-      # eles, um href para rota inexistente passaria no tsc.
-      - name: Tipos das rotas
-        run: npm run routes:types
-
-      - name: Tipos (tsc)
-        run: npx tsc --noEmit
-
-      - name: Lint (eslint)
-        run: npx eslint .
-
-      - name: Testes (jest)
-        run: npx jest --ci
-
-      # Cópia do contrato = arquivo da API no sha do lock, sha na main da API e
-      # schema.d.ts = gerado da cópia (AD-11). Avisa se a cópia está atrás da main.
-      - name: Contrato da API
+      # A mesma tarefa que o dev roda (NFR13): npm ci, gerador de tipos da API,
+      # tipos das rotas, tsc, eslint, prettier --check, jest, contrato da API
+      # (api:check: cópia = arquivo da API no sha do lock, sha na main, tipos)
+      # e build web. Os passos ficam no mise.toml.
+      - name: mise run check
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run api:check
-
-      - name: Build web
-        run: npx expo export -p web
+          CI: 'true'
+        run: mise run check
