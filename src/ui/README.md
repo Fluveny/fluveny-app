@@ -1,11 +1,11 @@
 # Kit do App (`src/ui`)
 
-Peças visuais do App do Aluno (história 1.8). A fonte é o DESIGN.md e o EXPERIENCE.md do planejamento (`../_bmad-output/planning-artifacts/ux-designs/ux-Fluveny-2026-11-13/`). Quando o protótipo e este kit divergem, vale o kit.
+Peças visuais do App do Aluno (histórias 1.8 e 1.9). A fonte é o DESIGN.md e o EXPERIENCE.md do planejamento (`../_bmad-output/planning-artifacts/ux-designs/ux-Fluveny-2026-11-13/`). Quando o protótipo e este kit divergem, vale o kit.
 
 Importe sempre do barrel:
 
 ```tsx
-import { Button, Card, ModeTag, ProgressBar, WordChip, XpChip } from '../src/ui';
+import { Button, Card, ChoiceCard, ModeTag, SceneFrame, SpeechBubble, TextField } from '../src/ui';
 ```
 
 Em desenvolvimento, a rota `/kit` mostra todas as peças e estados (`npx expo start --web` e abra `/kit`). No release, ela redireciona para `/`.
@@ -79,7 +79,56 @@ Etiqueta azul no topo da Atividade, com um dos 11 valores de `ModeTagLabel`: GAM
 
 `Pressable3D` é a base de toda peça tocável (sombra, afundar, `disabled`, `hitSlop`, acessibilidade). Use-a para uma peça nova do kit, nunca direto numa tela. `Icon` desenha `check`, `x` e `star` com a cor de um token e fica oculto do leitor de tela. `useReducedMotion()` diz se "remover animações" está ligado.
 
-Ficam para a história 1.9: balão de fala, cena, avatar de Alex, campo de texto, cartão de alternativa A–D e faixa de estado global. A folha de feedback é da 1.11, e o player, da 1.10.
+A folha de feedback é da 1.11, e o player, da 1.10.
+
+### `SpeechBubble`
+
+Balão de fala (`speech-bubble`): o `Card` neutro com o nome do falante em eyebrow vermelho, caixa alta e peso 900 ("ALEX"; `speaker` muda o nome), e a fala em `bubble`. Texto (string, número ou `Hi, {name}!`) vira `bubble` e o leitor ouve falante e fala juntos ("Alex: Hi, Júlia!"); um nó (por exemplo, a frase com Expressões Úteis tocáveis da 1.12) entra como veio. O rabicho é um quadrado de 14 dp girado 45°, oculto do leitor, e aponta para o personagem:
+
+| Uso | Props | Rabicho |
+|---|---|---|
+| Sobre a cena, no topo (Diálogo) | `tail="top"` (padrão) | Sai da borda de baixo, apontando para Alex embaixo. |
+| Fora da cena (Expressão Útil, Resposta Livre, Fala) | `avatar="wave"` ou `avatar="listen"` | Avatar de 60 dp à esquerda; o rabicho sai da borda esquerda, na altura do meio do avatar. |
+
+**Sem botão nem ícone de áudio** no Lançamento 1 (o DESIGN.md mostra um; o EXPERIENCE.md o tira).
+
+### `SceneFrame`
+
+Moldura da cena do Diálogo: cantos `xl` (26), recuo de 14 dp, o quarto (`Room`) ao fundo e Alex de 205 dp embaixo, no centro (`pose`, padrão `wave`; `null` tira Alex). Os `children` (o balão) ficam por cima, no topo. A altura é `sceneHeight(altura da tela)`: 46% da tela, entre 300 e 420 dp. É altura **mínima**: com a fonte a 200%, o balão empurra a moldura em vez de ser cortado. Fica fora da margem da tela (o recuo de 14 substitui os 20 de `screen-x`).
+
+### `AlexAvatar`, `Alex` e `Room`
+
+`Alex` desenha uma das três poses: `wave` (acena e conversa), `listen` (ouve a fala) e `cheer` (comemora o acerto). `AlexWave` é o atalho da pose `wave`. O `testID` é `alex-<pose>`. `AlexAvatar` é o círculo de 60 dp em `wall` com anel branco de 3 e Alex recortado. `Room` é o quarto, cobrindo a caixa inteira (`slice`).
+
+Alex e as cenas são **decorativos** e ficam ocultos do leitor de tela. Passe `accessibilityLabel` só quando Alex disser algo que o texto em volta não diz. Alex nunca aparece triste: no erro, ele não aparece.
+
+Os desenhos ficam em `art/alexSvg.ts` e `art/roomSvg.ts` (o único lugar, além dos tokens, com hex): chapados, sem contorno (traço só em linha, com `fill="none"`), sem imagem nem gradiente, com as cores da marca vindas dos tokens. Office, cafe, board e campus chegam nos épicos seguintes.
+
+### `TextField`
+
+Campo de texto (`text-field`): face mínima de 54 dp, borda de 2 em `line`, cantos de 16, texto `item` em `ink`, placeholder em `muted`. Com foco, borda `blue` e anel de 4 dp azul a 14% (`FOCUS_RING`). `label` é obrigatório: aparece acima do campo e é o rótulo do leitor de tela. Aceita as props do `TextInput` (`value`, `onChangeText`, `multiline`, `autoCapitalize`…), menos `style`. Use `multiline` na Resposta Livre ("Type your answer…").
+
+### `ChoiceCard`
+
+Alternativa A–D: o `Card` tocável com a letra num selo à esquerda e o texto em `item`. `index` vai de 0 (A) a 3 (D); fora disso é erro em desenvolvimento (máximo de 4 alternativas). O leitor de tela ouve a letra, o texto e o estado: "B, I'm from Brazil., errado".
+
+| `state` | Quando usar |
+|---|---|
+| `neutral` | Disponível. |
+| `selected` | Escolhida, antes de Verificar. Anunciada como selecionada. |
+| `wrong` / `right` | Depois de Verificar: ✕ ou ✓, e "errado" ou "certo" no rótulo. |
+
+Depois de Verificar, **todas** as alternativas do grupo recebem `locked` (não só a certa e a errada), senão o aluno troca a resposta avaliada.
+
+### `StatusBanner`
+
+Faixa de estado global, só a peça visual: quem mostra e esconde é a tela (a lógica de rede não é do kit). O texto e a ação vêm de quem usa; a ação opcional é um `Button` pequeno ghost (área de toque de 48 dp).
+
+| `tone` | Quando usar |
+|---|---|
+| `offline` | Sem conexão: fundo `ink`, texto branco. É o único tom anunciado como alerta. |
+| `notice` | Aviso do que é do aluno (consentimento do responsável): `gold-text` sobre `gold-lt`. |
+| `quiet` | Lembrete discreto (confirmar e-mail): `muted-strong` sobre `canvas`. |
 
 ## Padrões proibidos (UX-DR133)
 
@@ -119,3 +168,9 @@ Textos do EXPERIENCE.md (Voice and Tone). Use estes; os que não estão aqui e s
 - A sombra é a borda inferior da própria caixa (no RN a borda fica dentro dela). Em peças com borda de 2 dp, a borda inferior em pé é a borda mais a sombra, na cor da sombra. No cartão `reward` (borda ouro, sombra `gold-dk`), os 2 dp de baixo ficam em `gold-dk`.
 - Nos chips `right` e `wrong`, a sombra segue o `design.yaml` (herda `line` do `word-chip`).
 - A estrela do chip de XP tem 16 dp, como no protótipo `[ASSUMPTION]`; o DESIGN.md não fixa a medida.
+- O balão de fala do DESIGN.md tem um botão de áudio de 28 dp. Ele não entra no Lançamento 1 (EXPERIENCE.md, Component Patterns).
+- O rabicho tem 14 dp, o anel do avatar tem 3 e o selo da letra A–D tem 30, como no protótipo `[ASSUMPTION]`; o DESIGN.md não fixa essas medidas.
+- O recuo horizontal do campo de texto é 16 dp `[ASSUMPTION]`: o `text-field` do DESIGN.md não tem `padding`.
+- O tom `quiet` da faixa usa `muted-strong`, não `muted`: sobre `canvas`, o `muted` fica abaixo de 4,5:1 (DESIGN.md, Colors).
+- O placeholder do campo usa `muted` (4,6:1), não `faint`.
+- O anel de foco é um `boxShadow` sem desfoque (`0 0 0 4px`), que não mexe no layout.

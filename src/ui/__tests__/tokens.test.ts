@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { parse } from 'yaml';
 
-import { color, edge, fontFamily, overlay, rounded, size, solid, spacing, sunk, typography } from '../tokens';
+import { color, edge, fontFamily, overlay, rounded, scene, size, solid, spacing, sunk, typography } from '../tokens';
 
 const ROOT = join(__dirname, '../../..');
 const design = parse(readFileSync(join(ROOT, 'src/ui/tokens/design.yaml'), 'utf8'));
@@ -64,6 +64,9 @@ describe('tokens vs. DESIGN.md (design.yaml)', () => {
     const box = (value: string) => String(value).split(' ').map(px);
     const [xpTop, xpRight, xpBottom, xpLeft] = box(c['xp-chip'].padding);
     const [tagY, tagX] = box(c['mode-tag'].padding);
+    // `0 0 0 4px rgba(...)`: os três primeiros são zero, o quarto é a espessura do anel.
+    const ring = /^0 0 0 (\d+px) (rgba\([^)]+\))$/.exec(String(c['text-field'].focusRing));
+    expect(ring).not.toBeNull();
     expect(size).toEqual({
       buttonHeight: px(c['button-primary'].height),
       buttonSmallHeight: px(c['button-small'].height),
@@ -87,12 +90,37 @@ describe('tokens vs. DESIGN.md (design.yaml)', () => {
       modeTagPaddingX: tagX,
       modeTagLetterSpacing: px(c['mode-tag'].letterSpacing),
       touchMin: 48, // EXPERIENCE.md, Accessibility Floor
+      textFieldHeight: px(c['text-field'].height),
+      textFieldPaddingX: px(design.spacing['4']),
+      focusRing: px(ring?.[1] ?? ''),
+      avatar: 60, // DESIGN.md, Components: "avatar circular de Alex (58–64 px)"
+      avatarRing: 3, // [ASSUMPTION] protótipo
+      bubbleTail: 14, // [ASSUMPTION] rabicho
+      alexInScene: 205, // EXPERIENCE.md, Narrativa e cenas
+      choiceLetter: 30, // [ASSUMPTION] protótipo
     });
+    expect(size.avatar).toBeGreaterThanOrEqual(58);
+    expect(size.avatar).toBeLessThanOrEqual(64);
+    // Campo e balão seguem o DESIGN.md: borda, raio e tipo.
+    expect(border(c['text-field'].border)).toBe(size.border);
+    expect(border(c['text-field']['border-focus'])).toBe(size.border);
+    expect(c['text-field'].rounded).toBe('{rounded.md}');
+    expect(c['text-field'].type).toBe('{typography.item}');
+    expect(border(c['speech-bubble'].border)).toBe(size.border);
+    expect(px(c['speech-bubble'].padding)).toBe(size.cardPadding);
+    expect(c['speech-bubble'].rounded).toBe('{rounded.lg}');
+    expect(c['speech-bubble'].type).toBe('{typography.bubble}');
+    expect(c['speech-bubble'].speaker).toBe('{colors.red}');
     // Todas as bordas de componente têm a mesma espessura.
     for (const key of ['button-ghost', 'card', 'word-chip', 'word-chip-placed', 'word-chip-right', 'word-chip-wrong']) {
       expect(border(c[key].border)).toBe(size.border);
     }
-    expect(overlay).toEqual({ progressHighlight: c['progress-bar'].highlight });
+    expect(overlay).toEqual({ progressHighlight: c['progress-bar'].highlight, focusRing: ring?.[2] });
+  });
+
+  it('cena do Diálogo: recuo de 14, cerca de 46% da tela, entre 300 e 420 (DESIGN.md, Layout & Spacing)', () => {
+    expect(px(design.spacing['scene-inset'])).toBe(spacing.sceneInset);
+    expect(scene).toEqual({ min: 300, max: 420, ratio: 0.46 });
   });
 
   const planning = join(ROOT, '../_bmad-output/planning-artifacts/ux-designs/ux-Fluveny-2026-11-13/DESIGN.md');

@@ -4,16 +4,26 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
+  Alex,
+  ALEX_POSES,
+  AlexAvatar,
   Button,
   Card,
+  ChoiceCard,
   MODE_TAGS,
   ModeTag,
   ProgressBar,
+  SceneFrame,
+  SpeechBubble,
+  StatusBanner,
+  TextField,
   WordChip,
   XpChip,
   XpChipLight,
   type ButtonVariant,
   type CardTone,
+  type ChoiceState,
+  type StatusBannerTone,
   type WordChipState,
 } from '../src/ui';
 import { color, spacing, typography } from '../src/ui/tokens';
@@ -22,6 +32,13 @@ const VARIANTS: ButtonVariant[] = ['primary', 'ghost', 'success', 'danger', 'rew
 const TONES: CardTone[] = ['neutral', 'selected', 'wrong', 'right', 'reward'];
 const CHIP_STATES: WordChipState[] = ['idle', 'placed', 'used', 'right', 'wrong'];
 const PROGRESS_STEPS = [0, 0.25, 0.5, 1];
+const CHOICES = ["I'm from Brazil.", 'I from Brazil.', 'I am Brazil.', 'I is from Brazil.'];
+const CHOICE_STATES: ChoiceState[] = ['neutral', 'selected', 'wrong', 'right'];
+const BANNERS: { tone: StatusBannerTone; text: string; action?: string }[] = [
+  { tone: 'offline', text: 'Sem conexão. Assim que a rede voltar, você continua daqui.' },
+  { tone: 'notice', text: 'Seu progresso fica só neste aparelho até seu responsável confirmar pelo e-mail.', action: 'Reenviar e-mail' },
+  { tone: 'quiet', text: 'Confirme seu e-mail para poder recuperar a senha.', action: 'Reenviar' },
+];
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -40,6 +57,8 @@ function KitCatalog() {
   const [step, setStep] = useState(1);
   const [placed, setPlaced] = useState(false);
   const [selected, setSelected] = useState<CardTone | null>(null);
+  const [pick, setPick] = useState<number | null>(null);
+  const [name, setName] = useState('');
   const progress = PROGRESS_STEPS[step % PROGRESS_STEPS.length] ?? 0;
 
   return (
@@ -99,6 +118,64 @@ function KitCatalog() {
           </View>
         </Section>
 
+        <Section title="CENA E BALÃO">
+          <View style={styles.bleed}>
+            <SceneFrame>
+              <SpeechBubble>Hi, I&apos;m Alex. I&apos;m new here! What&apos;s your name?</SpeechBubble>
+            </SceneFrame>
+          </View>
+          <SpeechBubble avatar="listen">Go ahead, I&apos;m listening!</SpeechBubble>
+          <SpeechBubble avatar="wave">Nice to meet you! Where are you from?</SpeechBubble>
+        </Section>
+
+        <Section title="ALEX">
+          <View style={styles.row}>
+            {ALEX_POSES.map((pose) => (
+              <Alex key={pose} pose={pose} size={96} />
+            ))}
+          </View>
+          <View style={styles.row}>
+            {ALEX_POSES.map((pose) => (
+              <AlexAvatar key={pose} pose={pose} testID={`alex-avatar-${pose}`} />
+            ))}
+          </View>
+        </Section>
+
+        <Section title="CAMPO DE TEXTO">
+          <TextField label="Responda com o seu nome" placeholder="Your name" value={name} onChangeText={setName} autoCapitalize="words" />
+          <TextField label="Sua resposta" placeholder="Type your answer…" multiline testID="text-field-multiline" />
+        </Section>
+
+        <Section title="ALTERNATIVAS">
+          {CHOICES.map((choice, i) => (
+            <ChoiceCard key={choice} index={i} label={choice} state={pick === i ? 'selected' : 'neutral'} onPress={() => setPick(i)} />
+          ))}
+          {CHOICE_STATES.map((state, i) => (
+            <ChoiceCard
+              key={state}
+              index={i}
+              label={`Alternativa ${state}${state === 'wrong' || state === 'right' ? ', travada' : ''}`}
+              state={state}
+              locked={state === 'wrong' || state === 'right'}
+              onPress={() => {}}
+              testID={`choice-state-${state}`}
+            />
+          ))}
+        </Section>
+
+        <Section title="FAIXAS DE ESTADO">
+          {BANNERS.map(({ tone, text, action }) => (
+            <StatusBanner
+              key={tone}
+              tone={tone}
+              text={text}
+              action={action ? { label: action, onPress: () => {} } : undefined}
+              testID={`status-banner-${tone}`}
+            />
+          ))}
+          <StatusBanner tone="notice" text="Faixa sem ação" testID="status-banner-plain" />
+        </Section>
+
         <Section title="TAGS DE MODO">
           <View style={styles.wrap}>
             {MODE_TAGS.map((label) => (
@@ -126,4 +203,6 @@ const styles = StyleSheet.create({
   item: { ...typography.item, color: color.ink },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], flexWrap: 'wrap' },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
+  // A cena tem o recuo próprio de 14 dp: sai da margem da tela.
+  bleed: { marginHorizontal: -spacing.screenX },
 });

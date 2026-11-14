@@ -153,11 +153,36 @@ export const size = {
   modeTagLetterSpacing: 1.3,
   /** Área de toque mínima (EXPERIENCE.md, Accessibility Floor; UX-DR137). */
   touchMin: 48,
+  /** Campo de texto (`text-field.height`); a altura é mínima e cresce com a fonte. */
+  textFieldHeight: 54,
+  /** [ASSUMPTION: 16; o `text-field` do DESIGN.md não tem `padding`]. */
+  textFieldPaddingX: 16,
+  /** Anel de foco do campo (`text-field.focusRing`: `0 0 0 4px`). */
+  focusRing: 4,
+  /** Avatar circular de Alex ao lado do balão (DESIGN.md, Components: 58–64 px). */
+  avatar: 60,
+  /** Anel branco do avatar [ASSUMPTION: 3, como no protótipo]. */
+  avatarRing: 3,
+  /** Lado do quadrado girado 45° do rabicho do balão [ASSUMPTION: o DESIGN.md não fixa]. */
+  bubbleTail: 14,
+  /** Alex em cena, no Diálogo (EXPERIENCE.md, Narrativa e cenas: 205 dp). */
+  alexInScene: 205,
+  /** Selo da letra A–D da alternativa [ASSUMPTION: 30, como no protótipo]. */
+  choiceLetter: 30,
+} as const;
+
+/** Altura da cena do Diálogo (DESIGN.md, Layout & Spacing): cerca de 46% da tela, entre 300 e 420 dp. */
+export const scene = {
+  min: 300,
+  max: 420,
+  ratio: 0.46,
 } as const;
 
 /** Cores translúcidas de componente que não são da paleta (`components`). */
 export const overlay = {
   progressHighlight: 'rgba(255,255,255,0.4)',
+  /** Anel de foco do campo de texto: azul a 14% (`text-field.focusRing`). */
+  focusRing: 'rgba(21,93,252,0.14)',
 } as const;
 
 /** Coluna do App: retrato, centralizada até 440 dp (UX-DR12). 360 dp é a menor largura suportada, não um piso. */

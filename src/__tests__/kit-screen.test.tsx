@@ -28,6 +28,14 @@ describe('rota /kit (catálogo do kit, Decisão 1)', () => {
       expect(screen.getByRole('button', { name })).toBeTruthy();
     }
     for (const label of MODE_TAGS) expect(screen.getByLabelText(label)).toBeTruthy();
+    // Peças da 1.9.
+    expect(screen.getByTestId('scene-frame')).toBeTruthy();
+    expect(screen.getAllByTestId('speech-bubble').length).toBeGreaterThanOrEqual(3);
+    for (const pose of ['wave', 'listen', 'cheer']) expect(screen.getByTestId(`alex-avatar-${pose}`)).toBeTruthy();
+    expect(screen.getByLabelText('Responda com o seu nome')).toBeTruthy();
+    expect(screen.getByLabelText('Sua resposta')).toBeTruthy();
+    for (const state of ['neutral', 'selected', 'wrong', 'right']) expect(screen.getByTestId(`choice-state-${state}`)).toBeTruthy();
+    for (const tone of ['offline', 'notice', 'quiet']) expect(screen.getByTestId(`status-banner-${tone}`)).toBeTruthy();
   });
 
   it('no release (!__DEV__): redireciona para /', async () => {
