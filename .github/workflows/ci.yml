@@ -1,0 +1,86 @@
+# CI do App: segredos, verificação (tsc, eslint, testes, contrato da API) e
+# build web, em todo PR e em todo push na main.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  secrets:
+    name: Segredos
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Só os commits novos; qualquer achado falha. Se o commit base não está
+      # no clone (primeiro push, force push), varre o histórico inteiro e avisa.
+      - name: Gitleaks nos commits novos
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          RANGE: ${{ github.event_name == 'pull_request' && format('{0}..{1}', github.event.pull_request.base.sha, github.event.pull_request.head.sha) || format('{0}..{1}', github.event.before, github.sha) }}
+        run: |
+          if ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "::warning::Commit base $BASE fora do clone; varrendo o histórico inteiro."
+            RANGE="HEAD"
+          fi
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.21.2 \
+            git /repo --log-opts="$RANGE" --redact --verbose --no-banner
+
+  check:
+    name: Verificação
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            tools/openapi-types/package-lock.json
+
+      - run: npm ci
+
+      # Gerador dos tipos do contrato, isolado (typescript 5 + openapi-typescript 7.13).
+      - name: Gerador de tipos da API
+        run: npm run api:tools
+
+      # typedRoutes: os tipos das rotas (.expo/types/router.d.ts) não vão para o
+      # git. O `expo customize tsconfig.json` gera os tipos sem subir o Metro; sem
+      # eles, um href para rota inexistente passaria no tsc.
+      - name: Tipos das rotas
+        run: npm run routes:types
+
+      - name: Tipos (tsc)
+        run: npx tsc --noEmit
+
+      - name: Lint (eslint)
+        run: npx eslint .
+
+      - name: Testes (jest)
+        run: npx jest --ci
+
+      # Cópia do contrato = arquivo da API no sha do lock, sha na main da API e
+      # schema.d.ts = gerado da cópia (AD-11). Avisa se a cópia está atrás da main.
+      - name: Contrato da API
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run api:check
+
+      - name: Build web
+        run: npx expo export -p web

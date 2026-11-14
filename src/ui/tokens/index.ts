@@ -1,0 +1,137 @@
+// Tokens da direção A · Chunky Campus, escritos a partir do frontmatter do
+// DESIGN.md (cópia em ./design.yaml). O teste tokens.test.ts compara cada valor
+// com o YAML. Este é o único lugar do App com cor em hex ou número de design:
+// telas e componentes importam daqui (regra `fluveny/no-hex-color` no eslint).
+import type { TextStyle } from 'react-native';
+
+export const color = {
+  blue: '#155DFC',
+  blueDk: '#0B3FB8',
+  blueMd: '#D5E2FF',
+  blueLt: '#E8EFFF',
+  red: '#E7000B',
+  redDk: '#A30008',
+  redLt: '#FFE8E9',
+  gold: '#FFC83D',
+  goldDk: '#D99A00',
+  goldLt: '#FFF1CC',
+  goldText: '#7A5A00',
+  teal: '#00B39A',
+  tealDk: '#00806E',
+  tealLt: '#E0F7F3',
+  ink: '#14213D',
+  muted: '#6A7591',
+  mutedStrong: '#5B6680',
+  faint: '#A2ABBF',
+  line: '#E1E7F2',
+  lineDk: '#CDD5E3',
+  surface: '#FFFFFF',
+  canvas: '#F3F6FC',
+  wall: '#D9E6FF',
+  paper: '#FFFBEF',
+  paperLine: '#F3E3B5',
+  scrim: 'rgba(20,33,61,0.45)',
+} as const;
+
+export type ColorToken = keyof typeof color;
+
+/**
+ * Famílias carregadas no layout raiz, uma por peso (no Android, o peso vem do
+ * arquivo da fonte, não de `fontWeight`). Só Montserrat, de 500 a 900.
+ */
+export const fontFamily = {
+  500: 'Montserrat_500Medium',
+  600: 'Montserrat_600SemiBold',
+  700: 'Montserrat_700Bold',
+  800: 'Montserrat_800ExtraBold',
+  900: 'Montserrat_900Black',
+} as const;
+
+export type FontWeight = keyof typeof fontFamily;
+
+type Type = {
+  fontFamily: (typeof fontFamily)[FontWeight];
+  fontWeight: `${FontWeight}`;
+  fontSize: number;
+  lineHeight?: number;
+  letterSpacing?: number;
+};
+
+function type(weight: FontWeight, fontSize: number, lineHeight?: number, letterSpacing?: number): Type {
+  return {
+    fontFamily: fontFamily[weight],
+    fontWeight: `${weight}`,
+    fontSize,
+    ...(lineHeight === undefined ? {} : { lineHeight }),
+    ...(letterSpacing === undefined ? {} : { letterSpacing }),
+  };
+}
+
+export const typography = {
+  display: type(900, 30, 34, -0.5),
+  h1: type(900, 28, 32, -0.6),
+  wordHero: type(900, 32, 36, -0.5),
+  title: type(900, 22, 28, -0.3),
+  target: type(800, 21, 28, -0.2),
+  bubble: type(700, 17, 25),
+  item: type(800, 16, 22),
+  body: type(500, 15, 22),
+  bodyStrong: type(600, 15, 22),
+  reading: type(600, 16.5, 27),
+  button: type(900, 15, undefined, 1.3),
+  buttonSmall: type(900, 13, undefined, 1.3),
+  meta: type(700, 13, 19),
+  eyebrow: type(800, 11, undefined, 1.1),
+  caption: type(600, 12, 18),
+  wordmark: type(900, 34, undefined, 2),
+} as const satisfies Record<string, TextStyle>;
+
+export type TypographyToken = keyof typeof typography;
+
+export const rounded = {
+  sm: 9,
+  chip: 14,
+  md: 16,
+  lg: 20,
+  xl: 26,
+  sheet: 28,
+  full: 9999,
+} as const;
+
+export const spacing = {
+  1: 4,
+  2: 8,
+  3: 12,
+  4: 16,
+  5: 20,
+  6: 24,
+  8: 32,
+  half: 10,
+  screenX: 20,
+  sceneInset: 14,
+  edgeButton: 5,
+  edgeCard: 4,
+  edgeChip: 3,
+} as const;
+
+/** Altura da sombra sólida por nível (DESIGN.md, Elevation & Depth; UX-DR15). */
+export const edge = {
+  button: spacing.edgeButton,
+  buttonSmall: 4,
+  mic: 8,
+  card: spacing.edgeCard,
+  chip: spacing.edgeChip,
+} as const;
+
+/** Medidas de componente do DESIGN.md (`components`). */
+export const size = {
+  buttonHeight: 54,
+  buttonSmallHeight: 46,
+} as const;
+
+/** Coluna do App: retrato, centralizada até 440 dp (UX-DR12). 360 dp é a menor largura suportada, não um piso. */
+export const layout = {
+  columnMax: 440,
+} as const;
+
+export { solid, sunk } from './shadow';
