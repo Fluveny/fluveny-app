@@ -1,0 +1,9 @@
+{
+  "name": "fluveny-openapi-types",
+  "private": true,
+  "description": "Gerador dos tipos do contrato (src/api/schema.d.ts). Isolado porque o openapi-typescript 7.13 pede typescript ^5 e o App usa o 6.",
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
+  }
+}

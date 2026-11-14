@@ -1,0 +1,293 @@
+# Cópia do frontmatter do DESIGN.md. Não edite: rode `npm run design:sync`.
+title: DESIGN Fluveny
+status: final
+created: 2026-11-13
+updated: 2026-11-13
+name: Fluveny
+description: App de inglês para iniciantes brasileiros. Lúdico, tátil e "de borracha", com Alex como colega de quarto. Direção A · Chunky Campus.
+colors:
+  blue: '#155DFC'
+  blue-dk: '#0B3FB8'
+  blue-md: '#D5E2FF'
+  blue-lt: '#E8EFFF'
+  red: '#E7000B'
+  red-dk: '#A30008'
+  red-lt: '#FFE8E9'
+  gold: '#FFC83D'
+  gold-dk: '#D99A00'
+  gold-lt: '#FFF1CC'
+  gold-text: '#7A5A00'
+  teal: '#00B39A'
+  teal-dk: '#00806E'
+  teal-lt: '#E0F7F3'
+  ink: '#14213D'
+  muted: '#6A7591'
+  muted-strong: '#5B6680'
+  faint: '#A2ABBF'
+  line: '#E1E7F2'
+  line-dk: '#CDD5E3'
+  surface: '#FFFFFF'
+  canvas: '#F3F6FC'
+  wall: '#D9E6FF'
+  paper: '#FFFBEF'
+  paper-line: '#F3E3B5'
+  scrim: 'rgba(20,33,61,0.45)'
+typography:
+  display:
+    fontFamily: Montserrat
+    fontSize: 30px
+    fontWeight: 900
+    lineHeight: 34px
+    letterSpacing: -0.5px
+  h1:
+    fontFamily: Montserrat
+    fontSize: 28px
+    fontWeight: 900
+    lineHeight: 32px
+    letterSpacing: -0.6px
+  word-hero:
+    fontFamily: Montserrat
+    fontSize: 32px
+    fontWeight: 900
+    lineHeight: 36px
+    letterSpacing: -0.5px
+  title:
+    fontFamily: Montserrat
+    fontSize: 22px
+    fontWeight: 900
+    lineHeight: 28px
+    letterSpacing: -0.3px
+  target:
+    fontFamily: Montserrat
+    fontSize: 21px
+    fontWeight: 800
+    lineHeight: 28px
+    letterSpacing: -0.2px
+  bubble:
+    fontFamily: Montserrat
+    fontSize: 17px
+    fontWeight: 700
+    lineHeight: 25px
+  item:
+    fontFamily: Montserrat
+    fontSize: 16px
+    fontWeight: 800
+    lineHeight: 22px
+  body:
+    fontFamily: Montserrat
+    fontSize: 15px
+    fontWeight: 500
+    lineHeight: 22px
+  body-strong:
+    fontFamily: Montserrat
+    fontSize: 15px
+    fontWeight: 600
+    lineHeight: 22px
+  reading:
+    fontFamily: Montserrat
+    fontSize: 16.5px
+    fontWeight: 600
+    lineHeight: 27px
+  button:
+    fontFamily: Montserrat
+    fontSize: 15px
+    fontWeight: 900
+    letterSpacing: 1.3px
+  button-small:
+    fontFamily: Montserrat
+    fontSize: 13px
+    fontWeight: 900
+    letterSpacing: 1.3px
+  meta:
+    fontFamily: Montserrat
+    fontSize: 13px
+    fontWeight: 700
+    lineHeight: 19px
+  eyebrow:
+    fontFamily: Montserrat
+    fontSize: 11px
+    fontWeight: 800
+    letterSpacing: 1.1px
+  caption:
+    fontFamily: Montserrat
+    fontSize: 12px
+    fontWeight: 600
+    lineHeight: 18px
+  wordmark:
+    fontFamily: Montserrat
+    fontSize: 34px
+    fontWeight: 900
+    letterSpacing: 2px
+rounded:
+  sm: 9px
+  chip: 14px
+  md: 16px
+  lg: 20px
+  xl: 26px
+  sheet: 28px
+  full: 9999px
+spacing:
+  '1': 4px
+  '2': 8px
+  '3': 12px
+  '4': 16px
+  '5': 20px
+  '6': 24px
+  '8': 32px
+  half: 10px
+  screen-x: 20px
+  scene-inset: 14px
+  edge-button: 5px
+  edge-card: 4px
+  edge-chip: 3px
+components:
+  button-primary:
+    background: '{colors.blue}'
+    label: '{colors.surface}'
+    edge: '{colors.blue-dk}'
+    edgeHeight: '{spacing.edge-button}'
+    height: 54px
+    rounded: '{rounded.md}'
+    type: '{typography.button}'
+    paddingX: 18px
+  button-small:
+    height: 46px
+    edgeHeight: 4px
+    type: '{typography.button-small}'
+  button-ghost:
+    background: '{colors.surface}'
+    label: '{colors.blue}'
+    border: 2px solid {colors.line}
+    edge: '{colors.line}'
+  button-danger:
+    background: '{colors.red}'
+    label: '{colors.surface}'
+    edge: '{colors.red-dk}'
+  button-success:
+    background: '{colors.teal}'
+    label: '{colors.ink}'
+    edge: '{colors.teal-dk}'
+  button-reward:
+    background: '{colors.gold}'
+    label: '{colors.ink}'
+    edge: '{colors.gold-dk}'
+  button-disabled:
+    background: '{colors.line}'
+    label: '{colors.muted}'
+    edge: '{colors.line-dk}'
+  card:
+    background: '{colors.surface}'
+    border: 2px solid {colors.line}
+    edge: '{colors.line}'
+    edgeHeight: '{spacing.edge-card}'
+    rounded: '{rounded.lg}'
+    padding: 14px
+  card-selected:
+    background: '{colors.blue-lt}'
+    border: 2px solid {colors.blue}
+    edge: '{colors.blue}'
+  card-wrong:
+    background: '{colors.red-lt}'
+    border: 2px solid {colors.red}
+    edge: '{colors.red}'
+  card-right:
+    background: '{colors.teal-lt}'
+    border: 2px solid {colors.teal}
+    edge: '{colors.teal}'
+  card-reward:
+    background: '{colors.gold-lt}'
+    border: 2px solid {colors.gold}
+    edge: '{colors.gold-dk}'
+  xp-chip:
+    background: '{colors.red}'
+    label: '{colors.surface}'
+    icon: '{colors.gold}'
+    edge: '{colors.red-dk}'
+    edgeHeight: '{spacing.edge-chip}'
+    rounded: 12px
+    padding: 6px 10px 6px 8px
+    type: '{typography.meta}'
+    fontWeight: 900
+  progress-bar:
+    track: '{colors.line}'
+    fill: '{colors.blue}'
+    highlight: 'rgba(255,255,255,0.4)'
+    height: 16px
+    rounded: '{rounded.full}'
+    minFill: 26px
+  word-chip:
+    background: '{colors.surface}'
+    border: 2px solid {colors.line}
+    label: '{colors.ink}'
+    edge: '{colors.line}'
+    edgeHeight: '{spacing.edge-chip}'
+    height: 44px
+    rounded: '{rounded.chip}'
+    paddingX: 14px
+    type: '{typography.item}'
+  word-chip-placed:
+    border: 2px solid {colors.blue}
+    label: '{colors.blue}'
+    edge: '{colors.blue}'
+  word-chip-used:
+    background: '{colors.line}'
+    label: '{colors.line}'
+    edge: none
+  word-chip-right:
+    background: '{colors.teal-lt}'
+    border: 2px solid {colors.teal}
+    label: '{colors.teal-dk}'
+  word-chip-wrong:
+    background: '{colors.red-lt}'
+    border: 2px solid {colors.red}
+    label: '{colors.red-dk}'
+  feedback-sheet:
+    background: '{colors.surface}'
+    rounded: '{rounded.sheet} {rounded.sheet} 0 0'
+    padding: 20px 20px 18px
+    shadow: 0 -14px 28px -10px rgba(20,33,61,0.14)
+    iconTile: 44px
+    title: '{typography.title}'
+    tone-right: '{colors.teal-dk}'
+    tone-wrong: '{colors.red}'
+    tone-revealed: '{colors.blue}'
+  mode-tag:
+    background: '{colors.blue}'
+    label: '{colors.surface}'
+    edge: '{colors.blue-dk}'
+    edgeHeight: '{spacing.edge-chip}'
+    rounded: '{rounded.sm}'
+    padding: 6px 10px
+    type: '{typography.eyebrow}'
+    fontWeight: 900
+    letterSpacing: 1.3px
+  speech-bubble:
+    background: '{colors.surface}'
+    border: 2px solid {colors.line}
+    edge: '{colors.line}'
+    rounded: '{rounded.lg}'
+    padding: 14px
+    type: '{typography.bubble}'
+    speaker: '{colors.red}'
+  useful-expression:
+    label: '{colors.blue}'
+    background: '{colors.blue-lt}'
+    underline: dotted {colors.blue}
+  student-variable:
+    background: '{colors.gold-lt}'
+    underline: 3px solid {colors.gold}
+  mic-button:
+    size: 132px
+    background: '{colors.blue}'
+    background-listening: '{colors.red}'
+    edge: '{colors.blue-dk}'
+    edgeHeight: 8px
+    halo-outer: '{colors.blue-lt}'
+    halo-inner: '{colors.blue-md}'
+  text-field:
+    height: 54px
+    border: 2px solid {colors.line}
+    border-focus: 2px solid {colors.blue}
+    focusRing: 0 0 0 4px rgba(21,93,252,0.14)
+    rounded: '{rounded.md}'
+    type: '{typography.item}'
