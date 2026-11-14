@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { META_SPLASH_TIMEOUT_MS, queryClient, RootLayout } from '../../app/_layout';
 import Home from '../../app/(public)/index';
 import UpdateRequired, { UPDATE_TITLE } from '../../app/atualize';
+import KitScreen from '../../app/kit';
 import { ApiError } from '../api/client';
 import * as sentry from '../observability/sentry';
 
@@ -90,6 +91,16 @@ describe('RootLayout', () => {
     });
     expect(seenLogo).not.toHaveBeenCalled();
     expect(screen.queryByLabelText('Fluveny')).toBeNull();
+    expect(screen).toHavePathname('/atualize');
+  });
+
+  it('minAppVersion 99.0.0: /kit fica atrás do guard e leva a /atualize', async () => {
+    global.fetch = jest.fn().mockResolvedValue(json({ data: { minAppVersion: '99.0.0', activityTypes: [] } }));
+    await renderRouter(
+      { _layout: RootLayout, '(public)/index': Home, atualize: UpdateRequired, kit: KitScreen },
+      { initialUrl: '/kit' },
+    );
+    expect(await screen.findByText(UPDATE_TITLE)).toBeTruthy();
     expect(screen).toHavePathname('/atualize');
   });
 

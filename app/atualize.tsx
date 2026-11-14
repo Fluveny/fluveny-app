@@ -1,12 +1,13 @@
 import Constants from 'expo-constants';
 import { useState } from 'react';
-import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import appConfig from '../app.json';
 import { captureError } from '../src/observability/sentry';
 import { AlexWave } from '../src/ui/art/Alex';
-import { color, edge, rounded, size, solid, spacing, sunk, typography } from '../src/ui/tokens';
+import { Button } from '../src/ui/Button';
+import { color, spacing, typography } from '../src/ui/tokens';
 
 // [ASSUMPTION] Proposta mínima da 1.3 (Decisão 1): texto e forma a revisar com UX.
 export const UPDATE_TITLE = 'Tem versão nova do Fluveny';
@@ -105,7 +106,6 @@ const NOTICE: Record<Exclude<UpdateResult, 'ok'>, string> = {
 
 /** Tela bloqueante quando a versão do App está abaixo do `minAppVersion` (AD-11). */
 export default function UpdateRequired() {
-  const [pressed, setPressed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const onPress = async () => {
@@ -133,17 +133,7 @@ export default function UpdateRequired() {
         ) : null}
       </View>
       <View style={styles.footer}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ disabled: busy, busy }}
-          disabled={busy}
-          onPress={onPress}
-          onPressIn={() => setPressed(true)}
-          onPressOut={() => setPressed(false)}
-          style={[styles.button, pressed ? sunk(edge.button) : solid(color.blueDk, edge.button)]}
-        >
-          <Text style={styles.buttonLabel}>{UPDATE_BUTTON}</Text>
-        </Pressable>
+        <Button label={UPDATE_BUTTON} busy={busy} onPress={onPress} fullWidth />
       </View>
     </SafeAreaView>
   );
@@ -155,13 +145,4 @@ const styles = StyleSheet.create({
   title: { ...typography.h1, color: color.ink, textAlign: 'center' },
   body: { ...typography.body, color: color.mutedStrong, textAlign: 'center' },
   footer: { paddingBottom: spacing[6] },
-  button: {
-    minHeight: size.buttonHeight,
-    borderRadius: rounded.md,
-    backgroundColor: color.blue,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing[4],
-  },
-  buttonLabel: { ...typography.button, color: color.surface },
 });

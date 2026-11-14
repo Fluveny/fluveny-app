@@ -39,6 +39,8 @@ export function RootStack() {
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.canvas } }}>
       <Stack.Protected guard={!outdated}>
         <Stack.Screen name="(public)" />
+        {/* Catálogo do kit (1.8): só abre com __DEV__; no release, redireciona para /. */}
+        <Stack.Screen name="kit" />
       </Stack.Protected>
       <Stack.Protected guard={outdated}>
         <Stack.Screen name="atualize" options={{ gestureEnabled: false }} />
