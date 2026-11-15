@@ -1,19 +1,55 @@
 import openapi from '../../openapi.json';
 import { MOCK_METHODS, mockRoutes } from '../routes';
 
-type Schema = { properties?: Record<string, unknown> };
+type Schema = {
+  $ref?: string;
+  properties?: Record<string, Schema>;
+  items?: Schema;
+  additionalProperties?: Schema | boolean;
+  allOf?: Schema[];
+  oneOf?: Schema[];
+  anyOf?: Schema[];
+};
 
-const components = (openapi as { components?: { schemas?: Record<string, Schema> } }).components?.schemas ?? {};
+type Components = Record<string, Schema>;
 
-/** Campos que existem num schema `X` e não no `XStudentView` dele: os segredos da API. */
-function secretFields(): Set<string> {
+const contractComponents = (openapi as { components?: { schemas?: Components } }).components?.schemas ?? {};
+
+const REF = '#/components/schemas/';
+
+/**
+ * As propriedades do próprio objeto, seguindo `$ref`, `allOf`, `oneOf` e `anyOf` (a união de
+ * Atividades é `oneOf` das variantes). Não desce em `properties`: cada objeto aninhado é outro
+ * componente, com o próprio par `X`/`XStudentView`.
+ */
+function ownProperties(schema: Schema | undefined, components: Components, seen = new Set<string>()): Set<string> {
+  const names = new Set<string>();
+  if (!schema) return names;
+  if (schema.$ref?.startsWith(REF)) {
+    const name = schema.$ref.slice(REF.length);
+    if (seen.has(name)) return names;
+    seen.add(name);
+    return ownProperties(components[name], components, seen);
+  }
+  for (const key of Object.keys(schema.properties ?? {})) names.add(key);
+  for (const sub of [...(schema.allOf ?? []), ...(schema.oneOf ?? []), ...(schema.anyOf ?? [])]) {
+    for (const key of ownProperties(sub, components, seen)) names.add(key);
+  }
+  return names;
+}
+
+/**
+ * Campos que existem num schema `X` e não no `XStudentView` dele: os segredos da API (os
+ * `x-fluveny-secret` do JSON Schema, que a visão do aluno tira).
+ */
+function secretFields(components: Components = contractComponents): Set<string> {
   const secrets = new Set<string>();
-  for (const [name, schema] of Object.entries(components)) {
+  for (const name of Object.keys(components)) {
     if (!name.endsWith('StudentView')) continue;
     const full = components[name.slice(0, -'StudentView'.length)];
-    if (!full?.properties) continue;
-    const visible = new Set(Object.keys(schema.properties ?? {}));
-    for (const key of Object.keys(full.properties)) if (!visible.has(key)) secrets.add(key);
+    if (!full) continue;
+    const visible = ownProperties(components[name], components);
+    for (const key of ownProperties(full, components)) if (!visible.has(key)) secrets.add(key);
   }
   return secrets;
 }
@@ -30,6 +66,29 @@ function keysOf(value: unknown, keys = new Set<string>()): Set<string> {
 }
 
 const routes = mockRoutes as unknown as Record<string, Partial<Record<string, (request: Request) => unknown>>>;
+
+describe('segredos do contrato', () => {
+  it('detecta o segredo de um par X/XStudentView, também por oneOf, allOf e $ref', () => {
+    const components: Components = {
+      Activity: { oneOf: [{ $ref: `${REF}QuizActivity` }] },
+      ActivityStudentView: { oneOf: [{ $ref: `${REF}QuizActivityStudentView` }] },
+      QuizActivity: { allOf: [{ $ref: `${REF}Base` }, { properties: { answerKey: {}, items: {} } }] },
+      QuizActivityStudentView: { allOf: [{ $ref: `${REF}Base` }, { properties: { items: {} } }] },
+      Base: { properties: { activityKey: {}, type: {} } },
+      QuizItem: { properties: { itemKey: {}, justification: {} } },
+      QuizItemStudentView: { properties: { itemKey: {} } },
+    };
+    expect([...secretFields(components)].sort()).toEqual(['answerKey', 'justification']);
+  });
+
+  it('acha os segredos reais quando o contrato tem a visão do aluno', () => {
+    const hasPair = Object.keys(contractComponents).some(
+      (name) => name.endsWith('StudentView') && contractComponents[name.slice(0, -'StudentView'.length)],
+    );
+    // Antes do contrato da 1.7 não há par; depois, os campos x-fluveny-secret da Escolha aparecem.
+    expect(!hasPair || secretFields().size > 0).toBe(true);
+  });
+});
 
 describe('mocks da API', () => {
   it('têm uma resposta para cada rota e método do openapi.json', () => {
