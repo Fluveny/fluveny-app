@@ -143,6 +143,27 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   }
 }
 
+/** Os `{param}` do caminho do contrato: `'/units/{unitKey}'` → `'unitKey'`. */
+type PathParamNames<P extends string> = P extends `${string}{${infer Name}}${infer Rest}`
+  ? Name | PathParamNames<Rest>
+  : never;
+
+export type PathParams<P extends string> = Record<PathParamNames<P>, string>;
+
+/** Troca os `{param}` do caminho pelos valores, codificados para URL. */
+export function fillPath<P extends string>(path: P, params: PathParams<P>): string {
+  return path.replace(/\{([^}]+)\}/g, (_, name: string) => {
+    const value = (params as Record<string, string | undefined>)[name];
+    if (value === undefined) throw new Error(`parâmetro ${name} ausente em ${path}`);
+    return encodeURIComponent(value);
+  });
+}
+
+/** `GET` de uma rota com parâmetros: `getAt('/api/v1/units/{unitKey}', { unitKey: 'unit-1' })`. */
+export function getAt<P extends GetPaths>(path: P, params: PathParams<P>, init?: RequestInit): Promise<GetData<P>> {
+  return request<GetData<P>>(fillPath(path, params), { ...init, method: 'GET' });
+}
+
 /** `GET` tipado pelo contrato: devolve o `data` da resposta 200. */
 export function get<P extends GetPaths>(path: P, init?: RequestInit): Promise<GetData<P>> {
   return request<GetData<P>>(path, { ...init, method: 'GET' });

@@ -18,7 +18,7 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 - Antes de abrir PR: `mise run check`, o mesmo que a CI (inclui `npm ci`, `prettier --check` e o export web). Node 24 e lefthook vêm do `mise.toml`. Formato fora do padrão: `mise run format`.
 - Web: `mise run api` (API no sha do lock + Mongo, via Docker) e `npx expo start --web`. Sem a API: `EXPO_PUBLIC_API_MOCK=1 npx expo start --web`.
 - Com o mock ligado, mantenha `EXPO_PUBLIC_API_URL` preenchido: no Android o MSW só intercepta URL absoluta.
-- Android: o APK de desenvolvimento do EAS (link no README) + `npx expo start`, ou `npx expo run:android` (JDK e Android SDK).
+- Android: APK de desenvolvimento gerado localmente com `npx expo run:android` (Android SDK com NDK, JDK 17, `adb`), depois `npx expo start`. Para um `.apk` instalável: `npx eas-cli build --profile development -p android --local`. Nunca na nuvem do EAS sem pedido do Lucas.
 
 ## Conventions that differ from defaults
 
@@ -42,5 +42,14 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 
 ## Build do EAS só sob pedido
 
-- O `eas build` tem cota limitada no plano grátis. Não gere build do EAS para verificar uma história nem por rotina: só com pedido explícito do Lucas, ou quando uma dependência nativa mudar e o APK de desenvolvimento precisar ser trocado.
-- Para verificar, use `mise run check`, o web e o APK de desenvolvimento que já existe, com `npx expo start`. Se um critério de aceite pedir build do EAS, avise antes de gerar.
+- O `eas build` na nuvem tem cota limitada no plano grátis. Não gere build do EAS na nuvem para verificar uma história nem por rotina: só com pedido explícito do Lucas.
+- Dependência nativa nova (`npx expo install`) pede um APK de desenvolvimento novo, gerado **localmente**: `npx expo run:android` (aparelho ou emulador) ou `npx eas-cli build --profile development -p android --local`.
+- Para verificar, use `mise run check`, o web e o APK de desenvolvimento local, com `npx expo start`. Se um critério de aceite pedir build do EAS na nuvem, avise antes de gerar.
+
+## Visitante, player e rede (1.10)
+
+- `src/visitor`: `deviceId`, Variáveis do Aluno e Progresso do Visitante, só no aparelho. `store.ts` (expo-sqlite) e `store.web.ts` (localStorage) têm a mesma API; use `visitorStore` ou `useVisitor()`. Nunca mande esses dados para a API antes do cadastro (Épico 2).
+- `src/player`: `registry.ts` liga `type` → componente. Tipo novo (1.11 a 1.19) troca o seu `PENDING` por um componente que recebe `{activity, setFooter, advance}`. A Atividade não trata rede: a moldura troca o rodapé por "SEM CONEXÃO".
+- `src/network/useOnline.ts`: estado da rede (expo-network no nativo, `navigator.onLine` no web).
+- Dependências nativas: `expo-sqlite`, `expo-crypto`, `expo-network`. Nos testes, o `jest.setup.js` as simula (o `expo-sqlite` vira `node:sqlite` em memória).
+- Testing Library v14: `fireEvent` também é assíncrono. Sem `await`, os `act()` se sobrepõem e o próximo `renderRouter` do arquivo renderiza vazio.

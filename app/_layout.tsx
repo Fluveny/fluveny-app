@@ -4,9 +4,10 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 
-import { useVersionStatus } from '../src/api/meta';
+import { useMeta, useVersionStatus } from '../src/api/meta';
 import { API_MOCK, startApiMocks } from '../src/api/mocks';
 import { AppProviders, createQueryClient } from '../src/AppProviders';
+import { ColdStartScreen, isNoResponse } from '../src/ColdStartScreen';
 import { captureError, initSentry, Sentry } from '../src/observability/sentry';
 import { clearReloadMark } from './atualize';
 import { Column } from '../src/ui/Column';
@@ -42,7 +43,10 @@ export function RootStack() {
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.canvas } }}>
       <Stack.Protected guard={!outdated}>
+        {/* Boas-vindas na raiz; pilha sem abas e sem cabeçalho (EXPERIENCE.md, Information Architecture). */}
         <Stack.Screen name="(public)" />
+        <Stack.Screen name="(public)/em-breve" />
+        <Stack.Screen name="(student)/player" />
         {/* Catálogo do kit (1.8): só abre com __DEV__; no release, redireciona para /. */}
         <Stack.Screen name="kit" />
       </Stack.Protected>
@@ -53,19 +57,25 @@ export function RootStack() {
   );
 }
 
+/** Fase da abertura: splash nativa, tela azul da partida a frio ou o App. */
+export type StartPhase = 'splash' | 'cold' | 'app';
+
 /**
  * Segura a splash até as fontes carregarem (ou falharem) e o /meta responder,
- * por no máximo {@link META_SPLASH_TIMEOUT_MS}. Com o /meta em dia, a Home não
- * aparece antes do bloqueio. Depois do teto, a Home pode aparecer; se o /meta
- * chegar depois dizendo que a versão está abaixo do mínimo, a troca para
- * "Atualize o app" acontece nessa hora.
+ * por no máximo {@link META_SPLASH_TIMEOUT_MS}. Com o /meta em dia, a
+ * boas-vindas não aparece antes do bloqueio. Se o /meta falha antes do teto, o
+ * App segue sem checar a versão. Se no teto ele ainda não respondeu, entra a
+ * tela azul da partida a frio, que fica até o /meta responder (com dados ou com
+ * um erro do servidor); sem resposta (NETWORK_ERROR), ela refaz o /meta.
  */
 function SplashGate() {
   const [fontsLoaded, fontError] = useFonts(FONTS);
   const fontsReady = fontsLoaded || fontError != null;
-  const checking = useVersionStatus() === 'checking';
+  const meta = useMeta();
   const [timedOut, setTimedOut] = useState(false);
-  const ready = fontsReady && (!checking || timedOut);
+  const [phase, setPhase] = useState<StartPhase>('splash');
+  // "Respondeu": chegou o /meta ou um erro do servidor. Sem resposta ainda: pendente ou NETWORK_ERROR.
+  const answered = meta.isSuccess || (meta.isError && !isNoResponse(meta.error));
 
   useEffect(() => {
     const timer = setTimeout(() => setTimedOut(true), META_SPLASH_TIMEOUT_MS);
@@ -76,17 +86,19 @@ function SplashGate() {
     if (fontError) captureError(fontError);
   }, [fontError]);
 
+  // A fase só avança (splash → cold → app); ajustada no render, sem efeito.
+  let next = phase;
+  if (fontsReady && phase === 'splash') next = !meta.isPending ? 'app' : timedOut ? 'cold' : 'splash';
+  else if (phase === 'cold' && answered) next = 'app';
+  if (next !== phase) setPhase(next);
+
   useEffect(() => {
-    if (ready) SplashScreen.hideAsync().catch(() => {});
-  }, [ready]);
+    if (phase !== 'splash') SplashScreen.hideAsync().catch(() => {});
+  }, [phase]);
 
-  if (!ready) return null;
+  if (phase === 'splash') return null;
 
-  return (
-    <Column>
-      <RootStack />
-    </Column>
-  );
+  return <Column>{phase === 'cold' ? <ColdStartScreen /> : <RootStack />}</Column>;
 }
 
 /**

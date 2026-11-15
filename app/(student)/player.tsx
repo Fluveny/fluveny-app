@@ -1,0 +1,146 @@
+import { useRouter } from 'expo-router';
+import { createElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, BackHandler, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { ApiError } from '../../src/api/client';
+import { messageFor } from '../../src/api/errors';
+import { useOnline } from '../../src/network/useOnline';
+import { captureError } from '../../src/observability/sentry';
+import { ActivityTransition } from '../../src/player/ActivityTransition';
+import { plainText } from '../../src/player/plainText';
+import { PlayerFooter, PlayerFrame, PlayerTop } from '../../src/player/PlayerFrame';
+import { resolveActivity, type ActivityResult, type FooterAction } from '../../src/player/registry';
+import { useStage } from '../../src/player/useStage';
+import { color, spacing, typography } from '../../src/ui/tokens';
+import { useVisitor } from '../../src/visitor/useVisitor';
+
+export const RETRY_LABEL = 'TENTAR DE NOVO';
+export const LOADING_LABEL = 'Carregando o Estágio';
+
+/** Sai do player para a raiz (boas-vindas do Visitante), sem confirmação. */
+function useLeave() {
+  const router = useRouter();
+  return useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  }, [router]);
+}
+
+/**
+ * Player do Estágio 1 do Visitante. Fechar (✕ ou voltar do Android) volta à
+ * boas-vindas sem confirmação, e a Atividade em curso não é gravada.
+ */
+export default function Player() {
+  const leave = useLeave();
+  const online = useOnline();
+  const visitor = useVisitor();
+  const { stage, stageNumber, error, missingStage, loading, fetching, retry } = useStage();
+  const [index, setIndex] = useState(0);
+  const [footer, setFooter] = useState<FooterAction | null>(null);
+
+  // O voltar do Android é o ✕.
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      leave();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [leave]);
+
+  const activities = useMemo(() => (Array.isArray(stage?.activities) ? stage.activities : []), [stage]);
+  const total = activities.length;
+  // Uma resposta com menos Atividades não deixa o índice fora da lista.
+  const position = Math.min(index, Math.max(0, total - 1));
+  const activity = activities[position];
+
+  const { store } = visitor;
+  const advance = useCallback(
+    async (result?: ActivityResult) => {
+      if (result && activity) {
+        try {
+          await store.recordProgress({ activityKey: activity.activityKey, ...result });
+        } catch (failure) {
+          captureError(failure);
+        }
+      }
+      setFooter(null);
+      if (position + 1 < total) setIndex(position + 1);
+      else leave();
+    },
+    [activity, position, total, leave, store],
+  );
+  const onAdvance = useCallback((result?: ActivityResult) => void advance(result), [advance]);
+
+  if (loading) {
+    return (
+      <PlayerMessage onClose={leave} online={online}>
+        <ActivityIndicator size="large" color={color.blue} accessibilityLabel={LOADING_LABEL} />
+      </PlayerMessage>
+    );
+  }
+
+  // Com o Estágio já na tela, um erro posterior não troca a Atividade em curso.
+  if (!stage || !activity || missingStage) {
+    const code = error instanceof ApiError ? error.code : missingStage || stage ? 'NOT_FOUND' : undefined;
+    return (
+      <PlayerMessage onClose={leave} online={online} footer={{ label: RETRY_LABEL, onPress: retry, busy: fetching }}>
+        <Text style={styles.message} accessibilityLiveRegion="polite">
+          {messageFor(code)}
+        </Text>
+      </PlayerMessage>
+    );
+  }
+
+  const current = activity;
+  return (
+    <PlayerFrame
+      stageNumber={stageNumber}
+      stageTitle={plainText(stage.title)}
+      position={position + 1}
+      total={total}
+      xp={visitor.xp}
+      online={online}
+      footer={footer}
+      onClose={leave}
+      contentKey={current.activityKey}
+    >
+      <ActivityTransition id={current.activityKey}>
+        {/* O componente vem do registro: um Tipo sem componente cai em "Atividade em preparação". */}
+        {createElement(resolveActivity(current.type), {
+          key: current.activityKey,
+          activity: current,
+          setFooter,
+          advance: onAdvance,
+        })}
+      </ActivityTransition>
+    </PlayerFrame>
+  );
+}
+
+/** Carregando ou erro: o ✕ fica, o conteúdo no centro e, no erro, TENTAR DE NOVO no rodapé. */
+function PlayerMessage({
+  children,
+  onClose,
+  online,
+  footer = null,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+  online: boolean;
+  footer?: FooterAction | null;
+}) {
+  return (
+    <SafeAreaView style={styles.screen} edges={['top', 'bottom', 'left', 'right']}>
+      <PlayerTop onClose={onClose} online={online} />
+      <View style={styles.center}>{children}</View>
+      <PlayerFooter footer={footer} online={online} />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: color.surface },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.screenX },
+  message: { ...typography.bodyStrong, color: color.ink, textAlign: 'center' },
+});

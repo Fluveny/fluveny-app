@@ -5,7 +5,8 @@ import { focusManager, useQuery } from '@tanstack/react-query';
 import { AppState, Platform } from 'react-native';
 
 import { captureError } from '../observability/sentry';
-import { appVersion, get, type GetData } from './client';
+import { ApiError, appVersion, get, type GetData } from './client';
+import { NETWORK_ERROR } from './errors';
 import { isBelow } from './semver';
 
 export type Meta = GetData<'/api/v1/meta'>;
@@ -20,7 +21,19 @@ export function fetchMeta(): Promise<Meta> {
  * Registro único de falha do /meta: chamado pelo `onError` do QueryCache
  * (AppProviders), uma vez por falha final, por mais componentes que usem o hook.
  */
+let lastReportedNetwork = false;
+
+/** Um /meta respondeu: o próximo NETWORK_ERROR volta a ser reportado. */
+export function resetMetaErrorReport(): void {
+  lastReportedNetwork = false;
+}
+
 export function reportMetaError(error: unknown): void {
+  // Sem rede, a tela azul refaz o /meta a cada poucos segundos: um NETWORK_ERROR
+  // seguido de outro não é reportado de novo (volta a valer depois de um sucesso).
+  const network = error instanceof ApiError && error.code === NETWORK_ERROR;
+  if (network && lastReportedNetwork) return;
+  lastReportedNetwork = network;
   const message = error instanceof Error ? error.message : String(error);
   console.warn('[meta] falha ao consultar /api/v1/meta; seguindo sem checar a versão', message);
   captureError(error);
