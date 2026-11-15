@@ -24,6 +24,7 @@ import { PENDING, registry, type ActivityProps, type ActivityRegistry } from '..
 import { OFFLINE_TEXT } from '../network/text';
 import { CLOSE_LABEL, OFFLINE_LABEL } from '../player/PlayerFrame';
 import { visitorStore } from '../visitor/store';
+import { clearVisitorCache } from '../visitor/useVisitor';
 
 jest.mock('../observability/sentry', () => {
   const actual = jest.requireActual('../observability/sentry');
@@ -90,6 +91,7 @@ async function pressContinue() {
 beforeEach(() => {
   process.env.EXPO_PUBLIC_API_URL = 'https://api.exemplo.test';
   global.__resetSqlite();
+  clearVisitorCache();
   global.__resetNetwork();
   (sentry.captureError as jest.Mock).mockClear();
   apiResponds();
@@ -167,6 +169,60 @@ describe('boas-vindas e player do Visitante (1.10)', () => {
     expect(screen.getByText(STAGE.activities[1]!.title as string)).toBeTruthy();
     expect(await visitorStore.progress()).toEqual([]);
     expect(screen.getByLabelText('0 XP')).toBeTruthy();
+  });
+
+  it('renderizador: com o nome salvo, o {name} do título aparece resolvido e em ouro (pronome they)', async () => {
+    await visitorStore.setVariable('name', 'Ana');
+    await startTrying();
+    await pressContinue();
+    await screen.findByText(`2 DE ${TOTAL}`);
+    const title = STAGE.activities[1]!.title as string;
+    expect(title).toContain('{name}');
+    expect(screen.getByText(title.replace('{name}', 'Ana'))).toBeTruthy();
+    const variable = screen.getByTestId('student-var');
+    expect(variable.props.children).toBe('Ana');
+  });
+
+  /** O Estágio do mock com outro título, ou com a 1ª Atividade com outro título. */
+  function stageWith(change: { title?: unknown; firstActivityTitle?: unknown }) {
+    const [first, ...rest] = STAGE.activities;
+    apiResponds({
+      stage: () =>
+        json({
+          data: {
+            ...STAGE,
+            ...(change.title === undefined ? {} : { title: change.title }),
+            activities:
+              change.firstActivityTitle === undefined
+                ? STAGE.activities
+                : [{ ...first!, title: change.firstActivityTitle }, ...rest],
+          },
+        }),
+    });
+  }
+
+  it('renderizador: pronome salvo she escolhe a variante she', async () => {
+    await visitorStore.setVariable('pronoun', 'she');
+    stageWith({ firstActivityTitle: { he: 'He is here.', she: 'She is here.', they: 'They are here.' } });
+    await startTrying();
+    expect(await screen.findByText('She is here.')).toBeTruthy();
+    expect(screen.queryByText('They are here.')).toBeNull();
+  });
+
+  it('renderizador: o título do Estágio sai resolvido com o nome salvo', async () => {
+    await visitorStore.setVariable('name', 'Ana');
+    stageWith({ title: 'Meet {name}' });
+    await startTrying();
+    expect(await screen.findByText('ESTÁGIO 1 · Meet Ana')).toBeTruthy();
+  });
+
+  it('renderizador: título do Estágio sem a variante they vai ao Sentry e fica vazio', async () => {
+    stageWith({ title: { he: 'He', she: 'She' } });
+    await startTrying();
+    expect(await screen.findByText('ESTÁGIO 1')).toBeTruthy();
+    expect(sentry.captureError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('variante they') }),
+    );
   });
 
   it('Atividade concluída: grava o Progresso com a activityKey e o chip mostra o XP', async () => {

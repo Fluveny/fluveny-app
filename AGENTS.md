@@ -53,3 +53,9 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 - `src/network/useOnline.ts`: estado da rede (expo-network no nativo, `navigator.onLine` no web).
 - Dependências nativas: `expo-sqlite`, `expo-crypto`, `expo-network`. Nos testes, o `jest.setup.js` as simula (o `expo-sqlite` vira `node:sqlite` em memória).
 - Testing Library v14: `fireEvent` também é assíncrono. Sem `await`, os `act()` se sobrepõem e o próximo `renderRouter` do arquivo renderiza vazio.
+
+## Renderizador do conteúdo (1.10)
+
+- Todo texto do conteúdo na tela usa `RenderedText` (`src/renderer`), com `vars` e `pronoun` do `useRenderVars()`. Nunca mostre `ContentText` cru nem escolha a variante à mão. Texto puro (rótulo, título de linha): `renderPlain`.
+- A gramática é a do `ContentRenderer.java` da API (AD-8). Mudou a regra: muda na API e nos vetores, e o App acompanha. `src/renderer/render-vectors.json` e `.lock` só mudam pelo `npm run api:sync`, no mesmo sha do contrato; o `api:check` confere.
+- `render` só troca placeholders e marca `studentVar`; `format` interpreta `**` e `[[rótulo|chave]]` só nos segmentos do conteúdo. O valor do aluno é sempre texto.

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 // npm run api:check (CI): falha se a cópia do contrato, o lock ou os tipos
-// divergirem (AD-11). Avisa, sem falhar, se a cópia estiver atrás da `main` da API.
+// divergirem (AD-11), e o mesmo para os vetores de renderização (AD-8), que
+// precisam estar no sha do contrato. Avisa, sem falhar, se a cópia estiver atrás da `main` da API.
 import { readFileSync } from 'node:fs';
 
 import api from './lib/api.cjs';
 
-const { COPY, TYPES, contractAt, mainSha, readLock, sha256, shaOnMain, typesFrom, warn } = api;
+const { COPY, TYPES, checkVectors, contractAt, mainSha, readLock, sha256, shaOnMain, typesFrom, warn } = api;
 
 async function main() {
   const failures = [];
@@ -38,6 +39,8 @@ async function main() {
     failures.push('src/api/schema.d.ts não é o gerado da cópia. Rode `npm run api:types` e commite.');
   }
 
+  failures.push(...(await checkVectors(lock)));
+
   if (failures.length > 0) {
     for (const failure of failures) console.error(`✗ ${failure}`);
     process.exit(1);
@@ -54,7 +57,7 @@ async function main() {
     warn(`Não deu para comparar com a main da API: ${error.message}`);
   }
 
-  console.log(`✓ Contrato ${lock.sha.slice(0, 12)}: cópia, lock e tipos conferem.`);
+  console.log(`✓ Contrato ${lock.sha.slice(0, 12)}: cópia, lock, tipos e vetores de renderização conferem.`);
 }
 
 main().catch((error) => {

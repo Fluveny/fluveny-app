@@ -6,14 +6,28 @@ import { totalXp, type ProgressEntry, type VisitorStore } from './types';
 
 type Snapshot = Omit<VisitorState, 'xp' | 'store'>;
 
+const EMPTY: Snapshot = { ready: false, deviceId: null, progress: [], variables: {} };
+
+// Último estado lido de cada loja: uma montagem nova começa dele, e não do
+// vazio (senão o `{name}` do conteúdo aparece cru antes de virar o nome).
+const cache = new WeakMap<VisitorStore, Snapshot>();
+
+/** Esquece o último estado lido (testes que apagam a loja). */
+export function clearVisitorCache(store: VisitorStore = visitorStore) {
+  cache.delete(store);
+}
+
 async function read(store: VisitorStore): Promise<Snapshot> {
+  let snapshot: Snapshot;
   try {
     const [deviceId, progress, variables] = await Promise.all([store.deviceId(), store.progress(), store.variables()]);
-    return { ready: true, deviceId, progress, variables };
+    snapshot = { ready: true, deviceId, progress, variables };
   } catch (error) {
     captureError(error);
-    return { ready: true, deviceId: null, progress: [], variables: {} };
+    snapshot = { ready: true, deviceId: null, progress: [], variables: {} };
   }
+  cache.set(store, snapshot);
+  return snapshot;
 }
 
 export type VisitorState = {
@@ -33,12 +47,7 @@ export type VisitorState = {
  * segue com o estado vazio.
  */
 export function useVisitor(store: VisitorStore = visitorStore): VisitorState {
-  const [state, setState] = useState<Snapshot>({
-    ready: false,
-    deviceId: null,
-    progress: [],
-    variables: {},
-  });
+  const [state, setState] = useState<Snapshot>(() => cache.get(store) ?? EMPTY);
 
   useEffect(() => {
     let alive = true;

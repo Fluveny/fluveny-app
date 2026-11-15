@@ -6,7 +6,6 @@ import { styleOf } from '../../test-utils/kit';
 import { color, size } from '../../ui/tokens';
 import { ActivityTransition } from '../ActivityTransition';
 import { PendingActivity } from '../PendingActivity';
-import { plainText } from '../plainText';
 import { CLOSE_LABEL, OFFLINE_LABEL, PlayerFrame, type PlayerFrameProps } from '../PlayerFrame';
 import { PENDING, registry, resolveActivity, type ActivityProps } from '../registry';
 
@@ -142,14 +141,5 @@ describe('registry', () => {
     expect(resolveActivity('drop-the-lyrics')).toBe(PendingActivity);
     expect(resolveActivity('toString')).toBe(PendingActivity);
     expect(resolveActivity('choice', { choice: Custom })).toBe(Custom);
-  });
-});
-
-describe('plainText', () => {
-  it('string como veio; variantes de pronome com they por padrão', () => {
-    expect(plainText('Hi, {name}!')).toBe('Hi, {name}!');
-    expect(plainText({ he: 'He is', she: 'She is', they: 'They are' })).toBe('They are');
-    expect(plainText({ he: 'He is', she: 'She is', they: 'They are' }, 'she')).toBe('She is');
-    expect(plainText(undefined)).toBe('');
   });
 });
