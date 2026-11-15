@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { ALEX_POSES, ALEX_XML } from '../art/alexSvg';
+import { ALEX_PARTS, ALEX_POSES, ALEX_XML } from '../art/alexSvg';
 import { ROOM_XML } from '../art/roomSvg';
 import { color } from '../tokens';
 
@@ -13,14 +13,16 @@ const tags = (xml: string) => [...xml.matchAll(/<[a-zA-Z]+(?:\s[^>]*)?>/g)].map(
 const attr = (tag: string, name: string) => new RegExp(`\\s${name}="([^"]*)"`).exec(tag)?.[1];
 
 describe('Alex e o quarto (SVG)', () => {
-  it('três poses: wave, listen e cheer, cada uma usando o corpo e a cabeça compartilhados', () => {
+  it('três poses: wave, listen e cheer, cada uma com o corpo e a cabeça compartilhados', () => {
     expect(ALEX_POSES).toEqual(['wave', 'listen', 'cheer']);
     for (const pose of ALEX_POSES) {
-      expect(ALEX_XML[pose]).toContain(`<use href="#alex-${pose}"`);
-      const symbol = new RegExp(`<symbol id="alex-${pose}"[\\s\\S]*?</symbol>`).exec(ALEX_XML[pose])?.[0] ?? '';
-      expect(symbol).toContain('<use href="#alex-body"/>');
-      expect(symbol).toContain('<use href="#alex-head"/>');
+      expect(ALEX_XML[pose]).toContain(ALEX_PARTS.body);
+      expect(ALEX_XML[pose]).toContain(ALEX_PARTS.head);
     }
+  });
+
+  it('SVG plano: sem <symbol> nem <use>, que o react-native-svg do Android não desenha aninhados', () => {
+    for (const pose of ALEX_POSES) expect(ALEX_XML[pose]).not.toMatch(/<symbol|<use|<defs/);
   });
 
   it.each(ART)('%s: nenhum elemento repete atributo', (_, xml) => {
@@ -41,7 +43,7 @@ describe('Alex e o quarto (SVG)', () => {
   });
 
   it('o corpo e a cabeça de Alex não têm traço nenhum fora das linhas do rosto', () => {
-    const body = /<symbol id="alex-body"[\s\S]*?<\/symbol>/.exec(ALEX_XML.wave)?.[0] ?? '';
+    const body = ALEX_PARTS.body;
     expect(body).toContain('stroke="none"');
     for (const tag of tags(body)) {
       const stroke = attr(tag, 'stroke');
