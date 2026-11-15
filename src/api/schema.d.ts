@@ -4,6 +4,38 @@
  */
 
 export interface paths {
+    "/api/v1/admin/content/units/{unitKey}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["publishUnitVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/content/units/{unitKey}/versions/{versionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getUnitVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/meta": {
         parameters: {
             query?: never;
@@ -20,21 +52,232 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listUnits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/units/{unitKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getUnit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/units/{unitKey}/stages/{stageKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getStage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Activity: {
+            type: string;
+        } & components["schemas"]["ChoiceActivity"];
+        ActivityStudentView: {
+            type: string;
+        } & components["schemas"]["ChoiceActivityStudentView"];
         ActivityTypeSupport: {
             sinceAppVersion?: string;
             type: string;
+        };
+        ApiResponseListUnitListItemStudentView: {
+            data: components["schemas"]["UnitListItemStudentView"][];
+            message?: string;
         };
         ApiResponseMeta: {
             data: components["schemas"]["Meta"];
             message?: string;
         };
+        ApiResponseStageStudentView: {
+            data: components["schemas"]["StageStudentView"];
+            message?: string;
+        };
+        ApiResponseUnitStudentView: {
+            data: components["schemas"]["UnitStudentView"];
+            message?: string;
+        };
+        ApiResponseUnitVersionInfo: {
+            data: components["schemas"]["UnitVersionInfo"];
+            message?: string;
+        };
+        ApiResponseUnitVersionPublication: {
+            data: components["schemas"]["UnitVersionPublication"];
+            message?: string;
+        };
+        ChoiceActivity: {
+            activityKey: string;
+            items: components["schemas"]["ChoiceItem"][];
+            prompt?: components["schemas"]["ContentText"];
+            title: components["schemas"]["ContentText"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "choice";
+            /** Format: int32 */
+            xp: number;
+        };
+        ChoiceActivityStudentView: {
+            activityKey: string;
+            items: components["schemas"]["ChoiceItemStudentView"][];
+            prompt?: components["schemas"]["ContentText"];
+            title: components["schemas"]["ContentText"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "choice";
+            /** Format: int32 */
+            xp: number;
+        };
+        ChoiceItem: {
+            correctOptionKey: string;
+            itemKey: string;
+            justification: components["schemas"]["ContentText"];
+            options: components["schemas"]["ChoiceOption"][];
+            question: components["schemas"]["ContentText"];
+        };
+        ChoiceItemStudentView: {
+            itemKey: string;
+            options: components["schemas"]["ChoiceOption"][];
+            question: components["schemas"]["ContentText"];
+        };
+        ChoiceOption: {
+            mediaKey?: string;
+            optionKey: string;
+            text?: components["schemas"]["ContentText"];
+        };
+        /** @description Texto do conteúdo: uma string ou as variantes {he, she, they}. */
+        ContentText: string | components["schemas"]["PronounVariants"];
+        MediaContent: {
+            /** @enum {string} */
+            kind: "image" | "video" | "audio";
+            /** @enum {string} */
+            source: "bundled" | "remote";
+            url?: string;
+        };
         Meta: {
             activityTypes: components["schemas"]["ActivityTypeSupport"][];
             minAppVersion: string;
+        };
+        PronounVariants: {
+            he: string;
+            she: string;
+            they: string;
+        };
+        StageContent: {
+            activities: components["schemas"]["Activity"][];
+            stageKey: string;
+            title: components["schemas"]["ContentText"];
+        };
+        StageStudentView: {
+            activities: components["schemas"]["ActivityStudentView"][];
+            stageKey: string;
+            title: components["schemas"]["ContentText"];
+            versionId: string;
+        };
+        StageSummaryStudentView: {
+            /** Format: int32 */
+            activityCount: number;
+            stageKey: string;
+            title: components["schemas"]["ContentText"];
+        };
+        UnitBundleContent: {
+            media: {
+                [key: string]: components["schemas"]["MediaContent"];
+            };
+            stages: components["schemas"]["StageContent"][];
+            unit: components["schemas"]["UnitContent"];
+        };
+        UnitContent: {
+            /** Format: int32 */
+            order: number;
+            /** Format: int32 */
+            schemaVersion: number;
+            stages: string[];
+            title: components["schemas"]["ContentText"];
+            unitKey: string;
+            usefulExpressions: components["schemas"]["UsefulExpressionContent"][];
+        };
+        UnitListItemStudentView: {
+            comingSoon: boolean;
+            /** Format: int32 */
+            order: number;
+            title: components["schemas"]["ContentText"];
+            unitKey: string;
+            versionId: string;
+        };
+        UnitStudentView: {
+            comingSoon: boolean;
+            /** Format: int32 */
+            order: number;
+            stages: components["schemas"]["StageSummaryStudentView"][];
+            title: components["schemas"]["ContentText"];
+            unitKey: string;
+            usefulExpressions: components["schemas"]["UsefulExpressionStudentView"][];
+            versionId: string;
+        };
+        UnitVersionInfo: {
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: int32 */
+            order: number;
+            published: boolean;
+            /** Format: int32 */
+            schemaVersion: number;
+            unitKey: string;
+            versionId: string;
+        };
+        UnitVersionPublication: {
+            created: boolean;
+            published: boolean;
+            versionId: string;
+        };
+        UsefulExpressionContent: {
+            examples: components["schemas"]["ContentText"][];
+            expressionKey: string;
+            meaning: components["schemas"]["ContentText"];
+            term: components["schemas"]["ContentText"];
+        };
+        UsefulExpressionStudentView: {
+            examples: components["schemas"]["ContentText"][];
+            expressionKey: string;
+            meaning: components["schemas"]["ContentText"];
+            term: components["schemas"]["ContentText"];
         };
     };
     responses: never;
@@ -45,6 +288,66 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    publishUnitVersion: {
+        parameters: {
+            query?: {
+                publish?: boolean;
+            };
+            header?: never;
+            path: {
+                unitKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitBundleContent"];
+            };
+        };
+        responses: {
+            /** @description A versão já existia */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseUnitVersionPublication"];
+                };
+            };
+            /** @description Versão nova gravada */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseUnitVersionPublication"];
+                };
+            };
+        };
+    };
+    getUnitVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                unitKey: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseUnitVersionInfo"];
+                };
+            };
+        };
+    };
     getMeta: {
         parameters: {
             query?: never;
@@ -61,6 +364,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseMeta"];
+                };
+            };
+        };
+    };
+    listUnits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListUnitListItemStudentView"];
+                };
+            };
+        };
+    };
+    getUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                unitKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseUnitStudentView"];
+                };
+            };
+        };
+    };
+    getStage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                unitKey: string;
+                stageKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseStageStudentView"];
                 };
             };
         };

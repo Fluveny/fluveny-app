@@ -30,8 +30,82 @@ export type MockRoutes = {
   };
 };
 
+const VERSION_ID = 'sha256:0000000000000000000000000000000000000000000000000000000000000001';
+
+// Uma Unidade com um Estágio e uma Escolha, e a Unit 2 "em breve" (sem Estágios).
+const unit1 = { unitKey: 'unit-1', order: 1, title: 'Unit 1', comingSoon: false, versionId: VERSION_ID };
+const unit2 = {
+  unitKey: 'unit-2',
+  order: 2,
+  title: 'Unit 2',
+  comingSoon: true,
+  versionId: 'sha256:0000000000000000000000000000000000000000000000000000000000000002',
+};
+
 export const mockRoutes: MockRoutes = {
   '/api/v1/meta': {
     get: () => ({ data: { minAppVersion: '0.0.0', activityTypes: [] } }),
+  },
+  '/api/v1/units': {
+    get: () => ({ data: [unit1, unit2] }),
+  },
+  '/api/v1/units/{unitKey}': {
+    get: () => ({
+      data: {
+        ...unit1,
+        stages: [{ stageKey: 'stage-1', title: 'Stage 1', activityCount: 1 }],
+        usefulExpressions: [
+          {
+            expressionKey: 'nice-to-meet-you',
+            term: 'Nice to meet you',
+            meaning: 'Prazer em conhecer você',
+            examples: ['Hi, {name}! Nice to meet you.'],
+          },
+        ],
+      },
+    }),
+  },
+  '/api/v1/units/{unitKey}/stages/{stageKey}': {
+    get: () => ({
+      data: {
+        versionId: VERSION_ID,
+        stageKey: 'stage-1',
+        title: 'Stage 1',
+        activities: [
+          {
+            activityKey: 'greeting-choice',
+            type: 'choice',
+            title: 'Choose the greeting',
+            xp: 10,
+            items: [
+              {
+                itemKey: 'greeting-1',
+                question: 'How do you greet someone in the morning?',
+                options: [
+                  { optionKey: 'good-morning', text: 'Good morning' },
+                  { optionKey: 'good-night', text: 'Good night' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    }),
+  },
+  // Rotas do job de publicação: o App não as chama, mas o tipo exige um mock por rota.
+  '/api/v1/admin/content/units/{unitKey}/versions': {
+    post: () => ({ data: { versionId: VERSION_ID, created: false, published: true } }),
+  },
+  '/api/v1/admin/content/units/{unitKey}/versions/{versionId}': {
+    get: () => ({
+      data: {
+        versionId: VERSION_ID,
+        unitKey: 'unit-1',
+        schemaVersion: 1,
+        order: 1,
+        createdAt: '2026-11-14T00:00:00Z',
+        published: true,
+      },
+    }),
   },
 };

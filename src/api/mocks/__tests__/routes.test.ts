@@ -81,12 +81,9 @@ describe('segredos do contrato', () => {
     expect([...secretFields(components)].sort()).toEqual(['answerKey', 'justification']);
   });
 
-  it('acha os segredos reais quando o contrato tem a visão do aluno', () => {
-    const hasPair = Object.keys(contractComponents).some(
-      (name) => name.endsWith('StudentView') && contractComponents[name.slice(0, -'StudentView'.length)],
-    );
-    // Antes do contrato da 1.7 não há par; depois, os campos x-fluveny-secret da Escolha aparecem.
-    expect(!hasPair || secretFields().size > 0).toBe(true);
+  it('acha os segredos reais da Escolha no contrato', () => {
+    // Os campos x-fluveny-secret da Escolha (história 1.7): resposta aceita e justificativa.
+    expect([...secretFields()]).toEqual(expect.arrayContaining(['correctOptionKey', 'justification']));
   });
 });
 
