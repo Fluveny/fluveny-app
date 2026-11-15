@@ -34,6 +34,7 @@ EXPO_PUBLIC_API_MOCK=1 npx expo start --web
 ```
 
 - No web, o MSW roda no service worker `public/mockServiceWorker.js`; no Android, intercepta o `fetch`. Ele sobe antes do primeiro render, então o `/meta` da abertura já sai para o mock.
+- No Android, o `src/api/mocks/mswPolyfills.ts` define antes o que o MSW pede e o Hermes não tem (`MessageEvent`, `BroadcastChannel`, `Headers.getSetCookie`). Se uma versão nova do MSW quebrar com "Property 'X' doesn't exist", o polyfill entra ali. Depois de mexer nos mocks, reinicie o Metro com `--clear`: o cache pode servir o bundle antigo.
 - Os mocks são tipados pelo `schema.d.ts`: toda rota e método do contrato precisa de uma resposta em `src/api/mocks/routes.ts`, senão o `tsc` e o teste falham. Depois de um `api:sync` que traz rota nova, escreva o mock dela.
 - Só a visão do aluno: Atividade mockada usa os tipos `*StudentView`, nunca a Atividade com resposta e justificativa. O teste falha se um mock trouxer campo que só existe fora da `StudentView`.
 - Com a variável vazia, o MSW nem entra no bundle.

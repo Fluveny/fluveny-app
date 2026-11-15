@@ -1,6 +1,8 @@
 // Mock da API no nativo (Android): intercepta o `fetch` global, que é o que o
 // `request()` de client.ts usa. Requisição sem handler segue para a rede.
 import 'react-native-url-polyfill/auto';
+// Antes do MSW: globais que ele pede e o Hermes não tem (MessageEvent, BroadcastChannel…).
+import './mswPolyfills';
 // O build web do interceptor: patcha o `fetch` global. O padrão (`/fetch`) é o do
 // Node, que intercepta no socket do Undici e não existe no React Native.
 import { FetchInterceptor } from '@mswjs/interceptors/fetch/web';
