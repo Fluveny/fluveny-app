@@ -3,7 +3,7 @@ import { act, renderRouter, screen, waitFor } from 'expo-router/testing-library'
 import { AppState, type AppStateStatus } from 'react-native';
 
 import { RootStack } from '../../app/_layout';
-import Home from '../../app/(public)/index';
+import Welcome, { WELCOME_TITLE } from '../../app/(public)/index';
 import UpdateRequired, { UPDATE_BODY, UPDATE_BUTTON, UPDATE_TITLE } from '../../app/atualize';
 import { appVersion } from '../api/client';
 import { AppProviders, createQueryClient } from '../AppProviders';
@@ -33,7 +33,7 @@ async function openApp() {
           <RootStack />
         </AppProviders>
       ),
-      '(public)/index': Home,
+      '(public)/index': Welcome,
       atualize: UpdateRequired,
     },
     { initialUrl: '/' },
@@ -51,11 +51,11 @@ beforeEach(() => {
 afterEach(() => warn.mockRestore());
 
 describe('versão do App na abertura (AD-11)', () => {
-  it('versão ok: segue para a tela inicial provisória, com o logo', async () => {
+  it('versão ok: segue para a boas-vindas', async () => {
     metaResponds(appVersion());
     await openApp();
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
-    expect(await screen.findByLabelText('Fluveny')).toBeTruthy();
+    expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
     expect(screen.queryByText(UPDATE_TITLE)).toBeNull();
     expect(screen).toHavePathname('/');
   });
@@ -67,7 +67,7 @@ describe('versão do App na abertura (AD-11)', () => {
     expect(screen.getByText(UPDATE_BODY)).toBeTruthy();
     expect(screen.getByRole('button', { name: UPDATE_BUTTON })).toBeTruthy();
     expect(screen).toHavePathname('/atualize');
-    expect(screen.queryByLabelText('Fluveny')).toBeNull();
+    expect(screen.queryByText(WELCOME_TITLE)).toBeNull();
     expect(screen.getByTestId('alex-wave')).toBeTruthy();
   });
 
@@ -76,7 +76,7 @@ describe('versão do App na abertura (AD-11)', () => {
     await openApp();
     await waitFor(() => expect(sentry.captureError).toHaveBeenCalled());
     expect(warn).toHaveBeenCalled();
-    expect(screen.getByLabelText('Fluveny')).toBeTruthy();
+    expect(screen.getByText(WELCOME_TITLE)).toBeTruthy();
     expect(screen.queryByText(UPDATE_TITLE)).toBeNull();
   });
 
@@ -84,7 +84,7 @@ describe('versão do App na abertura (AD-11)', () => {
     global.fetch = jest.fn().mockRejectedValue(new TypeError('Network request failed'));
     await openApp();
     await waitFor(() => expect(sentry.captureError).toHaveBeenCalled());
-    expect(screen.getByLabelText('Fluveny')).toBeTruthy();
+    expect(screen.getByText(WELCOME_TITLE)).toBeTruthy();
     expect(screen.queryByText(UPDATE_TITLE)).toBeNull();
   });
 
@@ -96,7 +96,7 @@ describe('versão do App na abertura (AD-11)', () => {
       }),
     );
     await openApp();
-    expect(await screen.findByLabelText('Fluveny')).toBeTruthy();
+    expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
     expect(screen.queryByText(UPDATE_TITLE)).toBeNull();
   });
 
@@ -114,7 +114,7 @@ describe('versão do App na abertura (AD-11)', () => {
         });
       global.fetch = jest.fn().mockResolvedValueOnce(meta('0.0.0')).mockResolvedValueOnce(meta('99.0.0'));
       await openApp();
-      expect(await screen.findByLabelText('Fluveny')).toBeTruthy();
+      expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
       expect(handlers.length).toBeGreaterThan(0);
 
       await act(async () => {

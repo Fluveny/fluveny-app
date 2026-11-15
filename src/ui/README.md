@@ -18,7 +18,7 @@ Em desenvolvimento, a rota `/kit` mostra todas as peças e estados (`npx expo st
 - Toda peça tocável tem papel, rótulo e estado (`disabled`, `selected`, `busy`) e área de toque de pelo menos 48 dp (o `Pressable3D` calcula o `hitSlop`).
 - Estado nunca só por cor: certo e errado mostram ✓ ou ✕, e a palavra ("certo", "errado", "usado") entra no rótulo do leitor de tela. O texto visível do estado é o título da folha de feedback (1.11).
 - Texto nunca corta: `minHeight` em vez de `height`, sem `numberOfLines`, `allowFontScaling` padrão. Com a fonte a 200%, o botão cresce em altura.
-- Animações (pulo do XP, barra de progresso) desligam com "remover animações" do sistema (`useReducedMotion()`).
+- Animações (pulo do XP, barra de progresso, transição entre Atividades) desligam com "remover animações" do sistema (`useReducedMotion()`). As durações ficam em `motion` (`progressMs` 450, `activityMs` 260 com subida de `activityRise` 12 dp).
 - Sem ícone nem botão de áudio no Lançamento 1.
 
 ## Peças
@@ -79,7 +79,7 @@ Etiqueta azul no topo da Atividade, com um dos 11 valores de `ModeTagLabel`: GAM
 
 `Pressable3D` é a base de toda peça tocável (sombra, afundar, `disabled`, `hitSlop`, acessibilidade). Use-a para uma peça nova do kit, nunca direto numa tela. `Icon` desenha `check`, `x` e `star` com a cor de um token e fica oculto do leitor de tela. `useReducedMotion()` diz se "remover animações" está ligado.
 
-A folha de feedback é da 1.11, e o player, da 1.10.
+A folha de feedback é da 1.11. O player (1.10) fica fora do kit, em `src/player`: `PlayerFrame` (topo com ✕ `muted` de 48 dp, `ProgressBar` e `XpChip`; linha de posição; conteúdo rolável; rodapé fixo com um `Button` primário) e `ActivityTransition` (fade com subida). A folha branca da boas-vindas usa `size.welcomeSheetRadius` (32).
 
 ### `SpeechBubble`
 

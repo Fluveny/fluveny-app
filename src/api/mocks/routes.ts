@@ -32,7 +32,8 @@ export type MockRoutes = {
 
 const VERSION_ID = 'sha256:0000000000000000000000000000000000000000000000000000000000000001';
 
-// Uma Unidade com um Estágio e uma Escolha, e a Unit 2 "em breve" (sem Estágios).
+// Uma Unidade com um Estágio de três Escolhas (o player da 1.10 percorre 1 de 3,
+// 2 de 3, 3 de 3), e a Unit 2 "em breve" (sem Estágios).
 const unit1 = { unitKey: 'unit-1', order: 1, title: 'Unit 1', comingSoon: false, versionId: VERSION_ID };
 const unit2 = {
   unitKey: 'unit-2',
@@ -41,6 +42,35 @@ const unit2 = {
   comingSoon: true,
   versionId: 'sha256:0000000000000000000000000000000000000000000000000000000000000002',
 };
+
+const choice = (activityKey: string, title: string, question: string, options: [string, string][]) => ({
+  activityKey,
+  type: 'choice' as const,
+  title,
+  xp: 10,
+  items: [
+    {
+      itemKey: `${activityKey}-1`,
+      question,
+      options: options.map(([optionKey, text]) => ({ optionKey, text })),
+    },
+  ],
+});
+
+const stage1Activities = [
+  choice('greeting-choice', 'Choose the greeting', 'How do you greet someone in the morning?', [
+    ['good-morning', 'Good morning'],
+    ['good-night', 'Good night'],
+  ]),
+  choice('name-choice', 'Say your name', 'How do you tell someone your name?', [
+    ['im-julia', "I'm Júlia."],
+    ['im-from-brazil', "I'm from Brazil."],
+  ]),
+  choice('nice-to-meet-you-choice', 'Nice to meet you', 'Alex says "Nice to meet you!". What do you answer?', [
+    ['nice-to-meet-you-too', 'Nice to meet you too!'],
+    ['good-night', 'Good night!'],
+  ]),
+];
 
 export const mockRoutes: MockRoutes = {
   '/api/v1/meta': {
@@ -53,7 +83,7 @@ export const mockRoutes: MockRoutes = {
     get: () => ({
       data: {
         ...unit1,
-        stages: [{ stageKey: 'stage-1', title: 'Stage 1', activityCount: 1 }],
+        stages: [{ stageKey: 'stage-1', title: 'Meet & Greet', activityCount: stage1Activities.length }],
         usefulExpressions: [
           {
             expressionKey: 'nice-to-meet-you',
@@ -70,25 +100,8 @@ export const mockRoutes: MockRoutes = {
       data: {
         versionId: VERSION_ID,
         stageKey: 'stage-1',
-        title: 'Stage 1',
-        activities: [
-          {
-            activityKey: 'greeting-choice',
-            type: 'choice',
-            title: 'Choose the greeting',
-            xp: 10,
-            items: [
-              {
-                itemKey: 'greeting-1',
-                question: 'How do you greet someone in the morning?',
-                options: [
-                  { optionKey: 'good-morning', text: 'Good morning' },
-                  { optionKey: 'good-night', text: 'Good night' },
-                ],
-              },
-            ],
-          },
-        ],
+        title: 'Meet & Greet',
+        activities: stage1Activities,
       },
     }),
   },

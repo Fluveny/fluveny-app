@@ -1,4 +1,4 @@
-import { ApiError, APP_VERSION_HEADER, appVersion, get, request, REQUEST_TIMEOUT_MS } from '../client';
+import { ApiError, APP_VERSION_HEADER, appVersion, fillPath, get, request, REQUEST_TIMEOUT_MS } from '../client';
 import { ERROR_MESSAGES, GENERIC_MESSAGE, messageFor, NETWORK_ERROR, UNKNOWN_ERROR } from '../errors';
 
 const appJson = require('../../../app.json');
@@ -225,5 +225,17 @@ describe('cliente da API: Loop 1', () => {
     controller.abort();
     await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
     await expect(pending).rejects.not.toBeInstanceOf(ApiError);
+  });
+});
+
+describe('fillPath', () => {
+  it('troca os {param} pelos valores, codificados para URL', () => {
+    expect(fillPath('/api/v1/units/{unitKey}/stages/{stageKey}', { unitKey: 'unit-1', stageKey: 'a b/c' })).toBe(
+      '/api/v1/units/unit-1/stages/a%20b%2Fc',
+    );
+  });
+
+  it('parâmetro ausente é erro', () => {
+    expect(() => fillPath('/api/v1/units/{unitKey}', {} as { unitKey: string })).toThrow('unitKey');
   });
 });

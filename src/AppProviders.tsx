@@ -2,14 +2,18 @@ import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-qu
 import { useEffect, useState, type ReactNode } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { META_QUERY_KEY, reportMetaError, watchAppFocus } from './api/meta';
+import { META_QUERY_KEY, reportMetaError, resetMetaErrorReport, watchAppFocus } from './api/meta';
 
 export function createQueryClient(): QueryClient {
+  resetMetaErrorReport();
   return new QueryClient({
     defaultOptions: { queries: { retry: 1 } },
     queryCache: new QueryCache({
       onError: (error, query) => {
         if (query.queryKey[0] === META_QUERY_KEY[0]) reportMetaError(error);
+      },
+      onSuccess: (_data, query) => {
+        if (query.queryKey[0] === META_QUERY_KEY[0]) resetMetaErrorReport();
       },
     }),
   });

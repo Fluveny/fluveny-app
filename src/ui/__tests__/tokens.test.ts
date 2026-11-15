@@ -102,6 +102,7 @@ describe('tokens vs. DESIGN.md (design.yaml)', () => {
       bubbleTail: 14, // [ASSUMPTION] rabicho
       alexInScene: 205, // EXPERIENCE.md, Narrativa e cenas
       choiceLetter: 30, // [ASSUMPTION] protótipo
+      welcomeSheetRadius: 32, // DESIGN.md, Shapes: "o topo da tela de boas-vindas ... 30–32 px"
     });
     expect(size.avatar).toBeGreaterThanOrEqual(58);
     expect(size.avatar).toBeLessThanOrEqual(64);

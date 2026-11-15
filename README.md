@@ -6,7 +6,7 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) qu
 
 - **[mise](https://mise.jdx.dev)** (`brew install mise`). Ele instala o Node 24 e o lefthook nas versões do `mise.toml`.
 - **Docker** ligado, para a API local (`mise run api`). Não precisa de JDK nem de Mongo: a API vem pronta da imagem.
-- Android: o APK de desenvolvimento do EAS (abaixo) num emulador ou aparelho. O `npx expo run:android` também funciona, mas pede Android Studio e JDK 17+.
+- Android: Android SDK (com NDK), JDK 17 e `adb`, para gerar o APK de desenvolvimento na sua máquina (abaixo), num emulador ou aparelho.
 
 > **Docker Desktop:** o `mongo:8` não sobe em kernels Linux 6.19 a 7.0.13 (SERVER-121912), e o `mise run api` para no Mongo. Confira com `docker info --format '{{.KernelVersion}}'` e, se estiver na faixa, atualize o Docker Desktop.
 
@@ -38,12 +38,21 @@ EXPO_PUBLIC_API_MOCK=1 npx expo start --web
 - Só a visão do aluno: Atividade mockada usa os tipos `*StudentView`, nunca a Atividade com resposta e justificativa. O teste falha se um mock trouxer campo que só existe fora da `StudentView`.
 - Com a variável vazia, o MSW nem entra no bundle.
 
-### Android (EAS)
+### Android (build local)
 
-Os perfis de build ficam no `eas.json`: `development` (APK com o `expo-dev-client`, para abrir o Metro da sua máquina), `preview` (APK interno) e `production`.
+O App usa módulos nativos (`expo-sqlite`, `expo-crypto`, `expo-network`, `expo-dev-client`…), então o Expo Go não serve: é preciso um APK de desenvolvimento com eles. Ele é gerado **na sua máquina**, nunca na nuvem do EAS (a cota do plano grátis é limitada; ver `AGENTS.md`).
 
-- APK de desenvolvimento (build de 14/11/2026): [baixar o APK](https://expo.dev/artifacts/eas/mG1mbrF0qv00bjEjQ-L4XoSfswDp0Mr8VEDPBnTUqtg.apk) ou abrir a [página do build](https://expo.dev/accounts/fluveny/projects/fluveny-app/builds/68a94c25-49de-4a94-ba88-affb0143ad00) (pede conta na org `fluveny` do Expo). O link direto do APK expira; o build de desenvolvimento mais recente fica sempre na [lista de builds do projeto](https://expo.dev/accounts/fluveny/projects/fluveny-app/builds). Só precisa de APK novo quando muda dependência nativa; para gerar: `npx eas-cli build --profile development -p android`, e troque o link aqui.
-- Instale o APK, rode `npx expo start` e abra o projeto pelo dev client. No emulador, a API fica em `http://10.0.2.2:8080`; num aparelho, no IP da sua máquina na rede.
+Pré-requisitos: Android SDK com NDK, JDK 17 e `adb` no `PATH` (`ANDROID_HOME` apontando para o SDK).
+
+```bash
+npx expo run:android                                          # compila, instala o dev client no emulador/aparelho e abre o Metro
+npx eas-cli build --profile development -p android --local    # só se precisar de um .apk instalável para outra pessoa
+```
+
+- O `npx expo run:android` gera a pasta `android/` (ignorada pelo git) e instala o APK no aparelho conectado ou no emulador aberto. Depois disso, `npx expo start` basta enquanto nenhuma dependência nativa mudar.
+- Dependência nativa nova entra com `npx expo install <pacote>` e pede um novo `npx expo run:android`.
+- O build `--local` usa o perfil `development` do `eas.json` e deixa o `.apk` na pasta do projeto; não gasta a cota do EAS, mas pede `npx eas-cli login` com uma conta que tenha acesso à org `fluveny` do Expo (o projeto é dela).
+- No emulador, a API fica em `http://10.0.2.2:8080`; num aparelho, no IP da sua máquina na rede.
 
 ## Comandos
 
@@ -51,7 +60,7 @@ Os perfis de build ficam no `eas.json`: `development` (APK com o `expo-dev-clien
 mise run check             # o mesmo que a CI: npm ci, tipos, lint, prettier, testes, contrato e build web
 mise run format            # prettier --write
 npx expo start --web       # web em http://localhost:8081
-npx expo run:android       # build de desenvolvimento local (Android Studio e JDK 17+)
+npx expo run:android       # build de desenvolvimento local (Android SDK com NDK e JDK 17)
 npm run typecheck          # tipos das rotas (typedRoutes) + tsc
 npx eslint .               # lint (inclui a regra fluveny/no-hex-color)
 npx jest                   # testes (jest-expo e Testing Library)
@@ -77,15 +86,19 @@ Toda configuração vem do ambiente; nenhum segredo fica em arquivo. Para rodar 
 
 ```text
 app/
-  _layout.tsx        # providers, fontes, Sentry, coluna e a checagem de versão
-  (public)/          # web: página pública (por enquanto, a tela inicial provisória)
-  (student)/         # App do Aluno (a partir da 1.9)
+  _layout.tsx        # providers, fontes, Sentry, coluna, checagem de versão e partida a frio
+  (public)/          # boas-vindas (raiz) e "Em breve"
+  (student)/         # App do Aluno: o player (1.10)
   atualize.tsx       # "Atualize o app" (versão abaixo do mínimo)
 src/
   api/               # cliente, contrato (cópia + lock), tipos gerados, erros, /meta
-  ui/                # tokens, logo, coluna e ilustrações (o kit chega na 1.8)
+  ui/                # tokens, kit, logo, coluna e ilustrações
   observability/     # Sentry
-  player/ renderer/ visitor/   # vazias até as histórias delas
+  player/            # moldura do player, registro dos Tipos (registry.ts) e transição
+  visitor/           # Visitante no aparelho: deviceId, variáveis e Progresso (expo-sqlite; localStorage no web)
+  network/           # estado da rede (expo-network; navigator.onLine no web)
+  ColdStartScreen.tsx  # "Acordando o campus…" (partida a frio do servidor)
+  renderer/          # vazia até a segunda parte da 1.10
 assets/fonts/        # Montserrat 500 a 900 (OFL)
 assets/logo.svg      # logo em Lexend Zetta, como imagem
 ```
@@ -110,7 +123,15 @@ Toda requisição leva `X-App-Version` com o `version` do `app.json`. Na abertur
 
 - versão igual ou acima de `minAppVersion`: segue;
 - abaixo: fica preso na tela "Atualize o app", sem rota para voltar;
-- `/meta` falhou (rede ou 5xx): segue sem bloquear, e o erro vai para o log e o Sentry.
+- `/meta` falhou (rede ou 5xx) antes de 3 s: segue sem bloquear, e o erro vai para o log e o Sentry;
+- `/meta` sem resposta em 3 s (`META_SPLASH_TIMEOUT_MS`): entra a tela azul "Acordando o campus…" (partida a frio do servidor), que fica até o `/meta` responder. Sem resposta (`NETWORK_ERROR`), ela mostra a faixa "Sem conexão" e refaz o `/meta` a cada 3 s.
+
+## Visitante e player (1.10)
+
+- A boas-vindas é a raiz. EXPERIMENTAR AGORA abre o player (`app/(student)/player.tsx`) no Estágio da posição 0 da `unit-1`; CRIAR CONTA e ENTRAR levam a "Em breve" até o Épico 2.
+- `src/visitor` guarda no aparelho o `deviceId` (UUID gerado uma vez), as Variáveis do Aluno e o Progresso (`activityKey`, `outcome`, `xp`; só a primeira conclusão vale). No Android, `expo-sqlite`; no web, `localStorage` (`store.web.ts`). Nada disso vai para a API.
+- `src/player/registry.ts` liga cada `type` de Atividade a um componente. Tipo sem componente (`PENDING`) mostra "Atividade em preparação" com CONTINUAR, que avança sem gravar Progresso. A Atividade chama `setFooter({label, disabled, onPress})`; a moldura põe "SEM CONEXÃO" por cima quando a rede cai.
+- Nos testes, o `jest.setup.js` troca o `expo-sqlite` por um SQLite em memória do Node (`node:sqlite`) e simula o `expo-network` (`global.__setNetwork`).
 
 ## Convenções
 

@@ -169,6 +169,8 @@ export const size = {
   alexInScene: 205,
   /** Selo da letra A–D da alternativa [ASSUMPTION: 30, como no protótipo]. */
   choiceLetter: 30,
+  /** Cantos do topo da folha branca da boas-vindas (DESIGN.md, Shapes: 30–32 px; 32 como no protótipo). */
+  welcomeSheetRadius: 32,
 } as const;
 
 /** Altura da cena do Diálogo (DESIGN.md, Layout & Spacing): cerca de 46% da tela, entre 300 e 420 dp. */

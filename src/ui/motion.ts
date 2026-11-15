@@ -4,6 +4,10 @@ import { AccessibilityInfo } from 'react-native';
 /** Durações do kit (DESIGN.md, Components; EXPERIENCE.md, Interaction Primitives). */
 export const motion = {
   progressMs: 450,
+  /** Transição entre Atividades no player: fade com subida. */
+  activityMs: 260,
+  /** Quanto a Atividade que entra sobe (dp) durante a transição. */
+  activityRise: 12,
   /** Pulo do chip de XP: a escala parte daqui e volta a 1. */
   xpPopScale: 1.25,
 } as const;
