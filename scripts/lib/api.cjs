@@ -12,6 +12,10 @@ const CONTRACT_PATH = 'openapi/openapi.json';
 const COPY = join(ROOT, 'src/api/openapi.json');
 const LOCK = join(ROOT, 'src/api/openapi.lock');
 const TYPES = join(ROOT, 'src/api/schema.d.ts');
+// Vetores de renderização (AD-8): copiados no mesmo sha do contrato e rodados no jest.
+const VECTORS_PATH = 'content/schema/render-vectors.json';
+const VECTORS_COPY = join(ROOT, 'src/renderer/render-vectors.json');
+const VECTORS_LOCK = join(ROOT, 'src/renderer/render-vectors.lock');
 
 // openapi-typescript 7.13 pede typescript ^5; o App usa o 6. O gerador fica
 // isolado em tools/openapi-types, com as versões presas no package-lock dele.
@@ -56,41 +60,114 @@ async function shaOnMain(ref) {
   return compare.base_commit.sha;
 }
 
-/** O contrato no sha, como texto (raw do GitHub; o repositório é público). */
-async function contractAt(sha) {
-  const url = `https://raw.githubusercontent.com/${API_REPO}/${sha}/${CONTRACT_PATH}`;
+/** Um arquivo da API no sha, como texto (raw do GitHub; o repositório é público). */
+async function fileAt(sha, path) {
+  const url = `https://raw.githubusercontent.com/${API_REPO}/${sha}/${path}`;
   const response = await fetch(url, { headers: { 'User-Agent': 'fluveny-app-api-sync' } });
   if (!response.ok) {
-    throw new Error(`Não deu para baixar ${CONTRACT_PATH} em ${sha}: ${response.status} ${response.statusText}`);
+    throw new Error(`Não deu para baixar ${path} em ${sha}: ${response.status} ${response.statusText}`);
   }
   return response.text();
 }
 
-/** Confere o formato do lock; lança com o motivo. */
-function validateLock(lock) {
+/** O contrato no sha, como texto. */
+function contractAt(sha) {
+  return fileAt(sha, CONTRACT_PATH);
+}
+
+/** Os vetores de renderização no sha, como texto. */
+function vectorsAt(sha) {
+  return fileAt(sha, VECTORS_PATH);
+}
+
+/** Caminho relativo à raiz, para as mensagens. */
+function relative(file) {
+  return file.slice(ROOT.length + 1);
+}
+
+/**
+ * Confere o formato do lock; lança com o motivo. Padrão: o lock do contrato;
+ * `{ path, file }` confere outro (o dos vetores).
+ */
+function validateLock(lock, { path = CONTRACT_PATH, file = LOCK } = {}) {
   const problems = [];
   if (!lock || typeof lock !== 'object' || Array.isArray(lock)) throw new Error('o lock não é um objeto JSON');
   if (lock.repo !== API_REPO) problems.push(`repo deveria ser ${API_REPO}`);
-  if (lock.path !== CONTRACT_PATH) problems.push(`path deveria ser ${CONTRACT_PATH}`);
+  if (lock.path !== path) problems.push(`path deveria ser ${path}`);
   if (typeof lock.sha !== 'string' || !/^[0-9a-f]{40}$/.test(lock.sha)) problems.push('sha deveria ter 40 hex');
   if (typeof lock.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(lock.sha256))
     problems.push('sha256 deveria ter 64 hex');
   if (problems.length > 0)
-    throw new Error(`src/api/openapi.lock inválido: ${problems.join('; ')}. Rode \`npm run api:sync\`.`);
+    throw new Error(`${relative(file)} inválido: ${problems.join('; ')}. Rode \`npm run api:sync\`.`);
   return lock;
 }
 
-function readLock() {
-  if (!existsSync(LOCK)) {
-    throw new Error('src/api/openapi.lock não existe. Rode `npm run api:sync`.');
+function readLockAt(file, path) {
+  const name = relative(file);
+  if (!existsSync(file)) {
+    throw new Error(`${name} não existe. Rode \`npm run api:sync\`.`);
   }
   let lock;
   try {
-    lock = JSON.parse(readFileSync(LOCK, 'utf8'));
+    lock = JSON.parse(readFileSync(file, 'utf8'));
   } catch {
-    throw new Error('src/api/openapi.lock não é JSON. Rode `npm run api:sync`.');
+    throw new Error(`${name} não é JSON. Rode \`npm run api:sync\`.`);
   }
-  return validateLock(lock);
+  return validateLock(lock, { path, file });
+}
+
+function readLock() {
+  return readLockAt(LOCK, CONTRACT_PATH);
+}
+
+function readVectorsLock() {
+  return readLockAt(VECTORS_LOCK, VECTORS_PATH);
+}
+
+/**
+ * Conferências dos vetores de renderização (api:check): a cópia bate com o
+ * lock, o lock está no sha do contrato e o arquivo da API nesse sha é o do
+ * lock. Devolve as falhas (vazio quando confere). `lock` e `copy` vêm dos
+ * arquivos; os testes passam outros.
+ */
+async function checkVectors(contractLock, overrides = {}) {
+  const failures = [];
+  let lock;
+  try {
+    lock =
+      'lock' in overrides
+        ? validateLock(overrides.lock, { path: VECTORS_PATH, file: VECTORS_LOCK })
+        : readVectorsLock();
+  } catch (error) {
+    return [error.message];
+  }
+  let copy = overrides.copy;
+  if (copy === undefined) {
+    copy = existsSync(VECTORS_COPY) ? readFileSync(VECTORS_COPY, 'utf8') : null;
+  }
+  if (copy === null) {
+    failures.push('src/renderer/render-vectors.json não existe. Rode `npm run api:sync`.');
+  } else if (sha256(copy) !== lock.sha256) {
+    failures.push(
+      'src/renderer/render-vectors.json não bate com o sha256 do lock. Não edite a cópia: rode `npm run api:sync`.',
+    );
+  }
+  if (lock.sha !== contractLock.sha) {
+    failures.push(
+      `O lock dos vetores (${lock.sha.slice(0, 12)}) não está no sha do contrato (${contractLock.sha.slice(0, 12)}). Rode \`npm run api:sync ${contractLock.sha}\`.`,
+    );
+  }
+  try {
+    const upstream = await vectorsAt(lock.sha);
+    if (sha256(upstream) !== lock.sha256) {
+      failures.push(
+        `Os vetores da API em ${lock.sha.slice(0, 12)} não são os do lock. Rode \`npm run api:sync ${lock.sha}\`.`,
+      );
+    }
+  } catch (error) {
+    failures.push(error.message);
+  }
+  return failures;
 }
 
 /** Gera os tipos de `input` em `output` com o openapi-typescript de tools/openapi-types. */
@@ -157,13 +234,20 @@ module.exports = {
   COPY,
   LOCK,
   TYPES,
+  VECTORS_PATH,
+  VECTORS_COPY,
+  VECTORS_LOCK,
   OPENAPI_TYPESCRIPT_CLI,
   sha256,
   mainSha,
   shaOnMain,
+  fileAt,
   contractAt,
+  vectorsAt,
   validateLock,
   readLock,
+  readVectorsLock,
+  checkVectors,
   generateTypes,
   withTempDir,
   typesFrom,

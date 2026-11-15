@@ -66,7 +66,7 @@ npm run typecheck          # tipos das rotas (typedRoutes) + tsc
 npx eslint .               # lint (inclui a regra fluveny/no-hex-color)
 npx jest                   # testes (jest-expo e Testing Library)
 npm run api:tools          # gerador de tipos do contrato (uma vez)
-npm run api:check          # contrato da API: cópia, lock e tipos
+npm run api:check          # contrato da API: cópia, lock, tipos e vetores de renderização
 npx expo export -p web     # build web em dist/ (output single, SPA)
 ```
 
@@ -99,7 +99,7 @@ src/
   visitor/           # Visitante no aparelho: deviceId, variáveis e Progresso (expo-sqlite; localStorage no web)
   network/           # estado da rede (expo-network; navigator.onLine no web)
   ColdStartScreen.tsx  # "Acordando o campus…" (partida a frio do servidor)
-  renderer/          # vazia até a segunda parte da 1.10
+  renderer/          # renderizador do conteúdo (placeholders, pronome, negrito, ouro) e render-vectors.json da API
 assets/fonts/        # Montserrat 500 a 900 (OFL)
 assets/logo.svg      # logo em Lexend Zetta, como imagem
 ```
@@ -117,6 +117,7 @@ npm run api:types          # só regenera schema.d.ts a partir da cópia
 - Só o `api:sync` muda a cópia e o lock. Não edite os dois arquivos nem o `schema.d.ts` à mão.
 - O `openapi-typescript` 7.13 pede `typescript ^5`, e o App usa o 6. Por isso ele fica isolado em `tools/openapi-types`, com `typescript` 5.9.3 e `openapi-typescript` 7.13.0 presos no `package-lock.json` dela. Instale uma vez com `npm run api:tools` (é um `npm ci` nessa pasta) antes de `api:sync`, `api:types` ou `api:check`.
 - A CI (`npm run api:check`) falha se a cópia não bater com o arquivo da API no sha do lock, se o sha não estiver na `main` ou se os tipos divergirem da cópia. Ela avisa, sem falhar, quando a cópia está atrás da `main` da API.
+- No mesmo sha, o `api:sync` copia o `content/schema/render-vectors.json` da API para `src/renderer/render-vectors.json`, com o lock em `src/renderer/render-vectors.lock`, na mesma escrita atômica. O `api:check` falha se a cópia dos vetores não bater com o lock, se o lock dos vetores estiver noutro sha que o do contrato ou se o arquivo da API nesse sha não for o do lock. Não edite os vetores à mão.
 
 ## Versão do App
 
@@ -132,6 +133,7 @@ Toda requisição leva `X-App-Version` com o `version` do `app.json`. Na abertur
 - A boas-vindas é a raiz. EXPERIMENTAR AGORA abre o player (`app/(student)/player.tsx`) no Estágio da posição 0 da `unit-1`; CRIAR CONTA e ENTRAR levam a "Em breve" até o Épico 2.
 - `src/visitor` guarda no aparelho o `deviceId` (UUID gerado uma vez), as Variáveis do Aluno e o Progresso (`activityKey`, `outcome`, `xp`; só a primeira conclusão vale). No Android, `expo-sqlite`; no web, `localStorage` (`store.web.ts`). Nada disso vai para a API.
 - `src/player/registry.ts` liga cada `type` de Atividade a um componente. Tipo sem componente (`PENDING`) mostra "Atividade em preparação" com CONTINUAR, que avança sem gravar Progresso. A Atividade chama `setFooter({label, disabled, onPress})`; a moldura põe "SEM CONEXÃO" por cima quando a rede cai.
+- Todo texto do conteúdo passa pelo renderizador (`src/renderer`, AD-8): `render(text, vars, pronoun)` escolhe a variante de pronome (`they` sem pronome salvo) e troca os placeholders (`{name}`) pelas Variáveis do Aluno, com as regras do `ContentRenderer.java` da API; todos os vetores do `render-vectors.json` rodam no jest. Na tela, use `<RenderedText text vars pronoun style />`, com `vars` e `pronoun` do `useRenderVars()`: `**negrito**` em Montserrat 800, `[[rótulo|chave]]` só com o rótulo e a Variável do Aluno em ouro. O valor do aluno nunca vira formatação. Onde só cabe texto puro (o título do Estágio), use `renderPlain`.
 - Nos testes, o `jest.setup.js` troca o `expo-sqlite` por um SQLite em memória do Node (`node:sqlite`) e simula o `expo-network` (`global.__setNetwork`).
 
 ## Convenções

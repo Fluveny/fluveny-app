@@ -8,10 +8,10 @@ import { messageFor } from '../../src/api/errors';
 import { useOnline } from '../../src/network/useOnline';
 import { captureError } from '../../src/observability/sentry';
 import { ActivityTransition } from '../../src/player/ActivityTransition';
-import { plainText } from '../../src/player/plainText';
 import { PlayerFooter, PlayerFrame, PlayerTop } from '../../src/player/PlayerFrame';
 import { resolveActivity, type ActivityResult, type FooterAction } from '../../src/player/registry';
 import { useStage } from '../../src/player/useStage';
+import { renderPlain, toRenderContext } from '../../src/renderer';
 import { color, spacing, typography } from '../../src/ui/tokens';
 import { useVisitor } from '../../src/visitor/useVisitor';
 
@@ -53,6 +53,20 @@ export default function Player() {
   // Uma resposta com menos Atividades não deixa o índice fora da lista.
   const position = Math.min(index, Math.max(0, total - 1));
   const activity = activities[position];
+
+  // Título do Estágio em texto puro (a junção dos segmentos), com as Variáveis do Aluno.
+  // Antes da primeira leitura do Visitante, vazio: assim o `{name}` não aparece cru.
+  const { variables, ready } = visitor;
+  const stageTitle = useMemo(() => {
+    if (!stage || !ready) return '';
+    const { vars, pronoun } = toRenderContext(variables);
+    try {
+      return renderPlain(stage.title, vars, pronoun);
+    } catch (failure) {
+      captureError(failure);
+      return '';
+    }
+  }, [stage, variables, ready]);
 
   const { store } = visitor;
   const advance = useCallback(
@@ -96,7 +110,7 @@ export default function Player() {
   return (
     <PlayerFrame
       stageNumber={stageNumber}
-      stageTitle={plainText(stage.title)}
+      stageTitle={stageTitle}
       position={position + 1}
       total={total}
       xp={visitor.xp}

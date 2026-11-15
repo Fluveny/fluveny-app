@@ -62,7 +62,7 @@ const stage1Activities = [
     ['good-morning', 'Good morning'],
     ['good-night', 'Good night'],
   ]),
-  choice('name-choice', 'Say your name', 'How do you tell someone your name?', [
+  choice('name-choice', 'Say your name, {name}', 'How do you tell someone your name?', [
     ['im-julia', "I'm Júlia."],
     ['im-from-brazil', "I'm from Brazil."],
   ]),
