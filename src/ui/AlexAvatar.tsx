@@ -20,7 +20,12 @@ const ALEX_SCALE = 1.2;
  * Avatar circular de Alex ao lado de um balão (Expressão Útil, Resposta Livre,
  * Fala com `listen`): círculo em `wall` com anel branco e Alex recortado.
  */
-export function AlexAvatar({ pose = 'wave', diameter = size.avatar, accessibilityLabel, testID = 'alex-avatar' }: AlexAvatarProps) {
+export function AlexAvatar({
+  pose = 'wave',
+  diameter = size.avatar,
+  accessibilityLabel,
+  testID = 'alex-avatar',
+}: AlexAvatarProps) {
   const alex = Math.round(diameter * ALEX_SCALE);
   return (
     <View testID={testID} style={[styles.circle, { width: diameter, height: diameter }]}>

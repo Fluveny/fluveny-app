@@ -34,7 +34,8 @@ describe('rota /kit (catálogo do kit, Decisão 1)', () => {
     for (const pose of ['wave', 'listen', 'cheer']) expect(screen.getByTestId(`alex-avatar-${pose}`)).toBeTruthy();
     expect(screen.getByLabelText('Responda com o seu nome')).toBeTruthy();
     expect(screen.getByLabelText('Sua resposta')).toBeTruthy();
-    for (const state of ['neutral', 'selected', 'wrong', 'right']) expect(screen.getByTestId(`choice-state-${state}`)).toBeTruthy();
+    for (const state of ['neutral', 'selected', 'wrong', 'right'])
+      expect(screen.getByTestId(`choice-state-${state}`)).toBeTruthy();
     for (const tone of ['offline', 'notice', 'quiet']) expect(screen.getByTestId(`status-banner-${tone}`)).toBeTruthy();
   });
 

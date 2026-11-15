@@ -1,5 +1,5 @@
 <!-- bmad:context -->
-<!-- Escrito na história 1.3. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
+<!-- Verified 2026-11-14 against b20b7d936b25d440eb2c6eaf4a2d89ea0ffd36cb (feat/1-4-ambiente-local, história 1.4). Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
 
 ## fluveny-app
 
@@ -15,8 +15,10 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 
 ## Running and verifying
 
-- `npm ci && npm run api:tools && npm run typecheck && npx eslint . && npx jest && npm run api:check && npx expo export -p web`: o mesmo que a CI.
-- Web: `npx expo start --web`. Android: `npx expo run:android` (JDK e Android SDK) ou o build do EAS.
+- Antes de abrir PR: `mise run check`, o mesmo que a CI (inclui `npm ci`, `prettier --check` e o export web). Node 24 e lefthook vêm do `mise.toml`. Formato fora do padrão: `mise run format`.
+- Web: `mise run api` (API no sha do lock + Mongo, via Docker) e `npx expo start --web`. Sem a API: `EXPO_PUBLIC_API_MOCK=1 npx expo start --web`.
+- Com o mock ligado, mantenha `EXPO_PUBLIC_API_URL` preenchido: no Android o MSW só intercepta URL absoluta.
+- Android: o APK de desenvolvimento do EAS (link no README) + `npx expo start`, ou `npx expo run:android` (JDK e Android SDK).
 
 ## Conventions that differ from defaults
 

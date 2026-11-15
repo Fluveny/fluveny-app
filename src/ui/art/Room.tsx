@@ -11,7 +11,12 @@ import { ROOM_XML } from './roomSvg';
 export function Room({ style, testID = 'room' }: { style?: StyleProp<ViewStyle>; testID?: string }) {
   return (
     <View testID={testID} style={[StyleSheet.absoluteFill, styles.inert, style]}>
-      <View accessible={false} importantForAccessibility="no-hide-descendants" aria-hidden style={StyleSheet.absoluteFill}>
+      <View
+        accessible={false}
+        importantForAccessibility="no-hide-descendants"
+        aria-hidden
+        style={StyleSheet.absoluteFill}
+      >
         <SvgXml xml={ROOM_XML} width="100%" height="100%" />
       </View>
     </View>

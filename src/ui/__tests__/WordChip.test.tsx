@@ -12,7 +12,9 @@ describe('WordChip (UX-DR34)', () => {
     expect(chip).not.toBeSelected();
     expect(edgeOf(chip).minHeight).toBe(size.wordChipHeight + edge.chip);
     expect(touchHeight(chip)).toBeGreaterThanOrEqual(size.touchMin);
-    expect(chip.props.hitSlop.left + chip.props.hitSlop.right + Number(styleOf(chip).minWidth)).toBeGreaterThanOrEqual(size.touchMin);
+    expect(chip.props.hitSlop.left + chip.props.hitSlop.right + Number(styleOf(chip).minWidth)).toBeGreaterThanOrEqual(
+      size.touchMin,
+    );
   });
 
   it('afunda a altura da sombra no toque, sem mover o layout', async () => {
@@ -62,15 +64,18 @@ describe('WordChip (UX-DR34)', () => {
     expect(onPress).not.toHaveBeenCalled();
   });
 
-  it.each(Object.keys(WORD_CHIP_STATES) as WordChipState[])('%s: cores do DESIGN.md e texto sem corte', async (state) => {
-    await render(<WordChip label="word" state={state} onPress={() => {}} />);
-    const chip = screen.getByRole('button');
-    expect(styleOf(chip).backgroundColor).toBe(WORD_CHIP_STATES[state].background);
-    expect(styleOf(chip).height).toBeUndefined();
-    const text = screen.getByText('word');
-    expect(styleOf(text).color).toBe(WORD_CHIP_STATES[state].label);
-    expect(text.props.numberOfLines).toBeUndefined();
-  });
+  it.each(Object.keys(WORD_CHIP_STATES) as WordChipState[])(
+    '%s: cores do DESIGN.md e texto sem corte',
+    async (state) => {
+      await render(<WordChip label="word" state={state} onPress={() => {}} />);
+      const chip = screen.getByRole('button');
+      expect(styleOf(chip).backgroundColor).toBe(WORD_CHIP_STATES[state].background);
+      expect(styleOf(chip).height).toBeUndefined();
+      const text = screen.getByText('word');
+      expect(styleOf(text).color).toBe(WORD_CHIP_STATES[state].label);
+      expect(text.props.numberOfLines).toBeUndefined();
+    },
+  );
 
   it('contraste: texto turquesa em teal-dk', () => {
     expect(WORD_CHIP_STATES.right.label).toBe(color.tealDk);

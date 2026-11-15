@@ -36,7 +36,11 @@ const CHOICES = ["I'm from Brazil.", 'I from Brazil.', 'I am Brazil.', 'I is fro
 const CHOICE_STATES: ChoiceState[] = ['neutral', 'selected', 'wrong', 'right'];
 const BANNERS: { tone: StatusBannerTone; text: string; action?: string }[] = [
   { tone: 'offline', text: 'Sem conexão. Assim que a rede voltar, você continua daqui.' },
-  { tone: 'notice', text: 'Seu progresso fica só neste aparelho até seu responsável confirmar pelo e-mail.', action: 'Reenviar e-mail' },
+  {
+    tone: 'notice',
+    text: 'Seu progresso fica só neste aparelho até seu responsável confirmar pelo e-mail.',
+    action: 'Reenviar e-mail',
+  },
   { tone: 'quiet', text: 'Confirme seu e-mail para poder recuperar a senha.', action: 'Reenviar' },
 ];
 
@@ -142,13 +146,25 @@ function KitCatalog() {
         </Section>
 
         <Section title="CAMPO DE TEXTO">
-          <TextField label="Responda com o seu nome" placeholder="Your name" value={name} onChangeText={setName} autoCapitalize="words" />
+          <TextField
+            label="Responda com o seu nome"
+            placeholder="Your name"
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="words"
+          />
           <TextField label="Sua resposta" placeholder="Type your answer…" multiline testID="text-field-multiline" />
         </Section>
 
         <Section title="ALTERNATIVAS">
           {CHOICES.map((choice, i) => (
-            <ChoiceCard key={choice} index={i} label={choice} state={pick === i ? 'selected' : 'neutral'} onPress={() => setPick(i)} />
+            <ChoiceCard
+              key={choice}
+              index={i}
+              label={choice}
+              state={pick === i ? 'selected' : 'neutral'}
+              onPress={() => setPick(i)}
+            />
           ))}
           {CHOICE_STATES.map((state, i) => (
             <ChoiceCard

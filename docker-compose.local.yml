@@ -1,0 +1,35 @@
+# API e Mongo locais para o App (mise run api). A imagem da API é a do sha do
+# lock do contrato (FLUVENY_API_IMAGE, preenchida pelo scripts/api-image.mjs).
+# Nenhum segredo aqui; a LOCAL_SEED_PASSWORD vem do ambiente, se houver.
+name: fluveny-local
+
+services:
+  mongo:
+    image: mongo:8
+    # Replica set de um nó, para as transações se comportarem como no Atlas (AD-10, AD-18).
+    command: ['--replSet', 'rs0', '--bind_ip_all']
+    # O healthcheck inicia o replica set na primeira vez e depois só confere o estado.
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }).ok }"
+      interval: 2s
+      timeout: 10s
+      retries: 30
+      start_period: 5s
+
+  api:
+    image: ${FLUVENY_API_IMAGE:?rode pelo mise run api}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/fluveny?replicaSet=rs0
+      LOCAL_SEED_PASSWORD: ${LOCAL_SEED_PASSWORD:-}
+    ports:
+      # Só no loopback: o /local/reset é público e não pode ficar exposto na rede.
+      - '127.0.0.1:8080:8080'

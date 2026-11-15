@@ -1,0 +1,8 @@
+# Hooks do git (`mise run setup`). Formata só os arquivos staged com o Prettier
+# e devolve o resultado ao commit. A CI confere o repositório inteiro.
+pre-commit:
+  commands:
+    prettier:
+      glob: '*.{js,cjs,mjs,ts,tsx,json,md,yml,yaml}'
+      run: npx prettier --write --ignore-unknown {staged_files}
+      stage_fixed: true

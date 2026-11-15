@@ -5,7 +5,10 @@ import { ALEX_POSES, ALEX_XML } from '../art/alexSvg';
 import { ROOM_XML } from '../art/roomSvg';
 import { color } from '../tokens';
 
-const ART: [string, string][] = [...ALEX_POSES.map((pose) => [`alex ${pose}`, ALEX_XML[pose]] as [string, string]), ['room', ROOM_XML]];
+const ART: [string, string][] = [
+  ...ALEX_POSES.map((pose) => [`alex ${pose}`, ALEX_XML[pose]] as [string, string]),
+  ['room', ROOM_XML],
+];
 const tags = (xml: string) => [...xml.matchAll(/<[a-zA-Z]+(?:\s[^>]*)?>/g)].map(([tag]) => tag);
 const attr = (tag: string, name: string) => new RegExp(`\\s${name}="([^"]*)"`).exec(tag)?.[1];
 

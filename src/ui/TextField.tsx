@@ -3,7 +3,10 @@ import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-na
 
 import { color, overlay, rounded, size, spacing, typography } from './tokens';
 
-export type TextFieldProps = Omit<TextInputProps, 'style' | 'accessibilityLabel' | 'aria-label' | 'aria-labelledby' | 'placeholderTextColor'> & {
+export type TextFieldProps = Omit<
+  TextInputProps,
+  'style' | 'accessibilityLabel' | 'aria-label' | 'aria-labelledby' | 'placeholderTextColor'
+> & {
   /** Rótulo visível acima do campo, em português; é também o rótulo do leitor de tela. */
   label: string;
 };

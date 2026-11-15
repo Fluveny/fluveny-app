@@ -73,8 +73,10 @@ function validateLock(lock) {
   if (lock.repo !== API_REPO) problems.push(`repo deveria ser ${API_REPO}`);
   if (lock.path !== CONTRACT_PATH) problems.push(`path deveria ser ${CONTRACT_PATH}`);
   if (typeof lock.sha !== 'string' || !/^[0-9a-f]{40}$/.test(lock.sha)) problems.push('sha deveria ter 40 hex');
-  if (typeof lock.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(lock.sha256)) problems.push('sha256 deveria ter 64 hex');
-  if (problems.length > 0) throw new Error(`src/api/openapi.lock inválido: ${problems.join('; ')}. Rode \`npm run api:sync\`.`);
+  if (typeof lock.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(lock.sha256))
+    problems.push('sha256 deveria ter 64 hex');
+  if (problems.length > 0)
+    throw new Error(`src/api/openapi.lock inválido: ${problems.join('; ')}. Rode \`npm run api:sync\`.`);
   return lock;
 }
 
@@ -121,6 +123,24 @@ function typesFrom(input = COPY) {
   });
 }
 
+/** Imagem da API publicada pela CI dela no GHCR. */
+const API_IMAGE = 'ghcr.io/fluveny/fluveny-api';
+
+/** A imagem da API no sha do lock: a CI da API publica `sha-<sha completo>` a cada push na main. */
+function apiImage(sha) {
+  if (typeof sha !== 'string' || !/^[0-9a-f]{40}$/.test(sha)) throw new Error('sha deveria ter 40 hex');
+  return `${API_IMAGE}:sha-${sha}`;
+}
+
+/** Mensagem quando a imagem do lock não existe ou não está acessível. */
+function missingImageMessage(image) {
+  return [
+    `A imagem ${image} não existe ou você não tem acesso a ela.`,
+    '- Se o lock aponta para um sha anterior ao perfil local da API (história 1.4), rode `npm run api:sync`.',
+    '- Se a imagem é privada no GHCR, rode `docker login ghcr.io` (usuário do GitHub e um token com read:packages).',
+  ].join('\n');
+}
+
 /** Avisa na CI (GitHub Actions) ou no terminal. */
 function warn(message) {
   if (process.env.GITHUB_ACTIONS) console.log(`::warning::${message}`);
@@ -129,6 +149,9 @@ function warn(message) {
 
 module.exports = {
   ROOT,
+  API_IMAGE,
+  apiImage,
+  missingImageMessage,
   API_REPO,
   CONTRACT_PATH,
   COPY,

@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 
 import { useVersionStatus } from '../src/api/meta';
+import { API_MOCK, startApiMocks } from '../src/api/mocks';
 import { AppProviders, createQueryClient } from '../src/AppProviders';
 import { captureError, initSentry, Sentry } from '../src/observability/sentry';
 import { clearReloadMark } from './atualize';
@@ -14,6 +15,9 @@ import { color } from '../src/ui/tokens';
 
 const sentryOn = initSentry();
 SplashScreen.preventAutoHideAsync().catch(() => {});
+// Com EXPO_PUBLIC_API_MOCK=1, o MSW sobe antes do primeiro render (MockGate):
+// o /meta do SplashGate já sai para o mock.
+const mocksReady = startApiMocks();
 
 /**
  * Um só QueryClient para o App inteiro, fora do componente: o Router pode
@@ -85,11 +89,33 @@ function SplashGate() {
   );
 }
 
+/**
+ * Com o mock da API ligado, só monta o App depois que o MSW está no ar (a
+ * splash continua na tela). Sem o mock, renderiza direto. Se o MSW falhar, o
+ * App segue contra a API de verdade.
+ */
+function MockGate({ children }: { children: React.ReactNode }) {
+  const [ready, setReady] = useState(!API_MOCK);
+  useEffect(() => {
+    if (ready) return;
+    mocksReady.then(
+      () => setReady(true),
+      (error: unknown) => {
+        captureError(error);
+        setReady(true);
+      },
+    );
+  }, [ready]);
+  return ready ? children : null;
+}
+
 export function RootLayout() {
   return (
     <AppProviders client={queryClient}>
       <StatusBar style="dark" />
-      <SplashGate />
+      <MockGate>
+        <SplashGate />
+      </MockGate>
     </AppProviders>
   );
 }

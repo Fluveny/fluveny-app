@@ -41,10 +41,23 @@ export function Icon({ name, size, color, testID }: Props) {
     >
       <Svg width={size} height={size} viewBox="0 0 24 24">
         {name === 'check' ? (
-          <Path d="M5 12.6l4.6 4.6L19.2 7.4" stroke={color} strokeWidth={3.4} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          <Path
+            d="M5 12.6l4.6 4.6L19.2 7.4"
+            stroke={color}
+            strokeWidth={3.4}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
         ) : null}
         {name === 'x' ? (
-          <Path d="M6.6 6.6l10.8 10.8M17.4 6.6L6.6 17.4" stroke={color} strokeWidth={3.4} strokeLinecap="round" fill="none" />
+          <Path
+            d="M6.6 6.6l10.8 10.8M17.4 6.6L6.6 17.4"
+            stroke={color}
+            strokeWidth={3.4}
+            strokeLinecap="round"
+            fill="none"
+          />
         ) : null}
         {name === 'star' ? (
           <Polygon points={STAR} fill={color} stroke={color} strokeWidth={1.4} strokeLinejoin="round" />

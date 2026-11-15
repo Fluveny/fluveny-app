@@ -8,14 +8,17 @@ import { styleOf, touchHeight } from '../../test-utils/kit';
 const OFFLINE = 'Sem conexão. Assim que a rede voltar, você continua daqui.';
 
 describe('StatusBanner (faixa de estado)', () => {
-  it.each(Object.keys(STATUS_BANNER_TONES) as StatusBannerTone[])('tom %s: cores da Decisão 2 e texto sem corte', async (tone) => {
-    await render(<StatusBanner tone={tone} text="Aviso" />);
-    expect(styleOf(screen.getByTestId('status-banner')).backgroundColor).toBe(STATUS_BANNER_TONES[tone].background);
-    const text = screen.getByText('Aviso');
-    expect(styleOf(text).color).toBe(STATUS_BANNER_TONES[tone].text);
-    expect(text.props.numberOfLines).toBeUndefined();
-    expect(styleOf(text).height).toBeUndefined();
-  });
+  it.each(Object.keys(STATUS_BANNER_TONES) as StatusBannerTone[])(
+    'tom %s: cores da Decisão 2 e texto sem corte',
+    async (tone) => {
+      await render(<StatusBanner tone={tone} text="Aviso" />);
+      expect(styleOf(screen.getByTestId('status-banner')).backgroundColor).toBe(STATUS_BANNER_TONES[tone].background);
+      const text = screen.getByText('Aviso');
+      expect(styleOf(text).color).toBe(STATUS_BANNER_TONES[tone].text);
+      expect(text.props.numberOfLines).toBeUndefined();
+      expect(styleOf(text).height).toBeUndefined();
+    },
+  );
 
   it('cores: offline em ink com texto branco; notice gold-text sobre gold-lt', () => {
     expect(STATUS_BANNER_TONES.offline).toEqual({ background: color.ink, text: color.surface });
@@ -55,7 +58,13 @@ describe('StatusBanner (faixa de estado)', () => {
 
   it('com ação: botão pequeno com área de toque de 48 dp', async () => {
     const onPress = jest.fn();
-    await render(<StatusBanner tone="notice" text="Seu progresso fica só neste aparelho." action={{ label: 'Reenviar e-mail', onPress }} />);
+    await render(
+      <StatusBanner
+        tone="notice"
+        text="Seu progresso fica só neste aparelho."
+        action={{ label: 'Reenviar e-mail', onPress }}
+      />,
+    );
     const button = screen.getByRole('button', { name: 'Reenviar e-mail' });
     expect(touchHeight(button)).toBeGreaterThanOrEqual(size.touchMin);
     await fireEvent.press(button);

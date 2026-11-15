@@ -83,7 +83,12 @@ describe('Loop 1: query, cabeçalhos de IP, breadcrumbs e environment', () => {
   it('beforeBreadcrumb: sem corpo e sem query em nenhuma string do data', () => {
     const crumb = scrubBreadcrumb({
       category: 'fetch',
-      data: { url: 'https://api.exemplo.test/a?token=abc', from: '/login?email=x', body: '{"senha":1}', status_code: 200 },
+      data: {
+        url: 'https://api.exemplo.test/a?token=abc',
+        from: '/login?email=x',
+        body: '{"senha":1}',
+        status_code: 200,
+      },
     });
     expect(crumb.data).toEqual({ url: 'https://api.exemplo.test/a', from: '/login', status_code: 200 });
   });

@@ -1,6 +1,7 @@
 ## História
 
 <!-- Chave da história no sprint-status.yaml e link do card no Project. Ex.: 1-2-base-transversal-da-api-platform -->
+
 - História:
 - Card: https://github.com/orgs/Fluveny/projects/12
 
@@ -11,7 +12,8 @@
 ## Critérios de aceite
 
 <!-- Copie os critérios da história em epics.md e marque o estado de cada um. Explique o que ficou de fora ou mudou. -->
-- [ ] 
+
+- [ ]
 
 ## Como testar
 

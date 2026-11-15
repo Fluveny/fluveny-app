@@ -11,7 +11,8 @@ import { join } from 'node:path';
 
 import api from './lib/api.cjs';
 
-const { API_REPO, CONTRACT_PATH, COPY, LOCK, TYPES, contractAt, mainSha, sha256, shaOnMain, typesFrom, withTempDir } = api;
+const { API_REPO, CONTRACT_PATH, COPY, LOCK, TYPES, contractAt, mainSha, sha256, shaOnMain, typesFrom, withTempDir } =
+  api;
 
 async function main() {
   const ref = process.argv[2];

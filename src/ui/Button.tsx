@@ -7,7 +7,10 @@ import { color, edge, rounded, size, spacing, typography } from './tokens';
 export type ButtonVariant = 'primary' | 'ghost' | 'success' | 'danger' | 'reward' | 'disabled';
 
 /** Cores de cada variante (DESIGN.md `components.button-*`). */
-export const BUTTON_VARIANTS: Record<ButtonVariant, { background: string; label: string; edge: string; border?: string }> = {
+export const BUTTON_VARIANTS: Record<
+  ButtonVariant,
+  { background: string; label: string; edge: string; border?: string }
+> = {
   primary: { background: color.blue, label: color.surface, edge: color.blueDk },
   ghost: { background: color.surface, label: color.blue, edge: color.line, border: color.line },
   success: { background: color.teal, label: color.ink, edge: color.tealDk },

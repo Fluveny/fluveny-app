@@ -7,7 +7,16 @@ const noHexColor = require('./eslint/no-hex-color');
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ['dist/*', 'coverage/*', '.expo/*', 'android/*', 'ios/*', 'tools/*', 'src/api/schema.d.ts'],
+    ignores: [
+      'dist/*',
+      'coverage/*',
+      '.expo/*',
+      'android/*',
+      'ios/*',
+      'tools/*',
+      'src/api/schema.d.ts',
+      'public/mockServiceWorker.js',
+    ],
   },
   {
     plugins: { fluveny: { rules: { 'no-hex-color': noHexColor } } },

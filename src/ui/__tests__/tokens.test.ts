@@ -47,8 +47,12 @@ describe('tokens vs. DESIGN.md (design.yaml)', () => {
   });
 
   it('raios e espaços', () => {
-    expect(rounded).toEqual(Object.fromEntries(Object.entries(design.rounded).map(([k, v]) => [camel(k), px(String(v))])));
-    expect(spacing).toEqual(Object.fromEntries(Object.entries(design.spacing).map(([k, v]) => [camel(k), px(String(v))])));
+    expect(rounded).toEqual(
+      Object.fromEntries(Object.entries(design.rounded).map(([k, v]) => [camel(k), px(String(v))])),
+    );
+    expect(spacing).toEqual(
+      Object.fromEntries(Object.entries(design.spacing).map(([k, v]) => [camel(k), px(String(v))])),
+    );
   });
 
   it('alturas da sombra sólida e medidas de componente (UX-DR15)', () => {
@@ -136,7 +140,7 @@ describe('sombra sólida e afundar (UX-DR15/16)', () => {
   const occupied = (s: { borderBottomWidth?: number; marginBottom?: unknown }) =>
     (s.borderBottomWidth ?? 0) + Number(s.marginBottom ?? 0);
   const translateY = (s: { transform?: unknown }) =>
-    ((s.transform as { translateY?: number }[] | undefined)?.[0]?.translateY ?? 0);
+    (s.transform as { translateY?: number }[] | undefined)?.[0]?.translateY ?? 0;
 
   it('normal: borda inferior na cor escura, sem desfoque nem deslocamento', () => {
     const raised = solid(color.blueDk, edge.button);

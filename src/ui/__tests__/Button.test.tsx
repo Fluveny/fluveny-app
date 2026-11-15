@@ -34,22 +34,22 @@ describe('Button (UX-DR18 a UX-DR24)', () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it.each([['variant="disabled"', { variant: 'disabled' as const }], ['disabled', { disabled: true }]])(
-    'desabilitado (%s): não dispara, não afunda e anuncia disabled',
-    async (_, props) => {
-      const onPress = jest.fn();
-      await render(<Button label="VERIFICAR" onPress={onPress} {...props} />);
-      const button = () => screen.getByRole('button', { name: 'VERIFICAR' });
-      expect(button()).toBeDisabled();
-      const before = edgeOf(button());
-      expect(before.bottom).toBe(edge.button);
-      expect(styleOf(button()).backgroundColor).toBe(color.line);
-      await fireEvent(button(), 'pressIn');
-      expect(edgeOf(button())).toEqual(before);
-      await fireEvent.press(button());
-      expect(onPress).not.toHaveBeenCalled();
-    },
-  );
+  it.each([
+    ['variant="disabled"', { variant: 'disabled' as const }],
+    ['disabled', { disabled: true }],
+  ])('desabilitado (%s): não dispara, não afunda e anuncia disabled', async (_, props) => {
+    const onPress = jest.fn();
+    await render(<Button label="VERIFICAR" onPress={onPress} {...props} />);
+    const button = () => screen.getByRole('button', { name: 'VERIFICAR' });
+    expect(button()).toBeDisabled();
+    const before = edgeOf(button());
+    expect(before.bottom).toBe(edge.button);
+    expect(styleOf(button()).backgroundColor).toBe(color.line);
+    await fireEvent(button(), 'pressIn');
+    expect(edgeOf(button())).toEqual(before);
+    await fireEvent.press(button());
+    expect(onPress).not.toHaveBeenCalled();
+  });
 
   it('ocupado: desabilitado e anunciado como busy', async () => {
     await render(<Button label="SALVANDO…" busy onPress={() => {}} />);
@@ -75,23 +75,25 @@ describe('Button (UX-DR18 a UX-DR24)', () => {
     expect(raised.bottom).toBe(size.border + edge.button);
     await fireEvent(button(), 'pressIn');
     const pressed = edgeOf(button());
-    expect(pressed).toEqual(expect.objectContaining({ bottom: size.border, margin: edge.button, translateY: edge.button }));
+    expect(pressed).toEqual(
+      expect.objectContaining({ bottom: size.border, margin: edge.button, translateY: edge.button }),
+    );
     expect(pressed.occupied).toBe(raised.occupied);
   });
 
-  it.each([['disabled', { disabled: true }], ['busy', { busy: true }]])(
-    'ghost que fica %s: mantém a borda de 2 e o espaço ocupado',
-    async (_, props) => {
-      const { rerender } = await render(<Button label="VER RESPOSTA" variant="ghost" onPress={() => {}} />);
-      const button = () => screen.getByRole('button', { name: 'VER RESPOSTA' });
-      const before = edgeOf(button());
-      await rerender(<Button label="VER RESPOSTA" variant="ghost" onPress={() => {}} {...props} />);
-      expect(button()).toBeDisabled();
-      expect(styleOf(button()).borderWidth).toBe(size.border);
-      expect(styleOf(button()).borderColor).toBe(color.line);
-      expect(edgeOf(button())).toEqual(before);
-    },
-  );
+  it.each([
+    ['disabled', { disabled: true }],
+    ['busy', { busy: true }],
+  ])('ghost que fica %s: mantém a borda de 2 e o espaço ocupado', async (_, props) => {
+    const { rerender } = await render(<Button label="VER RESPOSTA" variant="ghost" onPress={() => {}} />);
+    const button = () => screen.getByRole('button', { name: 'VER RESPOSTA' });
+    const before = edgeOf(button());
+    await rerender(<Button label="VER RESPOSTA" variant="ghost" onPress={() => {}} {...props} />);
+    expect(button()).toBeDisabled();
+    expect(styleOf(button()).borderWidth).toBe(size.border);
+    expect(styleOf(button()).borderColor).toBe(color.line);
+    expect(edgeOf(button())).toEqual(before);
+  });
 
   it('sem onPress: anunciado como desabilitado e não afunda', async () => {
     await render(<Button label="CONTINUAR" />);
