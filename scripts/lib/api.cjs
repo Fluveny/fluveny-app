@@ -212,9 +212,9 @@ function apiImage(sha) {
 /** Mensagem quando a imagem do lock não existe ou não está acessível. */
 function missingImageMessage(image) {
   return [
-    `A imagem ${image} não existe ou você não tem acesso a ela.`,
+    `A imagem ${image} não existe ou não foi baixada.`,
     '- Se o lock aponta para um sha anterior ao perfil local da API (história 1.4), rode `npm run api:sync`.',
-    '- Se a imagem é privada no GHCR, rode `docker login ghcr.io` (usuário do GitHub e um token com read:packages).',
+    '- A imagem é pública no GHCR e não pede login: se o download falhou, confira a rede e se o Docker está rodando.',
   ].join('\n');
 }
 

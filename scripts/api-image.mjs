@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // mise run api: imprime a imagem da API no sha do lock (src/api/openapi.lock),
 // para o docker-compose.local.yml. Usa a imagem local se já existir; senão, baixa.
-// Sem a imagem, falha com o que fazer (api:sync ou docker login).
+// Sem a imagem, falha com o que fazer (api:sync, rede ou Docker).
 import { spawnSync } from 'node:child_process';
 
 import api from './lib/api.cjs';

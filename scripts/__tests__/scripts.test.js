@@ -154,9 +154,9 @@ describe('api: apiImage()', () => {
     expect(() => api.apiImage('bbbbbbb')).toThrow('40 hex');
   });
 
-  it('a mensagem de imagem ausente manda rodar api:sync ou docker login', () => {
+  it('a mensagem de imagem ausente manda rodar api:sync e não pede docker login', () => {
     const message = api.missingImageMessage('ghcr.io/fluveny/fluveny-api:sha-x');
     expect(message).toContain('npm run api:sync');
-    expect(message).toContain('docker login ghcr.io');
+    expect(message).not.toContain('docker login');
   });
 });
