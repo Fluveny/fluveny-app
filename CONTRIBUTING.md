@@ -15,7 +15,7 @@ mise run api                 # API e Mongo em http://localhost:8080 (deixe rodan
 npx expo start --web         # em outro terminal: http://localhost:8081
 ```
 
-- Se o `mise run api` disser que a imagem não existe, siga a mensagem: `npm run api:sync` ou `docker login ghcr.io` (token do GitHub com `read:packages`, enquanto a imagem da API for privada).
+- Se o `mise run api` disser que a imagem não existe, siga a mensagem: em geral, `npm run api:sync`. A imagem da API é pública no GHCR e não pede `docker login`.
 - Se o Mongo parar com "exited with code 1", o kernel do Docker está na faixa 6.19 a 7.0.13, em que o `mongo:8` não sobe (SERVER-121912): confira com `docker info --format '{{.KernelVersion}}'` e atualize o Docker Desktop.
 - Senha dos usuários de seed da API: `LOCAL_SEED_PASSWORD=... mise run api` (o compose lê o ambiente do terminal, não o `.env.local` do Expo).
 - Sem Docker ou sem a API, `EXPO_PUBLIC_API_MOCK=1 npx expo start --web` abre o App com os mocks.
