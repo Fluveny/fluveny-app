@@ -49,7 +49,8 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 ## Visitante, player e rede (1.10)
 
 - `src/visitor`: `deviceId`, Variáveis do Aluno e Progresso do Visitante, só no aparelho. `store.ts` (expo-sqlite) e `store.web.ts` (localStorage) têm a mesma API; use `visitorStore` ou `useVisitor()`. Nunca mande esses dados para a API antes do cadastro (Épico 2).
-- `src/player`: `registry.ts` liga `type` → componente. Tipo novo (1.11 a 1.19) troca o seu `PENDING` por um componente que recebe `{activity, setFooter, advance}`. A Atividade não trata rede: a moldura troca o rodapé por "SEM CONEXÃO".
+- `src/player`: `registry.ts` liga `type` → componente. Tipo novo (1.12 a 1.19) troca o seu `PENDING` por um componente que recebe `{activity, versionId, setFooter, setSheet, advance}`. A Atividade não trata rede: a moldura troca o rodapé, e a ação da folha que chama o servidor, por "SEM CONEXÃO". O teste do registro falha se um `type` do `openapi.json` faltar no `registry`.
+- Atividade avaliada usa `useEvaluation` (`src/player/useEvaluation.ts`, 1.11): manda a Tentativa, monta VERIFICAR e a folha de feedback e guarda o XP da primeira tentativa. O App nunca corrige nem tem gabarito; o do mock fica só em `src/api/mocks/routes.ts`. `post()` e `PostData<>` do `client.ts` tipam as rotas `POST`.
 - `src/network/useOnline.ts`: estado da rede (expo-network no nativo, `navigator.onLine` no web).
 - Dependências nativas: `expo-sqlite`, `expo-crypto`, `expo-network`. Nos testes, o `jest.setup.js` as simula (o `expo-sqlite` vira `node:sqlite` em memória).
 - Testing Library v14: `fireEvent` também é assíncrono. Sem `await`, os `act()` se sobrepõem e o próximo `renderRouter` do arquivo renderiza vazio.

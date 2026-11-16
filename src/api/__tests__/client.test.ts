@@ -1,4 +1,4 @@
-import { ApiError, APP_VERSION_HEADER, appVersion, fillPath, get, request, REQUEST_TIMEOUT_MS } from '../client';
+import { ApiError, APP_VERSION_HEADER, appVersion, fillPath, get, post, request, REQUEST_TIMEOUT_MS } from '../client';
 import { ERROR_MESSAGES, GENERIC_MESSAGE, messageFor, NETWORK_ERROR, UNKNOWN_ERROR } from '../errors';
 
 const appJson = require('../../../app.json');
@@ -237,5 +237,42 @@ describe('fillPath', () => {
 
   it('parâmetro ausente é erro', () => {
     expect(() => fillPath('/api/v1/units/{unitKey}', {} as { unitKey: string })).toThrow('unitKey');
+  });
+});
+
+describe('post', () => {
+  const attempt = {
+    attemptId: '6f1c2a4e-1b2c-4d3e-8f90-123456789abc',
+    versionId: `sha256:${'0'.repeat(64)}`,
+    activityKey: 'greeting-choice',
+    type: 'choice',
+    answer: { type: 'choice' as const, items: [{ itemKey: 'i1', optionKey: 'o1' }] },
+    studyTimeMs: 1200,
+  };
+
+  it('manda o corpo em JSON com X-App-Version e devolve o data do envelope', async () => {
+    const result = { outcome: 'GRADED', resultPct: 100, items: [{ itemKey: 'i1', correct: true }], xpAwarded: 10 };
+    global.fetch = respond(200, JSON.stringify({ data: result }));
+    await expect(post('/api/v1/visitor/attempts', attempt)).resolves.toEqual(result);
+    const [url, init] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url).toBe('https://api.exemplo.test/api/v1/visitor/attempts');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual(attempt);
+    const headers = new Headers(init.headers);
+    expect(headers.get('Content-Type')).toBe('application/json');
+    expect(headers.get(APP_VERSION_HEADER)).toBe(appJson.expo.version);
+  });
+
+  it('erro do problem+json: ApiError com o code, como no get', async () => {
+    global.fetch = respond(400, problem('INVALID_ANSWER'), 'application/problem+json');
+    const error = await caught(post('/api/v1/visitor/attempts/reveal', attempt));
+    expect(error.status).toBe(400);
+    expect(error.code).toBe('INVALID_ANSWER');
+    expect(error.userMessage).toBe(GENERIC_MESSAGE);
+  });
+
+  it('sem rede: NETWORK_ERROR', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new TypeError('Network request failed'));
+    expect((await caught(post('/api/v1/visitor/attempts', attempt))).code).toBe(NETWORK_ERROR);
   });
 });

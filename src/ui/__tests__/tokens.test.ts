@@ -68,6 +68,7 @@ describe('tokens vs. DESIGN.md (design.yaml)', () => {
     const box = (value: string) => String(value).split(' ').map(px);
     const [xpTop, xpRight, xpBottom, xpLeft] = box(c['xp-chip'].padding);
     const [tagY, tagX] = box(c['mode-tag'].padding);
+    const [sheetTop, sheetX, sheetBottom] = box(c['feedback-sheet'].padding);
     // `0 0 0 4px rgba(...)`: os três primeiros são zero, o quarto é a espessura do anel.
     const ring = /^0 0 0 (\d+px) (rgba\([^)]+\))$/.exec(String(c['text-field'].focusRing));
     expect(ring).not.toBeNull();
@@ -103,6 +104,11 @@ describe('tokens vs. DESIGN.md (design.yaml)', () => {
       alexInScene: 205, // EXPERIENCE.md, Narrativa e cenas
       choiceLetter: 30, // [ASSUMPTION] protótipo
       welcomeSheetRadius: 32, // DESIGN.md, Shapes: "o topo da tela de boas-vindas ... 30–32 px"
+      sheetIconTile: px(c['feedback-sheet'].iconTile),
+      sheetPaddingTop: sheetTop,
+      sheetPaddingX: sheetX,
+      sheetPaddingBottom: sheetBottom,
+      sheetAlex: 96, // [ASSUMPTION] Alex espiando a folha de Acerto
     });
     expect(size.avatar).toBeGreaterThanOrEqual(58);
     expect(size.avatar).toBeLessThanOrEqual(64);
