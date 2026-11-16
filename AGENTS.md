@@ -1,5 +1,5 @@
 <!-- bmad:context -->
-<!-- Verified 2026-11-14 against b20b7d936b25d440eb2c6eaf4a2d89ea0ffd36cb (feat/1-4-ambiente-local, história 1.4). Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
+<!-- Verified 2026-11-16 against 50de7eb449f051f257693543a53f906f856e089d (main). Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
 
 ## fluveny-app
 
@@ -7,7 +7,7 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 
 ## Policy
 
-- Nunca dê push na `main`. Branch curta, PR e squash na `main`, com CI verde e 1 aprovação humana (AD-2).
+- Nunca dê push na `main`. Branch curta, PR e squash na `main`. A `main` do App não é protegida: antes de mesclar, confira que `Verificação` e `Segredos` passaram (AD-2). Com a CI verde, mescle sem esperar pedido.
 - Não copie o estado, a navegação nem o conteúdo do protótipo (`prototipo-fluveny`). Ele é só referência visual.
 - O Expo muda a cada SDK: antes de usar uma API do Expo ou do React Native, confira a documentação da versão do `package.json` (https://docs.expo.dev/versions/v58.0.0/). Instale pacotes com `npx expo install`.
 - Nunca grave segredo em arquivo. `EXPO_PUBLIC_*` entra no bundle.
