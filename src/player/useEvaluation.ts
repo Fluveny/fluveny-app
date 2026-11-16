@@ -1,6 +1,8 @@
 // Fluxo de avaliação (EXPERIENCE.md, Verificar → Acerto | Erro → Tentar de
 // novo | Ver resposta; UX-DR63 a UX-DR68). O servidor corrige: o App manda a
 // Tentativa e mostra o Resultado, sem gabarito no cliente (FR-25, AD-7).
+// Desde a 1.12, a Tentativa e o reveal levam o `deviceId`, e o recibo que vem
+// no Resultado é guardado no aparelho antes da folha.
 import { randomUUID } from 'expo-crypto';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -9,6 +11,8 @@ import { messageFor, UNKNOWN_ERROR } from '../api/errors';
 import { captureError } from '../observability/sentry';
 import type { ContentText } from '../renderer';
 import { resultLine } from '../ui';
+import { visitorStore } from '../visitor/store';
+import type { VisitorStore } from '../visitor/types';
 import type { ActivityProps, SheetSpec } from './registry';
 
 export const CHECK_LABEL = 'VERIFICAR';
@@ -52,7 +56,32 @@ export type EvaluationOptions = Pick<ActivityProps, 'activity' | 'versionId' | '
   onRetry: (result: AttemptResult) => void;
   /** As linhas da caixa "RESPOSTA ESPERADA", a partir do `expected` do servidor. */
   expectedLines: (expected: Answer) => ContentText[];
+  /** A loja do Visitante (`deviceId` e recibos); nos testes, outra. */
+  store?: VisitorStore;
 };
+
+/** O `deviceId` do aparelho; se a loja falhar, a Tentativa vai sem ele (corrigida, sem recibo). */
+async function deviceIdOf(store: VisitorStore): Promise<string | undefined> {
+  try {
+    return await store.deviceId();
+  } catch (error) {
+    captureError(error);
+    return undefined;
+  }
+}
+
+/**
+ * Guarda o recibo opaco do Resultado, se veio. Falha da loja vai ao Sentry e
+ * não segura a folha: o servidor já registrou a Tentativa.
+ */
+export async function keepReceipt(store: VisitorStore, activityKey: string, receipt: unknown): Promise<void> {
+  if (typeof receipt !== 'string' || !receipt) return;
+  try {
+    await store.recordReceipt(activityKey, receipt);
+  } catch (error) {
+    captureError(error);
+  }
+}
 
 const codeOf = (error: unknown) => {
   if (error instanceof ApiError) return error.code;
@@ -93,6 +122,7 @@ export function useEvaluation({
   answer,
   onRetry,
   expectedLines,
+  store = visitorStore,
 }: EvaluationOptions) {
   const [state, setState] = useState<State>(INITIAL);
   const current = useRef(state);
@@ -108,25 +138,41 @@ export function useEvaluation({
     };
   }, []);
 
+  // Um `attemptId` por resposta enviada (chave de idempotência da API, AD-9):
+  // repetir o mesmo envio depois de uma falha reaproveita o id; ele só muda
+  // quando a resposta muda ou quando chega um Resultado. O reveal tem o seu.
+  const pendingAttempt = useRef<{ answer: string; attemptId: string } | null>(null);
+  const pendingReveal = useRef<string | null>(null);
+
   const send = useCallback(
-    (path: typeof ATTEMPT_PATH | typeof REVEAL_PATH, sent: Answer) =>
-      post(path, {
-        attemptId: randomUUID(),
+    async (path: typeof ATTEMPT_PATH | typeof REVEAL_PATH, sent: Answer, attemptId: string) => {
+      const deviceId = await deviceIdOf(store);
+      return post(path, {
+        attemptId,
+        ...(deviceId ? { deviceId } : {}),
         versionId,
         activityKey: activity.activityKey,
         type: activity.type,
         answer: sent,
         studyTimeMs: Math.max(0, Math.round(Date.now() - startedAt)),
-      }),
-    [activity.activityKey, activity.type, versionId, startedAt],
+      });
+    },
+    [activity.activityKey, activity.type, versionId, startedAt, store],
   );
 
   const check = useCallback(async () => {
     if (!answer || current.current.phase !== 'answering') return;
     current.current = { ...current.current, phase: 'checking' };
     setState((s) => ({ ...s, phase: 'checking', error: null }));
+    const key = JSON.stringify(answer);
+    if (pendingAttempt.current?.answer !== key) pendingAttempt.current = { answer: key, attemptId: randomUUID() };
+    const { attemptId } = pendingAttempt.current;
     try {
-      const result = await send(ATTEMPT_PATH, answer);
+      const result = await send(ATTEMPT_PATH, answer, attemptId);
+      // Chegou um Resultado: o próximo VERIFICAR é outra Tentativa.
+      if (pendingAttempt.current?.attemptId === attemptId) pendingAttempt.current = null;
+      // O recibo é gravado antes da folha, e mesmo se o aluno já saiu: o ✕ não o perde.
+      await keepReceipt(store, activity.activityKey, result.receipt);
       if (!alive.current) return;
       setState((s) => ({
         ...s,
@@ -141,15 +187,17 @@ export function useEvaluation({
       // A resposta destrava e VERIFICAR volta.
       setState((s) => ({ ...s, phase: 'answering', error: codeOf(error) }));
     }
-  }, [answer, send]);
+  }, [answer, send, store, activity.activityKey]);
 
   const reveal = useCallback(async () => {
     const { phase, lastAnswer } = current.current;
     if (phase !== 'wrong' || !lastAnswer) return;
     current.current = { ...current.current, phase: 'revealing' };
     setState((s) => ({ ...s, phase: 'revealing', error: null }));
+    pendingReveal.current ??= randomUUID();
     try {
-      const result = await send(REVEAL_PATH, lastAnswer);
+      const result = await send(REVEAL_PATH, lastAnswer, pendingReveal.current);
+      pendingReveal.current = null;
       if (!alive.current) return;
       setState((s) => ({ ...s, phase: 'revealed', result }));
     } catch (error) {
@@ -163,6 +211,8 @@ export function useEvaluation({
     const { phase, result } = current.current;
     if (phase !== 'wrong' || !result) return;
     onRetry(result);
+    // A próxima resposta é outra: o reveal dela terá outro id.
+    pendingReveal.current = null;
     setState((s) => ({ ...s, phase: 'answering', result: null, error: null }));
   }, [onRetry]);
 

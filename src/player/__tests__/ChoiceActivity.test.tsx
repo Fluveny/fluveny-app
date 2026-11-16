@@ -7,13 +7,20 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { messageFor, NETWORK_ERROR } from '../../api/errors';
 import { mockResponse } from '../../api/mocks/handlers';
-import { mockRoutes } from '../../api/mocks/routes';
+import { mockRoutes, resetMockVisitorRecords } from '../../api/mocks/routes';
+import * as sentry from '../../observability/sentry';
 import { EXPECTED_LABEL, FEEDBACK_TITLES, WRONG_MESSAGE } from '../../ui';
+import { visitorStore } from '../../visitor/store';
 import { clearVisitorCache } from '../../visitor/useVisitor';
 import { OFFLINE_LABEL, PlayerFrame } from '../PlayerFrame';
 import type { ActivityResult, ActivityView, FooterAction, SheetSpec } from '../registry';
 import { ChoiceActivity } from '../types/ChoiceActivity';
 import { CHECK_LABEL, CONTINUE_LABEL, RETRY_LABEL, REVEAL_LABEL } from '../useEvaluation';
+
+jest.mock('../../observability/sentry', () => {
+  const actual = jest.requireActual('../../observability/sentry');
+  return { ...actual, captureError: jest.fn() };
+});
 
 const METRICS = { frame: { x: 0, y: 0, width: 360, height: 640 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 const STAGE = mockRoutes['/api/v1/units/{unitKey}/stages/{stageKey}'].get(new Request('http://mock')).data;
@@ -100,6 +107,7 @@ beforeEach(() => {
   process.env.EXPO_PUBLIC_API_URL = 'https://api.exemplo.test';
   global.__resetSqlite();
   clearVisitorCache();
+  resetMockVisitorRecords();
   jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
   jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
   api();
@@ -135,6 +143,7 @@ describe('Escolha (Vocab Mode)', () => {
     // A Tentativa do contrato.
     expect(bodies[0]).toEqual({
       attemptId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      deviceId: await visitorStore.deviceId(),
       versionId: STAGE.versionId,
       activityKey: THREE.activityKey,
       type: 'choice',
@@ -361,5 +370,196 @@ describe('Escolha (Vocab Mode)', () => {
     });
     expect(advance).not.toHaveBeenCalled();
     expect(errors).not.toHaveBeenCalled();
+  });
+});
+
+describe('recibos e attemptId (1.12)', () => {
+  const ids = () => bodies.map((body) => body.attemptId);
+
+  it('primeira Tentativa: o recibo está gravado quando a folha aparece', async () => {
+    await open(SINGLE);
+    await pick(SINGLE, 0, 'A');
+    await verify();
+    expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
+    expect(await visitorStore.receipts()).toEqual([
+      { activityKey: SINGLE.activityKey, receipt: expect.stringMatching(/^v1\./) },
+    ]);
+  });
+
+  it('repetir depois de falha de rede: o mesmo attemptId; resposta nova, attemptId novo', async () => {
+    let offline = true;
+    api({
+      attempt: () => {
+        if (offline) throw new TypeError('Network request failed');
+        return undefined;
+      },
+    });
+    await open(SINGLE);
+    await pick(SINGLE, 0, 'A');
+    await verify();
+    expect(await screen.findByText(messageFor(NETWORK_ERROR))).toBeTruthy();
+    await verify();
+    expect(await screen.findByText(messageFor(NETWORK_ERROR))).toBeTruthy();
+    expect(ids()).toHaveLength(2);
+    expect(ids()[1]).toBe(ids()[0]);
+
+    // Outra resposta: outro envio, outro id.
+    await pick(SINGLE, 0, 'B');
+    await verify();
+    await screen.findByText(messageFor(NETWORK_ERROR));
+    expect(ids()[2]).not.toBe(ids()[0]);
+
+    // De volta à primeira resposta e com rede: chega o Resultado.
+    offline = false;
+    await pick(SINGLE, 0, 'A');
+    await verify();
+    expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
+    expect(await visitorStore.receipts()).toHaveLength(1);
+  });
+
+  it('5xx no VERIFICAR: repetir manda o mesmo attemptId', async () => {
+    let failing = true;
+    api({ attempt: () => (failing ? problem(503, 'INTERNAL_ERROR') : undefined) });
+    await open(SINGLE);
+    await pick(SINGLE, 0, 'A');
+    await verify();
+    expect(await screen.findByText(messageFor('INTERNAL_ERROR'))).toBeTruthy();
+    failing = false;
+    await verify();
+    expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
+    expect(ids()[1]).toBe(ids()[0]);
+  });
+
+  it('nova resposta depois de TENTAR DE NOVO: attemptId novo e nenhum recibo novo', async () => {
+    await open(SINGLE);
+    await pick(SINGLE, 0, 'B');
+    await verify();
+    expect(await screen.findByText(FEEDBACK_TITLES.wrong)).toBeTruthy();
+    const [first] = await visitorStore.receipts();
+    expect(first).toBeDefined();
+    await fireEvent.press(button(RETRY_LABEL));
+    await pick(SINGLE, 0, 'A');
+    await verify();
+    expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
+    expect(ids()).toHaveLength(2);
+    expect(ids()[1]).not.toBe(ids()[0]);
+    expect(await visitorStore.receipts()).toEqual([first]);
+  });
+
+  it('sair depois do Resultado: o recibo continua gravado e o Progresso não', async () => {
+    const { advance, unmount } = await open(SINGLE);
+    await pick(SINGLE, 0, 'A');
+    await verify();
+    expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
+    await act(async () => unmount());
+    expect(advance).not.toHaveBeenCalled();
+    expect(await visitorStore.receipts()).toHaveLength(1);
+    expect(await visitorStore.progress()).toEqual([]);
+  });
+
+  it('sair com a Tentativa no ar: o recibo que chega depois ainda é gravado', async () => {
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    api({ attempt: () => undefined });
+    const real = global.fetch as jest.Mock;
+    global.fetch = jest.fn(async (...args: Parameters<typeof fetch>) => {
+      await held;
+      return real(...args);
+    }) as jest.Mock;
+    const { advance, unmount } = await open(SINGLE);
+    await pick(SINGLE, 0, 'A');
+    await verify();
+    await act(async () => unmount());
+    await act(async () => release());
+    await waitFor(async () => expect(await visitorStore.receipts()).toHaveLength(1));
+    expect(advance).not.toHaveBeenCalled();
+    expect(await visitorStore.progress()).toEqual([]);
+  });
+
+  it('reveal: manda o deviceId e um attemptId próprio, sem recibo; 409 mostra messageFor', async () => {
+    let conflict = true;
+    api({ reveal: () => (conflict ? problem(409, 'ATTEMPT_REQUIRED') : undefined) });
+    await open(SINGLE);
+    await pick(SINGLE, 0, 'B');
+    await verify();
+    await screen.findByText(FEEDBACK_TITLES.wrong);
+    await fireEvent.press(button(REVEAL_LABEL));
+    expect(await screen.findByText('Responda a Atividade antes de ver a resposta.')).toBeTruthy();
+    expect(button(REVEAL_LABEL)).toBeEnabled();
+
+    conflict = false;
+    await fireEvent.press(button(REVEAL_LABEL));
+    expect(await screen.findByText(FEEDBACK_TITLES.review)).toBeTruthy();
+    const deviceId = await visitorStore.deviceId();
+    expect(bodies.map((body) => body.deviceId)).toEqual([deviceId, deviceId, deviceId]);
+    // O reveal tem o seu id, o mesmo ao repetir depois da falha.
+    expect(ids()[1]).not.toBe(ids()[0]);
+    expect(ids()[2]).toBe(ids()[1]);
+    expect(await visitorStore.receipts()).toHaveLength(1);
+  });
+
+  it('TENTAR DE NOVO depois de um reveal que falhou: o reveal da nova resposta tem outro attemptId', async () => {
+    let failing = true;
+    api({ reveal: () => (failing ? problem(500, 'INTERNAL_ERROR') : undefined) });
+    await open();
+    await answerThree(['B', 'A', 'B']);
+    await verify();
+    await screen.findByText(FEEDBACK_TITLES.wrong);
+    await fireEvent.press(button(REVEAL_LABEL));
+    expect(await screen.findByText(messageFor('INTERNAL_ERROR'))).toBeTruthy();
+    failing = false;
+    await fireEvent.press(button(RETRY_LABEL));
+    await pick(THREE, 0, 'A');
+    await pick(THREE, 1, 'A');
+    await verify();
+    await screen.findByText(FEEDBACK_TITLES.wrong);
+    await fireEvent.press(button(REVEAL_LABEL));
+    expect(await screen.findByText(FEEDBACK_TITLES.review)).toBeTruthy();
+    // [Tentativa, reveal que falhou, Tentativa nova, reveal da nova resposta]
+    expect(bodies).toHaveLength(4);
+    expect(ids()[3]).not.toBe(ids()[1]);
+  });
+
+  it('gravar o recibo falha: a folha aparece mesmo assim e o erro vai ao Sentry', async () => {
+    const failure = new Error('disco cheio');
+    jest.spyOn(visitorStore, 'recordReceipt').mockRejectedValueOnce(failure);
+    (sentry.captureError as jest.Mock).mockClear();
+    await open(SINGLE);
+    await pick(SINGLE, 0, 'A');
+    await verify();
+    expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
+    expect(sentry.captureError).toHaveBeenCalledWith(failure);
+  });
+
+  it('deviceId falha: a Tentativa vai sem deviceId e o Resultado chega', async () => {
+    const failure = new Error('banco fechado');
+    jest.spyOn(visitorStore, 'deviceId').mockRejectedValue(failure);
+    (sentry.captureError as jest.Mock).mockClear();
+    await open(SINGLE);
+    await pick(SINGLE, 0, 'A');
+    await verify();
+    expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
+    expect(bodies[0]).not.toHaveProperty('deviceId');
+    expect(sentry.captureError).toHaveBeenCalledWith(failure);
+  });
+
+  it('o corpo das rotas do Visitante não leva variáveis, Progresso nem recibos', async () => {
+    await visitorStore.setVariable('name', 'Júlia');
+    await visitorStore.setVariable('country', 'Brasil');
+    await visitorStore.recordProgress({ activityKey: 'antes', outcome: 'completed', xp: 10 });
+    await open(SINGLE);
+    await pick(SINGLE, 0, 'B');
+    await verify();
+    await screen.findByText(FEEDBACK_TITLES.wrong);
+    await fireEvent.press(button(REVEAL_LABEL));
+    await screen.findByText(FEEDBACK_TITLES.review);
+    const receipt = (await visitorStore.receipts())[0]!.receipt;
+    for (const body of bodies) {
+      expect(Object.keys(body).sort()).toEqual(
+        ['activityKey', 'answer', 'attemptId', 'deviceId', 'studyTimeMs', 'type', 'versionId'].sort(),
+      );
+      const raw = JSON.stringify(body);
+      for (const secret of ['Júlia', 'Brasil', 'antes', receipt]) expect(raw).not.toContain(secret);
+    }
   });
 });

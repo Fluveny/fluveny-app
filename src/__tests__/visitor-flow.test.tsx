@@ -17,7 +17,7 @@ import Player, { RETRY_LABEL } from '../../app/(student)/player';
 import UpdateRequired from '../../app/atualize';
 import { messageFor, NETWORK_ERROR } from '../api/errors';
 import { mockResponse } from '../api/mocks/handlers';
-import { mockRoutes } from '../api/mocks/routes';
+import { mockRoutes, resetMockVisitorRecords } from '../api/mocks/routes';
 import { AppProviders, createQueryClient } from '../AppProviders';
 import * as sentry from '../observability/sentry';
 import { CONTINUE_LABEL, PendingActivity, PENDING_TITLE } from '../player/PendingActivity';
@@ -38,12 +38,17 @@ jest.mock('../observability/sentry', () => {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
+/** Os corpos mandados à rota `completions`. */
+const completions: Record<string, unknown>[] = [];
+
 const STAGE = mockRoutes['/api/v1/units/{unitKey}/stages/{stageKey}'].get(new Request('http://mock')).data;
 const TOTAL = STAGE.activities.length;
 
 /** A API respondendo com os mocks; `fail` troca a resposta de uma rota. */
 function apiResponds(
-  fail: Partial<Record<'unit' | 'stage', () => Response | Promise<Response>>> = {},
+  fail: Partial<
+    Record<'unit' | 'stage' | 'completion', () => Response | Promise<Response | undefined> | undefined>
+  > = {},
   minAppVersion = '0.0.0',
 ) {
   global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -54,14 +59,22 @@ function apiResponds(
     if (url.endsWith('/api/v1/visitor/attempts/reveal')) {
       return mockResponse(mockRoutes['/api/v1/visitor/attempts/reveal'].post, new Request(url, init));
     }
+    if (url.endsWith('/api/v1/visitor/completions')) {
+      completions.push(JSON.parse(String(init?.body)));
+      const failure = await fail.completion?.();
+      if (failure) return failure;
+      return mockResponse(mockRoutes['/api/v1/visitor/completions'].post, new Request(url, init));
+    }
     if (url.endsWith('/api/v1/meta')) return json({ data: { minAppVersion, activityTypes: [] } });
     if (url.includes('/stages/')) {
       return fail.stage
-        ? fail.stage()
+        ? (fail.stage() as Response | Promise<Response>)
         : json(mockRoutes['/api/v1/units/{unitKey}/stages/{stageKey}'].get(new Request(url)));
     }
     if (url.endsWith('/api/v1/units/unit-1')) {
-      return fail.unit ? fail.unit() : json(mockRoutes['/api/v1/units/{unitKey}'].get(new Request(url)));
+      return fail.unit
+        ? (fail.unit() as Response | Promise<Response>)
+        : json(mockRoutes['/api/v1/units/{unitKey}'].get(new Request(url)));
     }
     return json({ code: 'NOT_FOUND' }, 404);
   }) as jest.Mock;
@@ -103,6 +116,8 @@ beforeEach(() => {
   global.__resetSqlite();
   clearVisitorCache();
   global.__resetNetwork();
+  resetMockVisitorRecords();
+  completions.length = 0;
   (sentry.captureError as jest.Mock).mockClear();
   apiResponds();
 });
@@ -189,6 +204,9 @@ describe('boas-vindas e player do Visitante (1.10)', () => {
     expect(screen.getByText(STAGE.activities[1]!.title as string)).toBeTruthy();
     expect(await visitorStore.progress()).toEqual([]);
     expect(screen.getByLabelText('0 XP')).toBeTruthy();
+    // O cartão em preparação não registra nada no servidor.
+    expect(completions).toEqual([]);
+    expect(await visitorStore.receipts()).toEqual([]);
   });
 
   it('renderizador: com o nome salvo, o {name} do título aparece resolvido e em ouro (pronome they)', async () => {
@@ -405,6 +423,10 @@ describe('Escolha real no player (1.11)', () => {
     ]);
     expect(await screen.findByLabelText('10 XP')).toBeTruthy();
     expect(screen.queryByText(FEEDBACK_TITLES.correct)).toBeNull();
+    // O recibo da primeira Tentativa ficou no aparelho (1.12).
+    expect(await visitorStore.receipts()).toEqual([
+      { activityKey: STAGE.activities[0]!.activityKey, receipt: expect.any(String) },
+    ]);
   });
 
   it('Erro e nova tentativa: só a primeira vale, e o Progresso fica com xp 7', async () => {
@@ -438,6 +460,115 @@ describe('Escolha real no player (1.11)', () => {
       expect(screen.getByText(`2 DE ${TOTAL}`)).toBeTruthy();
       expect(screen.queryByTestId('feedback-sheet')).toBeNull();
       expect(button(CONTINUE_LABEL)).toBeEnabled();
+    });
+  });
+});
+
+describe('conclusão vista ou pulada (1.12)', () => {
+  const SKIP_LABEL = 'PULAR';
+  /** Tipo de teste que termina com `outcome` (e um XP que a conclusão ignora). */
+  const finishing = (outcome: 'viewed' | 'skipped') =>
+    function FinishingActivity({ activity, setFooter, advance }: ActivityProps) {
+      useEffect(() => {
+        setFooter({ label: SKIP_LABEL, onPress: () => advance({ outcome, xp: 5 }) });
+      }, [setFooter, advance]);
+      return <Text>{activity.activityKey}</Text>;
+    };
+
+  it.each(['skipped', 'viewed'] as const)('%s: completions → recibo → Progresso xp 0 → avança', async (outcome) => {
+    await withChoice(finishing(outcome), async () => {
+      await startTrying();
+      await fireEvent.press(button(SKIP_LABEL));
+      expect(await screen.findByText(`2 DE ${TOTAL}`)).toBeTruthy();
+      const key = STAGE.activities[0]!.activityKey;
+      expect(completions).toEqual([
+        {
+          attemptId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+          deviceId: await visitorStore.deviceId(),
+          versionId: STAGE.versionId,
+          activityKey: key,
+          outcome: outcome.toUpperCase(),
+          studyTimeMs: expect.any(Number),
+        },
+      ]);
+      expect(await visitorStore.receipts()).toEqual([{ activityKey: key, receipt: expect.any(String) }]);
+      expect(await visitorStore.progress()).toEqual([{ activityKey: key, outcome, xp: 0 }]);
+      expect(screen.getByLabelText('0 XP')).toBeTruthy();
+    });
+  });
+
+  it('falha na completions: a tela fica com messageFor e a ação volta; repetir manda o mesmo attemptId', async () => {
+    let failure: (() => Response) | null = () => json({ code: 'INTERNAL_ERROR' }, 500);
+    apiResponds({ completion: () => failure?.() });
+    await withChoice(finishing('skipped'), async () => {
+      await startTrying();
+      await fireEvent.press(button(SKIP_LABEL));
+      expect(await screen.findByText(messageFor('INTERNAL_ERROR'))).toBeTruthy();
+      expect(screen.getByText(`1 DE ${TOTAL}`)).toBeTruthy();
+      expect(button(SKIP_LABEL)).toBeEnabled();
+      expect(await visitorStore.progress()).toEqual([]);
+
+      failure = () => {
+        throw new TypeError('Network request failed');
+      };
+      await fireEvent.press(button(SKIP_LABEL));
+      expect(await screen.findByText(messageFor(NETWORK_ERROR))).toBeTruthy();
+      expect(button(SKIP_LABEL)).toBeEnabled();
+
+      failure = null;
+      await fireEvent.press(button(SKIP_LABEL));
+      expect(await screen.findByText(`2 DE ${TOTAL}`)).toBeTruthy();
+      expect(new Set(completions.map((body) => body.attemptId)).size).toBe(1);
+      expect(completions).toHaveLength(3);
+      expect(await visitorStore.progress()).toEqual([
+        { activityKey: STAGE.activities[0]!.activityKey, outcome: 'skipped', xp: 0 },
+      ]);
+      expect(screen.queryByText(messageFor(NETWORK_ERROR))).toBeNull();
+    });
+  });
+
+  it('✕ com a conclusão no ar: o recibo que chega depois fica gravado e o Progresso não', async () => {
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    apiResponds({
+      completion: async () => {
+        await held;
+        return undefined;
+      },
+    });
+    await withChoice(finishing('skipped'), async () => {
+      await startTrying();
+      await fireEvent.press(button(SKIP_LABEL));
+      await fireEvent.press(button(CLOSE_LABEL));
+      expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
+      await act(async () => release());
+      await waitFor(async () =>
+        expect(await visitorStore.receipts()).toEqual([
+          { activityKey: STAGE.activities[0]!.activityKey, receipt: expect.any(String) },
+        ]),
+      );
+      expect(await visitorStore.progress()).toEqual([]);
+    });
+  });
+
+  it('Estágio sem versionId: a conclusão não é enviada e a tela fica', async () => {
+    const { versionId: _versionId, ...withoutVersion } = STAGE;
+    apiResponds({ stage: () => json({ data: withoutVersion }) });
+    await withChoice(finishing('skipped'), async () => {
+      await startTrying();
+      await fireEvent.press(button(SKIP_LABEL));
+      expect(screen.getByText(`1 DE ${TOTAL}`)).toBeTruthy();
+      expect(completions).toEqual([]);
+      expect(await visitorStore.progress()).toEqual([]);
+    });
+  });
+
+  it('sem rede: a ação da conclusão vira "SEM CONEXÃO"', async () => {
+    await withChoice(finishing('skipped'), async () => {
+      await startTrying();
+      await act(async () => global.__setNetwork({ isConnected: false, isInternetReachable: false }));
+      expect(button(OFFLINE_LABEL)).toBeDisabled();
+      expect(completions).toEqual([]);
     });
   });
 });

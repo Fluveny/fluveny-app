@@ -8,6 +8,7 @@ import { messageFor } from '../../src/api/errors';
 import { useOnline } from '../../src/network/useOnline';
 import { captureError } from '../../src/observability/sentry';
 import { ActivityTransition } from '../../src/player/ActivityTransition';
+import { needsCompletion, useCompletion } from '../../src/player/completion';
 import { PlayerFooter, PlayerFrame, PlayerTop } from '../../src/player/PlayerFrame';
 import { resolveActivity, type ActivityResult, type FooterAction, type SheetSpec } from '../../src/player/registry';
 import { useStage } from '../../src/player/useStage';
@@ -32,6 +33,10 @@ function useLeave() {
  * boas-vindas sem confirmação, e a Atividade em curso não é gravada. Com a
  * folha de feedback aberta, o voltar também sai do player e não fecha a folha
  * [ASSUMPTION: EXPERIENCE.md, o feedback pede uma decisão explícita].
+ *
+ * Atividade vista ou pulada (`viewed`/`skipped`) passa pela rota `completions`
+ * antes de avançar (1.12): o recibo é guardado, depois o Progresso com xp 0.
+ * Sem rede ou com erro, a tela fica com `messageFor(code)` e a ação volta.
  */
 export default function Player() {
   const leave = useLeave();
@@ -72,11 +77,22 @@ export default function Player() {
   }, [stage, variables, ready]);
 
   const { store } = visitor;
+  const {
+    complete,
+    completing,
+    error: completionError,
+  } = useCompletion(store, activity?.activityKey, stage?.versionId);
   const advance = useCallback(
     async (result?: ActivityResult) => {
       if (result && activity) {
+        let xp = result.xp;
+        if (needsCompletion(result.outcome)) {
+          // A tela fica na falha (com a mensagem) e quando o player já saiu.
+          if ((await complete(result.outcome)) !== 'done') return;
+          xp = 0;
+        }
         try {
-          await store.recordProgress({ activityKey: activity.activityKey, ...result });
+          await store.recordProgress({ activityKey: activity.activityKey, outcome: result.outcome, xp });
         } catch (failure) {
           captureError(failure);
         }
@@ -86,9 +102,27 @@ export default function Player() {
       if (position + 1 < total) setIndex(position + 1);
       else leave();
     },
-    [activity, position, total, leave, store],
+    [activity, position, total, leave, store, complete],
   );
   const onAdvance = useCallback((result?: ActivityResult) => void advance(result), [advance]);
+
+  // A conclusão em curso ou com falha aparece por cima da ação que a Atividade definiu.
+  const shownFooter = useMemo<FooterAction | null>(() => {
+    if (!footer || (!completing && !completionError)) return footer;
+    return {
+      ...footer,
+      busy: footer.busy || completing,
+      ...(completionError ? { message: messageFor(completionError) } : {}),
+    };
+  }, [footer, completing, completionError]);
+  const shownSheet = useMemo<SheetSpec | null>(() => {
+    if (!sheet || (!completing && !completionError)) return sheet;
+    return {
+      ...sheet,
+      ...(completionError ? { error: messageFor(completionError) } : {}),
+      actions: completing ? sheet.actions.map((action) => ({ ...action, busy: true })) : sheet.actions,
+    };
+  }, [sheet, completing, completionError]);
 
   if (loading) {
     return (
@@ -119,8 +153,8 @@ export default function Player() {
       total={total}
       xp={visitor.xp}
       online={online}
-      footer={footer}
-      sheet={sheet}
+      footer={shownFooter}
+      sheet={shownSheet}
       onClose={leave}
       contentKey={current.activityKey}
     >

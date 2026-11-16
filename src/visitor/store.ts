@@ -2,13 +2,23 @@
 // usa o store.web.ts (localStorage), com a mesma API. As tabelas:
 // - `device`: uma linha só, com o `deviceId` (UUID v4 do expo-crypto);
 // - `variables`: chave/valor das Variáveis do Aluno (nome, país, pronome…);
-// - `progress`: a primeira conclusão de cada Atividade (`activityKey`, `outcome`, `xp`).
+// - `progress`: a primeira conclusão de cada Atividade (`activityKey`, `outcome`, `xp`);
+// - `receipts`: o primeiro recibo opaco da API por Atividade (1.12).
+// Tabela nova entra com `IF NOT EXISTS`: um banco antigo a ganha na abertura.
 import { randomUUID } from 'expo-crypto';
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 
-import { createEmitter, isOutcome, safeXp, type ProgressEntry, type VariableKey, type VisitorStore } from './types';
+import {
+  createEmitter,
+  isOutcome,
+  safeXp,
+  type ProgressEntry,
+  type ReceiptEntry,
+  type VariableKey,
+  type VisitorStore,
+} from './types';
 
-export type { Outcome, ProgressEntry, Pronoun, VariableKey, VisitorStore } from './types';
+export type { Outcome, ProgressEntry, Pronoun, ReceiptEntry, VariableKey, VisitorStore } from './types';
 
 /** Arquivo do banco no aparelho. */
 export const VISITOR_DB = 'visitor.db';
@@ -30,6 +40,11 @@ CREATE TABLE IF NOT EXISTS progress (
   activity_key TEXT PRIMARY KEY NOT NULL,
   outcome TEXT NOT NULL,
   xp INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS receipts (
+  activity_key TEXT PRIMARY KEY NOT NULL,
+  receipt TEXT NOT NULL,
+  created_at INTEGER NOT NULL
 );
 `;
 
@@ -101,6 +116,22 @@ export function createVisitorStore(
         safeXp(entry.xp),
       );
       if (result.changes > 0) emitter.emit();
+    },
+    async recordReceipt(activityKey: string, receipt: string) {
+      const database = await db();
+      await database.runAsync(
+        'INSERT OR IGNORE INTO receipts (activity_key, receipt, created_at) VALUES (?, ?, ?)',
+        activityKey,
+        receipt,
+        Date.now(),
+      );
+    },
+    async receipts() {
+      const database = await db();
+      const rows = await database.getAllAsync<{ activity_key: string; receipt: string }>(
+        'SELECT activity_key, receipt FROM receipts ORDER BY rowid',
+      );
+      return rows.map((row): ReceiptEntry => ({ activityKey: row.activity_key, receipt: row.receipt }));
     },
     subscribe: emitter.subscribe,
   };

@@ -48,9 +48,11 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 
 ## Visitante, player e rede (1.10)
 
-- `src/visitor`: `deviceId`, Variáveis do Aluno e Progresso do Visitante, só no aparelho. `store.ts` (expo-sqlite) e `store.web.ts` (localStorage) têm a mesma API; use `visitorStore` ou `useVisitor()`. Nunca mande esses dados para a API antes do cadastro (Épico 2).
+- `src/visitor`: `deviceId`, Variáveis do Aluno, Progresso e recibos do Visitante, no aparelho. `store.ts` (expo-sqlite) e `store.web.ts` (localStorage) têm a mesma API; use `visitorStore` ou `useVisitor()`. Só o `deviceId` vai para a API, e só nas rotas do Visitante (`/visitor/attempts`, `/attempts/reveal` e `/visitor/completions`, 1.12). Nome, país, texto livre, Progresso e recibos nunca vão para a API antes do cadastro (Épico 2).
 - `src/player`: `registry.ts` liga `type` → componente. Tipo novo (1.12 a 1.19) troca o seu `PENDING` por um componente que recebe `{activity, versionId, setFooter, setSheet, advance}`. A Atividade não trata rede: a moldura troca o rodapé, e a ação da folha que chama o servidor, por "SEM CONEXÃO". O teste do registro falha se um `type` do `openapi.json` faltar no `registry`.
 - Atividade avaliada usa `useEvaluation` (`src/player/useEvaluation.ts`, 1.11): manda a Tentativa, monta VERIFICAR e a folha de feedback e guarda o XP da primeira tentativa. O App nunca corrige nem tem gabarito; o do mock fica só em `src/api/mocks/routes.ts`. `post()` e `PostData<>` do `client.ts` tipam as rotas `POST`.
+- Recibos (1.12): o Resultado da Tentativa ou da conclusão pode trazer `receipt`, opaco. Ele é gravado na hora (`recordReceipt`, só o primeiro por `activityKey`), antes da folha, e o App nunca o decodifica nem o mostra. Um `attemptId` por resposta enviada: repetir depois de falha reaproveita o id; ele muda com outra resposta ou depois de um Resultado. O reveal tem o seu.
+- Atividade que termina com `advance({outcome: 'viewed' | 'skipped'})` passa pela rota `completions` (`src/player/completion.ts`) antes de avançar: recibo, depois Progresso com xp 0. Falha deixa a tela com `messageFor(code)`. O cartão PENDING avança sem registrar nada.
 - `src/network/useOnline.ts`: estado da rede (expo-network no nativo, `navigator.onLine` no web).
 - Dependências nativas: `expo-sqlite`, `expo-crypto`, `expo-network`. Nos testes, o `jest.setup.js` as simula (o `expo-sqlite` vira `node:sqlite` em memória).
 - Testing Library v14: `fireEvent` também é assíncrono. Sem `await`, os `act()` se sobrepõem e o próximo `renderRouter` do arquivo renderiza vazio.

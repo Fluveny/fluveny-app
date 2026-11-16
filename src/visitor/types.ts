@@ -1,7 +1,9 @@
-// Tipos e peças comuns da loja do Visitante (história 1.10). A loja nativa
-// (store.ts, expo-sqlite) e a do web (store.web.ts, localStorage) têm a mesma
-// API. Nada daqui vai para a API: `deviceId`, variáveis e Progresso ficam só
-// no aparelho até o cadastro (Épico 2).
+// Tipos e peças comuns da loja do Visitante (histórias 1.10 e 1.12). A loja
+// nativa (store.ts, expo-sqlite) e a do web (store.web.ts, localStorage) têm a
+// mesma API. Só o `deviceId` vai para a API, nas rotas do Visitante
+// (`/visitor/attempts`, `/attempts/reveal` e `/visitor/completions`). Variáveis
+// (nome, país, texto livre), Progresso e recibos ficam só no aparelho até o
+// cadastro (Épico 2).
 
 /** Variante de pronome do conteúdo (`ContentText`). */
 export type Pronoun = 'he' | 'she' | 'they';
@@ -10,17 +12,23 @@ export type Pronoun = 'he' | 'she' | 'they';
 export type VariableKey = 'name' | 'country' | 'pronoun' | (string & {});
 
 /**
- * Como a Atividade terminou. `completed`: verificada (ou vista, se não é
- * avaliada); `skipped`: pulada ("Não posso falar agora"). [ASSUMPTION] Os
- * valores podem crescer com a folha de feedback (1.11).
+ * Como a Atividade terminou. `completed`: verificada; `viewed`: vista, sem
+ * correção; `skipped`: pulada ("Não posso falar agora"). `viewed` e `skipped`
+ * passam pela rota `completions` antes de entrar no Progresso (1.12).
  */
-export type Outcome = 'completed' | 'skipped';
+export type Outcome = 'completed' | 'viewed' | 'skipped';
 
 /** Uma linha do Progresso: a primeira conclusão de uma Atividade. */
 export type ProgressEntry = {
   activityKey: string;
   outcome: Outcome;
   xp: number;
+};
+
+/** Um recibo da API, guardado sem decodificar (o App não lê nem mostra). */
+export type ReceiptEntry = {
+  activityKey: string;
+  receipt: string;
 };
 
 export type VisitorStore = {
@@ -35,11 +43,18 @@ export type VisitorStore = {
    * o Resultado nem o XP registrados (FR-26, FR-27).
    */
   recordProgress(entry: ProgressEntry): Promise<void>;
+  /**
+   * Guarda o recibo opaco que a API mandou para a Atividade. Só o primeiro
+   * vale: um recibo já guardado não é trocado (a migração da 2.6 o usa).
+   */
+  recordReceipt(activityKey: string, receipt: string): Promise<void>;
+  /** Os recibos guardados, na ordem em que chegaram. */
+  receipts(): Promise<ReceiptEntry[]>;
   /** Avisa quando variáveis ou Progresso mudam. Devolve a função que cancela. */
   subscribe(listener: () => void): () => void;
 };
 
-export const OUTCOMES: readonly Outcome[] = ['completed', 'skipped'];
+export const OUTCOMES: readonly Outcome[] = ['completed', 'viewed', 'skipped'];
 
 export function isOutcome(value: unknown): value is Outcome {
   return typeof value === 'string' && (OUTCOMES as readonly string[]).includes(value);
