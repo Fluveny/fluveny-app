@@ -109,7 +109,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Corrige a Tentativa. expected e as justificativas só voltam no Acerto (100%). */
+        /** @description Corrige a Tentativa. expected e as justificativas só voltam no Acerto (100%). receipt só volta na primeira Tentativa do aparelho na Atividade, e de novo no reenvio do mesmo attemptId. */
         post: operations["submitVisitorAttempt"];
         delete?: never;
         options?: never;
@@ -126,8 +126,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Ver resposta: corrige a mesma Tentativa e devolve o Resultado com expected e as justificativas, sem XP. */
+        /** @description Ver resposta: corrige a mesma Tentativa e devolve o Resultado com expected e as justificativas, sem XP e sem receipt. Exige uma Tentativa do aparelho na Atividade (409 ATTEMPT_REQUIRED). */
         post: operations["revealVisitorAttempt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visitor/completions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Conclui uma Atividade sem correção (VIEWED ou SKIPPED), sem XP. receipt só volta na primeira conclusão ou Tentativa do aparelho na Atividade. */
+        post: operations["completeVisitorActivity"];
         delete?: never;
         options?: never;
         head?: never;
@@ -153,6 +170,10 @@ export interface components {
         } & components["schemas"]["ChoiceAnswer"];
         ApiResponseAttemptResult: {
             data: components["schemas"]["AttemptResult"];
+            message?: string;
+        };
+        ApiResponseCompletionResult: {
+            data: components["schemas"]["CompletionResult"];
             message?: string;
         };
         ApiResponseListUnitListItemStudentView: {
@@ -184,6 +205,11 @@ export interface components {
             answer: components["schemas"]["Answer"];
             /** Format: uuid */
             attemptId: string;
+            /**
+             * Format: uuid
+             * @description O aparelho do Visitante. Sem ele, a Tentativa é corrigida sem gravar nem gerar receipt, e o reveal responde 409 ATTEMPT_REQUIRED.
+             */
+            deviceId?: string;
             /** Format: int64 */
             studyTimeMs: number;
             type: string;
@@ -194,6 +220,7 @@ export interface components {
             items: components["schemas"]["ItemResult"][];
             /** @enum {string} */
             outcome: "GRADED" | "SKIPPED" | "VIEWED";
+            receipt?: string;
             /** Format: int32 */
             resultPct: number;
             /** Format: int32 */
@@ -253,6 +280,25 @@ export interface components {
             mediaKey?: string;
             optionKey: string;
             text?: components["schemas"]["ContentText"];
+        };
+        Completion: {
+            activityKey: string;
+            /** Format: uuid */
+            attemptId: string;
+            /** Format: uuid */
+            deviceId: string;
+            /** @enum {string} */
+            outcome: "VIEWED" | "SKIPPED";
+            /** Format: int64 */
+            studyTimeMs: number;
+            versionId: string;
+        };
+        CompletionResult: {
+            /** @enum {string} */
+            outcome: "GRADED" | "SKIPPED" | "VIEWED";
+            receipt?: string;
+            /** Format: int32 */
+            xpAwarded: number;
         };
         /** @description Texto do conteúdo: uma string ou as variantes {he, she, they}. */
         ContentText: string | components["schemas"]["PronounVariants"];
@@ -555,6 +601,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseAttemptResult"];
+                };
+            };
+        };
+    };
+    completeVisitorActivity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Completion"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCompletionResult"];
                 };
             };
         };

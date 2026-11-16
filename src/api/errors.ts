@@ -22,6 +22,7 @@ export const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   CONFLICT: 'Isso mudou enquanto você estava aqui. Atualize a tela e tente de novo.',
   PAYLOAD_TOO_LARGE: 'O envio ficou grande demais. Tente com menos conteúdo.',
   UNPROCESSABLE: 'Não deu para concluir isso agora. Tente de novo.',
+  ATTEMPT_REQUIRED: 'Responda a Atividade antes de ver a resposta.',
   TOO_MANY_REQUESTS: 'Muitas tentativas seguidas. Espere um pouco e tente de novo.',
   METHOD_NOT_ALLOWED: GENERIC_MESSAGE,
   NOT_ACCEPTABLE: GENERIC_MESSAGE,

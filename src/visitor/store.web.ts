@@ -4,15 +4,25 @@
 // em memória até a página fechar.
 import { randomUUID } from 'expo-crypto';
 
-import { createEmitter, isOutcome, safeXp, type ProgressEntry, type VariableKey, type VisitorStore } from './types';
+import {
+  createEmitter,
+  isOutcome,
+  safeXp,
+  type ProgressEntry,
+  type ReceiptEntry,
+  type VariableKey,
+  type VisitorStore,
+} from './types';
 
-export type { Outcome, ProgressEntry, Pronoun, VariableKey, VisitorStore } from './types';
+export type { Outcome, ProgressEntry, Pronoun, ReceiptEntry, VariableKey, VisitorStore } from './types';
 
 /** Prefixo das chaves no `localStorage`. */
 export const VISITOR_PREFIX = 'fluveny:visitor:';
 const DEVICE = `${VISITOR_PREFIX}device`;
 const VARIABLES = `${VISITOR_PREFIX}variables`;
 const PROGRESS = `${VISITOR_PREFIX}progress`;
+/** Os recibos da API (1.12): `[{activityKey, receipt, createdAt}]`. */
+export const RECEIPTS = `${VISITOR_PREFIX}receipts`;
 
 type KeyValue = Pick<Storage, 'getItem' | 'setItem'>;
 
@@ -49,6 +59,18 @@ function asProgress(value: unknown): ProgressEntry[] {
     const { activityKey, outcome, xp } = item as Record<string, unknown>;
     if (typeof activityKey !== 'string' || !isOutcome(outcome) || typeof xp !== 'number') return [];
     return [{ activityKey, outcome, xp: safeXp(xp) }];
+  });
+}
+
+type StoredReceipt = ReceiptEntry & { createdAt: number };
+
+function asReceipts(value: unknown): StoredReceipt[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item): StoredReceipt[] => {
+    if (!item || typeof item !== 'object') return [];
+    const { activityKey, receipt, createdAt } = item as Record<string, unknown>;
+    if (typeof activityKey !== 'string' || typeof receipt !== 'string') return [];
+    return [{ activityKey, receipt, createdAt: typeof createdAt === 'number' ? createdAt : 0 }];
   });
 }
 
@@ -101,6 +123,14 @@ export function createVisitorStore(storage: KeyValue | undefined = defaultStorag
       if (progress.some((saved) => saved.activityKey === entry.activityKey)) return;
       write(PROGRESS, JSON.stringify([...progress, { ...entry, xp: safeXp(entry.xp) }]));
       emitter.emit();
+    },
+    async recordReceipt(activityKey: string, receipt: string) {
+      const receipts = asReceipts(readJson(read(RECEIPTS)));
+      if (receipts.some((saved) => saved.activityKey === activityKey)) return;
+      write(RECEIPTS, JSON.stringify([...receipts, { activityKey, receipt, createdAt: Date.now() }]));
+    },
+    async receipts() {
+      return asReceipts(readJson(read(RECEIPTS))).map(({ activityKey, receipt }) => ({ activityKey, receipt }));
     },
     subscribe: emitter.subscribe,
   };

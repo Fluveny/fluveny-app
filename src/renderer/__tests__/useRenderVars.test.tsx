@@ -15,6 +15,8 @@ function fakeStore(variables: Record<string, string>) {
     variables: () => answer(variables),
     progress: () => answer([]),
     recordProgress: async () => {},
+    recordReceipt: async () => {},
+    receipts: () => answer([]),
     subscribe: () => () => {},
   };
   return { store, stall: () => (pending = true) };

@@ -9,6 +9,11 @@
 // A exceção é a da API: o Resultado da Tentativa traz `expected` e o
 // `justification` do `ItemResult` (no Acerto e no reveal). O gabarito fica só
 // aqui, no corretor do mock; o App nunca corrige.
+//
+// Recibos (1.12): como a API, a primeira Tentativa ou conclusão de cada
+// `(deviceId, activityKey)` volta com um `receipt` falso e opaco; o reenvio do
+// mesmo `attemptId` com o mesmo Resultado devolve o mesmo recibo; o reveal sem
+// Tentativa do aparelho é `409 ATTEMPT_REQUIRED`.
 import type { components, paths } from '../schema';
 
 export const MOCK_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
@@ -77,6 +82,7 @@ const unit2 = {
 type ContentText = components['schemas']['ContentText'];
 type ChoiceView = components['schemas']['ChoiceActivityStudentView'];
 type AttemptResult = components['schemas']['AttemptResult'];
+type CompletionResult = components['schemas']['CompletionResult'];
 
 /** Um item do mock: as alternativas, a certa (a primeira com ✓) e a justificativa. */
 type MockItem = {
@@ -175,6 +181,51 @@ const stage1Activities = [
   ]),
 ];
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A primeira Tentativa ou conclusão de um aparelho numa Atividade, como a `visitor_attempts` da API. */
+type FirstRecord = { attemptId: string; outcome: string; resultPct: number; receipt: string };
+const firstRecords = new Map<string, FirstRecord>();
+let receiptSeq = 0;
+
+/** Esquece as Tentativas e conclusões gravadas (testes). */
+export function resetMockVisitorRecords() {
+  firstRecords.clear();
+}
+
+/** `deviceId` do corpo: ausente vira `undefined`; fora do formato UUID, `400 VALIDATION_FAILED`. */
+function deviceIdOf(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'string' || !UUID.test(value)) throw new MockProblem(400, 'VALIDATION_FAILED');
+  return value;
+}
+
+/**
+ * O recibo da regra da API: só a primeira por `(deviceId, activityKey)` gera um,
+ * e o reenvio do mesmo `attemptId` com o mesmo Resultado o devolve de novo.
+ */
+function receiptFor(
+  deviceId: string | undefined,
+  activityKey: string,
+  attemptId: unknown,
+  outcome: string,
+  resultPct: number,
+): string | undefined {
+  if (!deviceId || typeof attemptId !== 'string') return undefined;
+  const key = `${deviceId}|${activityKey}`;
+  const saved = firstRecords.get(key);
+  if (!saved) {
+    receiptSeq += 1;
+    // Falso e opaco: o App não decodifica, só guarda.
+    const receipt = `v1.mock-${receiptSeq.toString(36)}-${Date.now().toString(36)}.unsigned`;
+    firstRecords.set(key, { attemptId, outcome, resultPct, receipt });
+    return receipt;
+  }
+  return saved.attemptId === attemptId && saved.outcome === outcome && saved.resultPct === resultPct
+    ? saved.receipt
+    : undefined;
+}
+
 /**
  * Corretor do mock, com as regras do `grade()` da API: resposta que não cobre
  * todos os itens uma vez, com chaves conhecidas e o mesmo `type`, é `400
@@ -183,12 +234,15 @@ const stage1Activities = [
  */
 async function gradeAttempt(request: Request, reveal: boolean): Promise<{ data: AttemptResult }> {
   const body = (await request.json().catch(() => null)) as {
+    attemptId?: unknown;
+    deviceId?: unknown;
     activityKey?: unknown;
     type?: unknown;
     answer?: { type?: unknown; items?: unknown };
   } | null;
   const key = typeof body?.activityKey === 'string' ? answerKey.get(body.activityKey) : undefined;
   if (!body || typeof body.activityKey !== 'string') throw new MockProblem(400, 'VALIDATION_FAILED');
+  const deviceId = deviceIdOf(body.deviceId);
   if (!key) throw new MockProblem(404, 'NOT_FOUND');
   const answers = body.answer?.items;
   if (body.type !== 'choice' || body.answer?.type !== 'choice' || !Array.isArray(answers)) {
@@ -209,8 +263,14 @@ async function gradeAttempt(request: Request, reveal: boolean): Promise<{ data: 
   const right = items.filter((item) => item.correct).length;
   const resultPct = right === total ? 100 : Math.min(99, Math.round((100 * right) / total));
   const open = reveal || resultPct === 100;
+  // O reveal exige uma Tentativa do aparelho na Atividade e não gera recibo.
+  if (reveal && (!deviceId || !firstRecords.has(`${deviceId}|${body.activityKey}`))) {
+    throw new MockProblem(409, 'ATTEMPT_REQUIRED');
+  }
+  const receipt = reveal ? undefined : receiptFor(deviceId, body.activityKey, body.attemptId, 'GRADED', resultPct);
   return {
     data: {
+      ...(receipt ? { receipt } : {}),
       outcome: 'GRADED',
       resultPct,
       xpAwarded: reveal ? 0 : Math.round((key.xp * resultPct) / 100),
@@ -227,6 +287,29 @@ async function gradeAttempt(request: Request, reveal: boolean): Promise<{ data: 
         : {}),
     },
   };
+}
+
+/** Conclusão sem correção (VIEWED ou SKIPPED), sem XP; o `deviceId` é obrigatório. */
+async function complete(request: Request): Promise<{ data: CompletionResult }> {
+  const body = (await request.json().catch(() => null)) as {
+    attemptId?: unknown;
+    deviceId?: unknown;
+    activityKey?: unknown;
+    outcome?: unknown;
+  } | null;
+  if (!body || typeof body.activityKey !== 'string' || typeof body.attemptId !== 'string') {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  const deviceId = deviceIdOf(body.deviceId);
+  if (!deviceId || (body.outcome !== 'VIEWED' && body.outcome !== 'SKIPPED')) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  const activityKey = body.activityKey;
+  if (!stage1Activities.some((activity) => activity.activityKey === activityKey)) {
+    throw new MockProblem(404, 'NOT_FOUND');
+  }
+  const receipt = receiptFor(deviceId, activityKey, body.attemptId, body.outcome, 0);
+  return { data: { outcome: body.outcome, xpAwarded: 0, ...(receipt ? { receipt } : {}) } };
 }
 
 export const mockRoutes: MockRoutes = {
@@ -267,6 +350,9 @@ export const mockRoutes: MockRoutes = {
   },
   '/api/v1/visitor/attempts/reveal': {
     post: (request) => gradeAttempt(request, true),
+  },
+  '/api/v1/visitor/completions': {
+    post: (request) => complete(request),
   },
   // Rotas do job de publicação: o App não as chama, mas o tipo exige um mock por rota.
   '/api/v1/admin/content/units/{unitKey}/versions': {

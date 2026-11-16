@@ -63,4 +63,24 @@ describe('loja do Visitante no web (localStorage)', () => {
     expect(await store.progress()).toEqual([]);
     expect(await store.variables()).toEqual({});
   });
+
+  it('recibos: só o primeiro por Atividade, na chave fluveny:visitor:receipts', async () => {
+    const storage = memoryStorage();
+    const store = createWebStore(storage);
+    await store.recordReceipt('a1', 'v1.primeiro.x');
+    await store.recordReceipt('a1', 'v1.segundo.x');
+    await store.recordProgress({ activityKey: 'a2', outcome: 'viewed', xp: 0 });
+    expect(await store.receipts()).toEqual([{ activityKey: 'a1', receipt: 'v1.primeiro.x' }]);
+    expect(await createWebStore(storage).receipts()).toEqual([{ activityKey: 'a1', receipt: 'v1.primeiro.x' }]);
+    expect(JSON.parse(storage.getItem('fluveny:visitor:receipts')!)).toEqual([
+      { activityKey: 'a1', receipt: 'v1.primeiro.x', createdAt: expect.any(Number) },
+    ]);
+    expect(await store.progress()).toEqual([{ activityKey: 'a2', outcome: 'viewed', xp: 0 }]);
+  });
+
+  it('recibos tortos no storage viram vazio', async () => {
+    const storage = memoryStorage();
+    storage.setItem('fluveny:visitor:receipts', '[{"activityKey":1},"x"]');
+    expect(await createWebStore(storage).receipts()).toEqual([]);
+  });
 });

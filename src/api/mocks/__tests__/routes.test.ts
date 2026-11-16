@@ -1,5 +1,7 @@
 import openapi from '../../openapi.json';
-import { MOCK_METHODS, MockProblem, mockRoutes } from '../routes';
+import { randomUUID } from 'node:crypto';
+
+import { MOCK_METHODS, MockProblem, mockRoutes, resetMockVisitorRecords } from '../routes';
 
 type Schema = {
   $ref?: string;
@@ -114,7 +116,21 @@ describe('mocks da API', () => {
     for (const [path, operations] of Object.entries(routes)) {
       for (const [method, resolve] of Object.entries(operations)) {
         if (path.startsWith('/api/v1/visitor/attempts')) continue;
-        for (const key of keysOf(await resolve?.(new Request(`http://mock${path}`)))) {
+        const init =
+          path === '/api/v1/visitor/completions'
+            ? {
+                method: 'POST',
+                body: JSON.stringify({
+                  attemptId: '6f1c2a4e-1b2c-4d3e-8f90-123456789abc',
+                  deviceId: '0b6a3f0e-4c1d-4e2a-9b3c-5d6e7f809a1b',
+                  versionId: 'v',
+                  activityKey: 'greeting-choice',
+                  outcome: 'VIEWED',
+                  studyTimeMs: 0,
+                }),
+              }
+            : undefined;
+        for (const key of keysOf(await resolve?.(new Request(`http://mock${path}`, init)))) {
           if (secrets.has(key)) leaked.push(`${method.toUpperCase()} ${path}: ${key}`);
         }
       }
@@ -127,9 +143,14 @@ const STAGE = mockRoutes['/api/v1/units/{unitKey}/stages/{stageKey}'].get(new Re
 const THREE_ITEMS = STAGE.activities[0]!;
 
 /** Uma Tentativa da Atividade de 3 itens, com a opção `pick(item)` em cada um. */
-function attempt(pick: (item: (typeof THREE_ITEMS)['items'][number]) => string, activity = THREE_ITEMS) {
+function attempt(
+  pick: (item: (typeof THREE_ITEMS)['items'][number]) => string,
+  activity = THREE_ITEMS,
+  ids: { attemptId?: string; deviceId?: string } = {},
+) {
   return {
-    attemptId: '6f1c2a4e-1b2c-4d3e-8f90-123456789abc',
+    attemptId: ids.attemptId ?? randomUUID(),
+    deviceId: ids.deviceId ?? DEVICE,
     versionId: STAGE.versionId,
     activityKey: activity.activityKey,
     type: 'choice',
@@ -138,7 +159,11 @@ function attempt(pick: (item: (typeof THREE_ITEMS)['items'][number]) => string, 
   };
 }
 
-const send = (route: '/api/v1/visitor/attempts' | '/api/v1/visitor/attempts/reveal', body: unknown) =>
+const DEVICE = '0b6a3f0e-4c1d-4e2a-9b3c-5d6e7f809a1b';
+
+type VisitorRoute = '/api/v1/visitor/attempts' | '/api/v1/visitor/attempts/reveal';
+
+const send = (route: VisitorRoute, body: unknown) =>
   Promise.resolve(
     mockRoutes[route].post(new Request(`http://mock${route}`, { method: 'POST', body: JSON.stringify(body) })),
   ).then((response) => response.data);
@@ -150,12 +175,25 @@ function resultKeys(result: Record<string, unknown>): Set<string> {
   return keysOf({ ...rest, items: stripped });
 }
 
+const complete = (body: unknown) =>
+  Promise.resolve(
+    mockRoutes['/api/v1/visitor/completions'].post(
+      new Request('http://mock/api/v1/visitor/completions', { method: 'POST', body: JSON.stringify(body) }),
+    ),
+  ).then((response) => response.data);
+
+beforeEach(() => resetMockVisitorRecords());
+
 describe('corretor do mock', () => {
   it('uma Escolha mockada tem 3 itens', () => {
     expect(THREE_ITEMS.items).toHaveLength(3);
   });
 
   it('reveal: devolve expected e as justificativas, sem XP; fora da exceção, nada secreto', async () => {
+    await send(
+      '/api/v1/visitor/attempts',
+      attempt((item) => item.options[0]!.optionKey),
+    );
     const first = await send(
       '/api/v1/visitor/attempts/reveal',
       attempt((item) => item.options[0]!.optionKey),
@@ -168,6 +206,10 @@ describe('corretor do mock', () => {
   });
 
   it('Acerto: 100, xp 10, expected e justificativas; Erro: n de m, xp proporcional, sem gabarito', async () => {
+    await send(
+      '/api/v1/visitor/attempts',
+      attempt((item) => item.options[0]!.optionKey),
+    );
     const revealed = await send(
       '/api/v1/visitor/attempts/reveal',
       attempt((item) => item.options[0]!.optionKey),
@@ -209,5 +251,91 @@ describe('corretor do mock', () => {
     await expect(send('/api/v1/visitor/attempts', { ...valid, activityKey: 'nope' })).rejects.toMatchObject({
       status: 404,
     });
+  });
+});
+
+describe('recibos do mock (1.12)', () => {
+  const firstOption = (item: (typeof THREE_ITEMS)['items'][number]) => item.options[0]!.optionKey;
+
+  it('só a primeira Tentativa do aparelho na Atividade traz receipt; outra Tentativa, não', async () => {
+    const first = await send('/api/v1/visitor/attempts', attempt(firstOption));
+    expect(first.receipt).toEqual(expect.stringMatching(/^v1\./));
+    const second = await send('/api/v1/visitor/attempts', attempt(firstOption));
+    expect(second.receipt).toBeUndefined();
+    // Outro aparelho, outro recibo.
+    const other = await send('/api/v1/visitor/attempts', attempt(firstOption, THREE_ITEMS, { deviceId: randomUUID() }));
+    expect(other.receipt).toEqual(expect.any(String));
+    expect(other.receipt).not.toBe(first.receipt);
+  });
+
+  it('reenvio do mesmo attemptId com o mesmo Resultado devolve o mesmo recibo; com outro Resultado, nenhum', async () => {
+    const attemptId = randomUUID();
+    const first = await send('/api/v1/visitor/attempts', attempt(firstOption, THREE_ITEMS, { attemptId }));
+    const again = await send('/api/v1/visitor/attempts', attempt(firstOption, THREE_ITEMS, { attemptId }));
+    expect(again.receipt).toBe(first.receipt);
+    const changed = await send(
+      '/api/v1/visitor/attempts',
+      attempt((item) => item.options[1]!.optionKey, THREE_ITEMS, { attemptId }),
+    );
+    expect(changed.resultPct).not.toBe(first.resultPct);
+    expect(changed.receipt).toBeUndefined();
+  });
+
+  it('sem deviceId: corrige sem receipt; deviceId malformado é 400', async () => {
+    const { deviceId: _deviceId, ...anonymous } = attempt(firstOption);
+    expect((await send('/api/v1/visitor/attempts', anonymous)).receipt).toBeUndefined();
+    await expect(
+      send('/api/v1/visitor/attempts', attempt(firstOption, THREE_ITEMS, { deviceId: 'nope' })),
+    ).rejects.toMatchObject({ status: 400, code: 'VALIDATION_FAILED' });
+  });
+
+  it('reveal sem Tentativa do aparelho é 409 ATTEMPT_REQUIRED; depois dela, 200 sem receipt', async () => {
+    await expect(send('/api/v1/visitor/attempts/reveal', attempt(firstOption))).rejects.toMatchObject({
+      status: 409,
+      code: 'ATTEMPT_REQUIRED',
+    });
+    const { deviceId: _deviceId, ...anonymous } = attempt(firstOption);
+    await expect(send('/api/v1/visitor/attempts/reveal', anonymous)).rejects.toMatchObject({ status: 409 });
+    await send('/api/v1/visitor/attempts', attempt(firstOption));
+    const revealed = await send('/api/v1/visitor/attempts/reveal', attempt(firstOption));
+    expect(revealed.receipt).toBeUndefined();
+  });
+
+  it('completions: VIEWED/SKIPPED sem XP, recibo só na primeira, reenvio devolve o mesmo', async () => {
+    const attemptId = randomUUID();
+    const body = {
+      attemptId,
+      deviceId: DEVICE,
+      versionId: STAGE.versionId,
+      activityKey: STAGE.activities[1]!.activityKey,
+      outcome: 'SKIPPED',
+      studyTimeMs: 1000,
+    };
+    const first = await complete(body);
+    expect(first).toEqual({ outcome: 'SKIPPED', xpAwarded: 0, receipt: expect.any(String) });
+    expect(Object.keys(first).sort()).toEqual(['outcome', 'receipt', 'xpAwarded']);
+    expect((await complete(body)).receipt).toBe(first.receipt);
+    expect((await complete({ ...body, attemptId: randomUUID(), outcome: 'VIEWED' })).receipt).toBeUndefined();
+    // A conclusão ocupa a vaga do recibo: a Tentativa depois dela volta sem.
+    const after = await send(
+      '/api/v1/visitor/attempts',
+      attempt((item) => item.options[0]!.optionKey, STAGE.activities[1]!),
+    );
+    expect(after.receipt).toBeUndefined();
+  });
+
+  it('completions inválida: sem deviceId ou outcome fora de VIEWED/SKIPPED é 400; Atividade desconhecida, 404', async () => {
+    const body = {
+      attemptId: randomUUID(),
+      deviceId: DEVICE,
+      versionId: STAGE.versionId,
+      activityKey: THREE_ITEMS.activityKey,
+      outcome: 'VIEWED',
+      studyTimeMs: 0,
+    };
+    const { deviceId: _deviceId, ...anonymous } = body;
+    await expect(complete(anonymous)).rejects.toMatchObject({ status: 400, code: 'VALIDATION_FAILED' });
+    await expect(complete({ ...body, outcome: 'GRADED' })).rejects.toMatchObject({ status: 400 });
+    await expect(complete({ ...body, activityKey: 'nope' })).rejects.toMatchObject({ status: 404 });
   });
 });
