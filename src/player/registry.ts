@@ -4,7 +4,10 @@
 import type { ComponentType } from 'react';
 
 import type { GetData } from '../api/client';
+import type { ContentText } from '../renderer';
+import type { ButtonVariant, FeedbackTone } from '../ui';
 import type { Outcome } from '../visitor/types';
+import { ChoiceActivity } from './types/ChoiceActivity';
 import { PendingActivity } from './PendingActivity';
 
 /** Uma Atividade da visão do aluno, como vem do `GET` do Estágio. */
@@ -22,6 +25,38 @@ export type FooterAction = {
   /** Ação em andamento ("SALVANDO…"). */
   busy?: boolean;
   onPress: () => void;
+  /** Falha da última ação (texto de `messageFor`), acima do botão. */
+  message?: string;
+};
+
+/** Um botão da folha de feedback. */
+export type SheetAction = {
+  label: string;
+  variant: Extract<ButtonVariant, 'primary' | 'success' | 'ghost'>;
+  onPress: () => void;
+  busy?: boolean;
+  /** A ação chama o servidor: sem rede, a moldura a troca por "SEM CONEXÃO". */
+  network?: boolean;
+};
+
+/**
+ * A folha de feedback que a Atividade pede. Ela entra no lugar do rodapé; a
+ * moldura renderiza as justificativas e a resposta esperada com as Variáveis
+ * do Aluno.
+ */
+export type SheetSpec = {
+  tone: FeedbackTone;
+  /** "Resultado: n de m itens · x%", quando há mais de um item. */
+  result?: string;
+  /** XP da primeira tentativa, para o selo "+XP" do Acerto. */
+  xpGain?: number;
+  /** As linhas da caixa "RESPOSTA ESPERADA" (tom `review`). */
+  expected?: ContentText[];
+  /** Justificativas dos itens, cruas. */
+  justifications?: ContentText[];
+  /** Falha da última ação (texto de `messageFor`). */
+  error?: string;
+  actions: SheetAction[];
 };
 
 /** O que a Atividade concluída grava no Progresso. */
@@ -29,13 +64,17 @@ export type ActivityResult = { outcome: Outcome; xp: number };
 
 /**
  * Contrato entre o player e um Tipo. A Atividade desenha o conteúdo e chama
- * `setFooter` sempre que a ação do rodapé muda; a moldura aplica a regra de
- * rede por cima ("SEM CONEXÃO"), então nenhum Tipo trata a rede. `advance`
- * passa para a próxima Atividade; com `result`, grava o Progresso antes.
+ * `setFooter` sempre que a ação do rodapé muda, e `setSheet` para abrir (ou,
+ * com `null`, fechar) a folha de feedback no lugar do rodapé. A moldura aplica
+ * a regra de rede por cima ("SEM CONEXÃO"), então nenhum Tipo trata a rede.
+ * `advance` passa para a próxima Atividade; com `result`, grava o Progresso
+ * antes. `versionId` é o do Estágio exibido (vai na Tentativa).
  */
 export type ActivityProps = {
   activity: ActivityView;
-  setFooter: (footer: FooterAction) => void;
+  versionId: string;
+  setFooter: (footer: FooterAction | null) => void;
+  setSheet: (sheet: SheetSpec | null) => void;
   advance: (result?: ActivityResult) => void;
 };
 
@@ -46,9 +85,9 @@ export const PENDING = 'PENDING' as const;
 
 export type ActivityRegistry = Record<string, ActivityComponent | typeof PENDING>;
 
-/** Todos os Tipos do contrato. Nesta história, todos são `PENDING`. */
+/** Todos os Tipos do contrato; o teste do registro confere contra o `openapi.json`. */
 export const registry: { [T in ActivityType]: ActivityComponent | typeof PENDING } & ActivityRegistry = {
-  choice: PENDING,
+  choice: ChoiceActivity,
 };
 
 /** O componente do Tipo, ou o cartão "Atividade em preparação". */

@@ -61,6 +61,25 @@ type JsonOf<R> = R extends { content: { 'application/json': infer B } } ? B : ne
 export type GetData<P extends GetPaths> =
   JsonOf<paths[P]['get']['responses'][200]> extends { data: infer D } ? D : never;
 
+type PostPaths = {
+  [P in keyof paths]: paths[P] extends {
+    post: { requestBody?: unknown; responses: { 200: unknown } };
+  }
+    ? P
+    : never;
+}[keyof paths];
+
+/** O `data` do envelope `{data, message?}` da resposta 200 de `POST path`. */
+export type PostData<P extends PostPaths> =
+  JsonOf<paths[P]['post']['responses'][200]> extends { data: infer D } ? D : never;
+
+/** O corpo JSON de `POST path`, como o contrato pede. */
+export type PostBody<P extends PostPaths> = paths[P]['post'] extends {
+  requestBody: { content: { 'application/json': infer B } };
+}
+  ? B
+  : never;
+
 const CODE = /^[A-Z][A-Z0-9_]*$/;
 
 /** Rejeita assim que `signal` abortar, mesmo que a leitura do corpo não reaja ao abort. */
@@ -167,4 +186,11 @@ export function getAt<P extends GetPaths>(path: P, params: PathParams<P>, init?:
 /** `GET` tipado pelo contrato: devolve o `data` da resposta 200. */
 export function get<P extends GetPaths>(path: P, init?: RequestInit): Promise<GetData<P>> {
   return request<GetData<P>>(path, { ...init, method: 'GET' });
+}
+
+/** `POST` tipado pelo contrato: manda `body` como JSON e devolve o `data` da resposta 200. */
+export function post<P extends PostPaths>(path: P, body: PostBody<P>, init?: RequestInit): Promise<PostData<P>> {
+  const headers = new Headers(init?.headers);
+  headers.set('Content-Type', 'application/json');
+  return request<PostData<P>>(path, { ...init, method: 'POST', headers, body: JSON.stringify(body) });
 }

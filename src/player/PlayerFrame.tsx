@@ -5,7 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { OFFLINE_TEXT } from '../network/text';
 import { Button, Icon, Pressable3D, ProgressBar, StatusBanner, XpChip } from '../ui';
 import { color, size, spacing, typography } from '../ui/tokens';
-import type { FooterAction } from './registry';
+import { PlayerSheet } from './PlayerSheet';
+import type { FooterAction, SheetSpec } from './registry';
 
 export const CLOSE_LABEL = 'Sair';
 export const OFFLINE_LABEL = 'SEM CONEXÃO';
@@ -78,6 +79,11 @@ export function PlayerFooter({ footer, online }: { footer: FooterAction | null; 
   if (!footer) return <View style={styles.footer} testID="player-footer" />;
   return (
     <View style={styles.footer} testID="player-footer">
+      {online && footer.message ? (
+        <Text style={styles.message} accessibilityRole="alert" accessibilityLiveRegion="polite">
+          {footer.message}
+        </Text>
+      ) : null}
       {online ? (
         <Button
           label={footer.label}
@@ -104,6 +110,8 @@ export type PlayerFrameProps = {
   xp: number;
   online: boolean;
   footer: FooterAction | null;
+  /** A folha de feedback; aberta, ela entra no lugar do rodapé. */
+  sheet?: SheetSpec | null;
   onClose: () => void;
   /** Muda a cada Atividade: a rolagem volta ao topo. */
   contentKey: string;
@@ -123,6 +131,7 @@ export function PlayerFrame({
   xp,
   online,
   footer,
+  sheet = null,
   onClose,
   contentKey,
   children,
@@ -143,7 +152,11 @@ export function PlayerFrame({
       >
         {children}
       </ScrollView>
-      <PlayerFooter footer={footer} online={online} />
+      {sheet ? (
+        <PlayerSheet sheet={sheet} online={online} offlineLabel={OFFLINE_LABEL} />
+      ) : (
+        <PlayerFooter footer={footer} online={online} />
+      )}
     </SafeAreaView>
   );
 }
@@ -176,5 +189,6 @@ const styles = StyleSheet.create({
   position: { ...typography.eyebrow, color: color.muted, textTransform: 'uppercase' },
   stage: { flexShrink: 1, color: color.blue },
   content: { flexGrow: 1, padding: spacing.screenX, gap: spacing[4] },
+  message: { ...typography.bodyStrong, color: color.red, paddingBottom: spacing[2] },
   footer: { paddingHorizontal: spacing.screenX, paddingTop: spacing[2], paddingBottom: spacing[4] },
 });

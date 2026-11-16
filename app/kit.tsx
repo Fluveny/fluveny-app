@@ -10,7 +10,9 @@ import {
   Button,
   Card,
   ChoiceCard,
+  FeedbackSheet,
   MODE_TAGS,
+  resultLine,
   ModeTag,
   ProgressBar,
   SceneFrame,
@@ -26,7 +28,7 @@ import {
   type StatusBannerTone,
   type WordChipState,
 } from '../src/ui';
-import { color, spacing, typography } from '../src/ui/tokens';
+import { color, size, spacing, typography } from '../src/ui/tokens';
 
 const VARIANTS: ButtonVariant[] = ['primary', 'ghost', 'success', 'danger', 'reward', 'disabled'];
 const TONES: CardTone[] = ['neutral', 'selected', 'wrong', 'right', 'reward'];
@@ -179,6 +181,34 @@ function KitCatalog() {
           ))}
         </Section>
 
+        <Section title="FOLHAS DE FEEDBACK">
+          <View style={styles.sheetSlot}>
+            <FeedbackSheet
+              tone="correct"
+              xpGain={7}
+              actions={[{ label: 'CONTINUAR', variant: 'success' }]}
+              testID="feedback-sheet-correct"
+            >
+              <Text style={styles.sheetText}>Good morning is the greeting until noon.</Text>
+            </FeedbackSheet>
+          </View>
+          <FeedbackSheet
+            tone="wrong"
+            result={resultLine(2, 3, 67)}
+            actions={[
+              { label: 'TENTAR DE NOVO', variant: 'primary' },
+              { label: 'VER RESPOSTA', variant: 'ghost' },
+            ]}
+            testID="feedback-sheet-wrong"
+          />
+          <FeedbackSheet
+            tone="review"
+            expected={<Text style={styles.sheetText}>A, Good morning</Text>}
+            actions={[{ label: 'CONTINUAR', variant: 'primary' }]}
+            testID="feedback-sheet-review"
+          />
+        </Section>
+
         <Section title="FAIXAS DE ESTADO">
           {BANNERS.map(({ tone, text, action }) => (
             <StatusBanner
@@ -210,6 +240,9 @@ export default function KitScreen() {
 }
 
 const styles = StyleSheet.create({
+  // Espaço para o Alex que espia por cima da folha de Acerto.
+  sheetSlot: { paddingTop: size.sheetAlex },
+  sheetText: { ...typography.body, color: color.ink },
   screen: { flex: 1, backgroundColor: color.canvas },
   content: { paddingHorizontal: spacing.screenX, paddingVertical: spacing[6], gap: spacing[6] },
   section: { gap: spacing.half },

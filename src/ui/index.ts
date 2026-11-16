@@ -8,6 +8,17 @@ export { Button, BUTTON_VARIANTS, type ButtonProps, type ButtonVariant } from '.
 export { Card, CARD_TONES, type CardProps, type CardTone } from './Card';
 export { CHOICE_LETTERS, ChoiceCard, choiceLetter, type ChoiceCardProps, type ChoiceState } from './ChoiceCard';
 export { Column } from './Column';
+export {
+  EXPECTED_LABEL,
+  FEEDBACK_TITLES,
+  FEEDBACK_TONES,
+  FeedbackSheet,
+  resultLine,
+  WRONG_MESSAGE,
+  type FeedbackAction,
+  type FeedbackSheetProps,
+  type FeedbackTone,
+} from './FeedbackSheet';
 export { Icon, type IconName } from './icons';
 export { Logo } from './Logo';
 export { MODE_TAGS, ModeTag, type ModeTagLabel } from './ModeTag';

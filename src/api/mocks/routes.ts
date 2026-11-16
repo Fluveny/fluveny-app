@@ -6,7 +6,10 @@
 // Só a visão do aluno: Atividade mockada usa os tipos `*StudentView`, nunca a
 // Atividade com resposta e justificativa (campos `x-fluveny-secret` da API). O
 // teste falha se algum mock trouxer um campo que só existe fora da StudentView.
-import type { paths } from '../schema';
+// A exceção é a da API: o Resultado da Tentativa traz `expected` e o
+// `justification` do `ItemResult` (no Acerto e no reveal). O gabarito fica só
+// aqui, no corretor do mock; o App nunca corrige.
+import type { components, paths } from '../schema';
 
 export const MOCK_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
 type Method = (typeof MOCK_METHODS)[number];
@@ -22,18 +25,46 @@ type SuccessBody<O> = O extends { responses: infer R }
       : never
   : never;
 
+/**
+ * O `GET` responde na hora; os outros métodos podem ler o corpo da requisição
+ * (assíncrono). Um erro da API é um `MockProblem` lançado pelo mock.
+ */
 export type MockRoutes = {
   [P in keyof paths]: {
-    [M in Method as paths[P][M] extends { responses: unknown } ? M : never]: (
-      request: Request,
-    ) => SuccessBody<paths[P][M]>;
+    [M in Method as paths[P][M] extends { responses: unknown } ? M : never]: M extends 'get'
+      ? (request: Request) => SuccessBody<paths[P][M]>
+      : (request: Request) => SuccessBody<paths[P][M]> | Promise<SuccessBody<paths[P][M]>>;
   };
 };
 
+/** Erro da API no mock: os handlers o devolvem como problem+json com o `code`. */
+export class MockProblem extends Error {
+  readonly status: number;
+  readonly code: string;
+
+  constructor(status: number, code: string) {
+    super(`mock ${status} ${code}`);
+    this.name = 'MockProblem';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+/** O corpo problem+json de um `MockProblem`, como a API manda. */
+export function problemBody(problem: MockProblem) {
+  return {
+    type: `urn:fluveny:problem:${problem.code}`,
+    title: problem.code,
+    status: problem.status,
+    code: problem.code,
+  };
+}
+
 const VERSION_ID = 'sha256:0000000000000000000000000000000000000000000000000000000000000001';
 
-// Uma Unidade com um Estágio de três Escolhas (o player da 1.10 percorre 1 de 3,
-// 2 de 3, 3 de 3), e a Unit 2 "em breve" (sem Estágios).
+// Uma Unidade com um Estágio de três Escolhas (o player percorre 1 de 3, 2 de
+// 3, 3 de 3), e a Unit 2 "em breve" (sem Estágios). A primeira Escolha tem 3
+// itens (Resultado "n de 3 itens"); as outras, um só.
 const unit1 = { unitKey: 'unit-1', order: 1, title: 'Unit 1', comingSoon: false, versionId: VERSION_ID };
 const unit2 = {
   unitKey: 'unit-2',
@@ -43,34 +74,160 @@ const unit2 = {
   versionId: 'sha256:0000000000000000000000000000000000000000000000000000000000000002',
 };
 
-const choice = (activityKey: string, title: string, question: string, options: [string, string][]) => ({
-  activityKey,
-  type: 'choice' as const,
-  title,
-  xp: 10,
-  items: [
-    {
-      itemKey: `${activityKey}-1`,
-      question,
-      options: options.map(([optionKey, text]) => ({ optionKey, text })),
-    },
-  ],
-});
+type ContentText = components['schemas']['ContentText'];
+type ChoiceView = components['schemas']['ChoiceActivityStudentView'];
+type AttemptResult = components['schemas']['AttemptResult'];
+
+/** Um item do mock: as alternativas, a certa (a primeira com ✓) e a justificativa. */
+type MockItem = {
+  question: ContentText;
+  /** `[optionKey, texto]`; a certa é `correct`. */
+  options: [string, string][];
+  correct: string;
+  justification: ContentText;
+};
+
+/** Gabarito do mock, privado a este módulo: só o corretor do mock o lê. */
+const answerKey = new Map<
+  string,
+  { xp: number; items: Map<string, { correct: string; justification: ContentText }> }
+>();
+
+function choice(activityKey: string, title: string, items: MockItem[], prompt?: string): ChoiceView {
+  const xp = 10;
+  answerKey.set(activityKey, {
+    xp,
+    items: new Map(
+      items.map((item, i) => [`${activityKey}-${i + 1}`, { correct: item.correct, justification: item.justification }]),
+    ),
+  });
+  return {
+    activityKey,
+    type: 'choice',
+    title,
+    ...(prompt === undefined ? {} : { prompt }),
+    xp,
+    items: items.map((item, i) => ({
+      itemKey: `${activityKey}-${i + 1}`,
+      question: item.question,
+      options: item.options.map(([optionKey, text]) => ({ optionKey, text })),
+    })),
+  };
+}
 
 const stage1Activities = [
-  choice('greeting-choice', 'Choose the greeting', 'How do you greet someone in the morning?', [
-    ['good-morning', 'Good morning'],
-    ['good-night', 'Good night'],
+  choice(
+    'greeting-choice',
+    'Choose the greeting',
+    [
+      {
+        question: 'How do you greet someone in the morning?',
+        options: [
+          ['good-morning', 'Good morning'],
+          ['good-night', 'Good night'],
+        ],
+        correct: 'good-morning',
+        justification: '**Good morning** is the greeting until noon.',
+      },
+      {
+        question: "It's late and you're going to bed. What do you say?",
+        options: [
+          ['good-morning', 'Good morning!'],
+          ['good-night', 'Good night!'],
+        ],
+        correct: 'good-night',
+        justification: '**Good night** is for saying goodbye at night.',
+      },
+      {
+        question: 'Alex asks "How are you?". What do you answer?',
+        options: [
+          ['im-from-brazil', "I'm from Brazil."],
+          ['im-fine', "I'm fine, thanks!"],
+          ['nice-to-meet-you', 'Nice to meet you!'],
+        ],
+        correct: 'im-fine',
+        justification: '"How are you?" asks how you feel: **I\'m fine, thanks!**',
+      },
+    ],
+    'Pick the best answer for each one.',
+  ),
+  choice('name-choice', 'Say your name, {name}', [
+    {
+      question: 'How do you tell someone your name?',
+      options: [
+        ['im-julia', "I'm Júlia."],
+        ['im-from-brazil', "I'm from Brazil."],
+      ],
+      correct: 'im-julia',
+      justification: "Use **I'm** + your name, {name}.",
+    },
   ]),
-  choice('name-choice', 'Say your name, {name}', 'How do you tell someone your name?', [
-    ['im-julia', "I'm Júlia."],
-    ['im-from-brazil', "I'm from Brazil."],
-  ]),
-  choice('nice-to-meet-you-choice', 'Nice to meet you', 'Alex says "Nice to meet you!". What do you answer?', [
-    ['nice-to-meet-you-too', 'Nice to meet you too!'],
-    ['good-night', 'Good night!'],
+  choice('nice-to-meet-you-choice', 'Nice to meet you', [
+    {
+      question: 'Alex says "Nice to meet you!". What do you answer?',
+      options: [
+        ['nice-to-meet-you-too', 'Nice to meet you too!'],
+        ['good-night', 'Good night!'],
+      ],
+      correct: 'nice-to-meet-you-too',
+      justification: 'Answer with **Nice to meet you too!**',
+    },
   ]),
 ];
+
+/**
+ * Corretor do mock, com as regras do `grade()` da API: resposta que não cobre
+ * todos os itens uma vez, com chaves conhecidas e o mesmo `type`, é `400
+ * INVALID_ANSWER`; Atividade desconhecida, `404`. `expected` e as justificativas
+ * só no Acerto ou no reveal; o reveal não dá XP.
+ */
+async function gradeAttempt(request: Request, reveal: boolean): Promise<{ data: AttemptResult }> {
+  const body = (await request.json().catch(() => null)) as {
+    activityKey?: unknown;
+    type?: unknown;
+    answer?: { type?: unknown; items?: unknown };
+  } | null;
+  const key = typeof body?.activityKey === 'string' ? answerKey.get(body.activityKey) : undefined;
+  if (!body || typeof body.activityKey !== 'string') throw new MockProblem(400, 'VALIDATION_FAILED');
+  if (!key) throw new MockProblem(404, 'NOT_FOUND');
+  const answers = body.answer?.items;
+  if (body.type !== 'choice' || body.answer?.type !== 'choice' || !Array.isArray(answers)) {
+    throw new MockProblem(400, 'INVALID_ANSWER');
+  }
+  const chosen = new Map<string, string>();
+  for (const item of answers as { itemKey?: unknown; optionKey?: unknown }[]) {
+    if (typeof item?.itemKey !== 'string' || typeof item.optionKey !== 'string') {
+      throw new MockProblem(400, 'INVALID_ANSWER');
+    }
+    if (!key.items.has(item.itemKey) || chosen.has(item.itemKey)) throw new MockProblem(400, 'INVALID_ANSWER');
+    chosen.set(item.itemKey, item.optionKey);
+  }
+  if (chosen.size !== key.items.size) throw new MockProblem(400, 'INVALID_ANSWER');
+
+  const total = key.items.size;
+  const items = [...key.items].map(([itemKey, { correct }]) => ({ itemKey, correct: chosen.get(itemKey) === correct }));
+  const right = items.filter((item) => item.correct).length;
+  const resultPct = right === total ? 100 : Math.min(99, Math.round((100 * right) / total));
+  const open = reveal || resultPct === 100;
+  return {
+    data: {
+      outcome: 'GRADED',
+      resultPct,
+      xpAwarded: reveal ? 0 : Math.round((key.xp * resultPct) / 100),
+      items: items.map((item) =>
+        open ? { ...item, justification: key.items.get(item.itemKey)!.justification } : item,
+      ),
+      ...(open
+        ? {
+            expected: {
+              type: 'choice' as const,
+              items: [...key.items].map(([itemKey, { correct }]) => ({ itemKey, optionKey: correct })),
+            },
+          }
+        : {}),
+    },
+  };
+}
 
 export const mockRoutes: MockRoutes = {
   '/api/v1/meta': {
@@ -104,6 +261,12 @@ export const mockRoutes: MockRoutes = {
         activities: stage1Activities,
       },
     }),
+  },
+  '/api/v1/visitor/attempts': {
+    post: (request) => gradeAttempt(request, false),
+  },
+  '/api/v1/visitor/attempts/reveal': {
+    post: (request) => gradeAttempt(request, true),
   },
   // Rotas do job de publicação: o App não as chama, mas o tipo exige um mock por rota.
   '/api/v1/admin/content/units/{unitKey}/versions': {

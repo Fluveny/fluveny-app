@@ -14,7 +14,7 @@ Em desenvolvimento, a rota `/kit` mostra todas as peças e estados (`npx expo st
 
 - Cores, tipos, raios, espaços e medidas só de `src/ui/tokens`. Hex ou `rgb()` fora dos tokens falha o lint. Medida que falta entra em `tokens/index.ts` vinda do `components` do `design.yaml`, com teste em `__tests__/tokens.test.ts`.
 - A profundidade é a sombra sólida: `solid()` em pé, `sunk()` afundado. Toda peça tocável usa `Pressable3D`, que afunda exatamente a altura da sombra sem mover o layout. Não existe outro estado de pressionado: nada escurece nem muda de cor no toque.
-- Sem sombra desfocada, sem gradiente, sem biblioteca de ícones ou de componentes de terceiros. Os ícones (`check`, `x`, `star`) são SVG próprios em `icons.tsx`.
+- Sem sombra desfocada, sem gradiente, sem biblioteca de ícones ou de componentes de terceiros. Os ícones (`check`, `x`, `star`, `eye`) são SVG próprios em `icons.tsx`.
 - Toda peça tocável tem papel, rótulo e estado (`disabled`, `selected`, `busy`) e área de toque de pelo menos 48 dp (o `Pressable3D` calcula o `hitSlop`).
 - Estado nunca só por cor: certo e errado mostram ✓ ou ✕, e a palavra ("certo", "errado", "usado") entra no rótulo do leitor de tela. O texto visível do estado é o título da folha de feedback (1.11).
 - Texto nunca corta: `minHeight` em vez de `height`, sem `numberOfLines`, `allowFontScaling` padrão. Com a fonte a 200%, o botão cresce em altura.
@@ -77,9 +77,9 @@ Etiqueta azul no topo da Atividade, com um dos 11 valores de `ModeTagLabel`: GAM
 
 ### Base: `Pressable3D`, `Icon`, `useReducedMotion`
 
-`Pressable3D` é a base de toda peça tocável (sombra, afundar, `disabled`, `hitSlop`, acessibilidade). Use-a para uma peça nova do kit, nunca direto numa tela. `Icon` desenha `check`, `x` e `star` com a cor de um token e fica oculto do leitor de tela. `useReducedMotion()` diz se "remover animações" está ligado.
+`Pressable3D` é a base de toda peça tocável (sombra, afundar, `disabled`, `hitSlop`, acessibilidade). Use-a para uma peça nova do kit, nunca direto numa tela. `Icon` desenha `check`, `x`, `star` e `eye` com a cor de um token e fica oculto do leitor de tela. `useReducedMotion()` diz se "remover animações" está ligado.
 
-A folha de feedback é da 1.11. O player (1.10) fica fora do kit, em `src/player`: `PlayerFrame` (topo com ✕ `muted` de 48 dp, `ProgressBar` e `XpChip`; linha de posição; conteúdo rolável; rodapé fixo com um `Button` primário) e `ActivityTransition` (fade com subida). A folha branca da boas-vindas usa `size.welcomeSheetRadius` (32).
+O player (1.10) fica fora do kit, em `src/player`: `PlayerFrame` (topo com ✕ `muted` de 48 dp, `ProgressBar` e `XpChip`; linha de posição; conteúdo rolável; rodapé fixo com um `Button` primário) e `ActivityTransition` (fade com subida). A folha branca da boas-vindas usa `size.welcomeSheetRadius` (32).
 
 ### `SpeechBubble`
 
@@ -119,6 +119,22 @@ Alternativa A–D: o `Card` tocável com a letra num selo à esquerda e o texto 
 | `wrong` / `right` | Depois de Verificar: ✕ ou ✓, e "errado" ou "certo" no rótulo. |
 
 Depois de Verificar, **todas** as alternativas do grupo recebem `locked` (não só a certa e a errada), senão o aluno troca a resposta avaliada.
+
+### `FeedbackSheet`
+
+Folha de feedback (`feedback-sheet`, UX-DR35 e UX-DR63 a UX-DR68): branca, cantos de 28 no topo, recuo 20/20/18, bloco de ícone de 44 dp com sombra sólida, título em `title` na cor do tom, linha de Resultado opcional, conteúdo rolável e botões empilhados com a largura toda. No player, ela entra no lugar do rodapé (`src/player/PlayerSheet.tsx`); quem decide o que ela mostra é o `useEvaluation`.
+
+| `tone`    | Título          | Ícone      | O que mostra                                                                                                                    |
+| --------- | --------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `correct` | "Mandou bem!"   | ✓ turquesa | Alex `cheer` espiando por cima da borda direita, selo `XpChipLight` só com `xpGain > 0`, justificativas, CONTINUAR (`success`). |
+| `wrong`   | "Quase lá!"     | ✕ vermelho | Sem Alex. Texto padrão `WRONG_MESSAGE`, TENTAR DE NOVO (`primary`) e VER RESPOSTA (`ghost`).                                    |
+| `review`  | "Vamos revisar" | olho azul  | Caixa `blue-lt` "RESPOSTA ESPERADA" (`expected`), justificativas e só CONTINUAR.                                                |
+
+- `result`: use `resultLine(n, m, pct)` ("Resultado: 2 de 3 itens · 67%"), só quando há mais de um item.
+- `error`: o texto de `messageFor(code)` da última ação, anunciado como alerta.
+- Sobe com mola; com "remover animações", aparece direto (a configuração é lida antes de animar).
+- Ao abrir e a cada tom, o título recebe o foco e o leitor anuncia título e Resultado (UX-DR135).
+- A folha não sabe de rede: a moldura troca por "SEM CONEXÃO" a ação que chama o servidor.
 
 ### `StatusBanner`
 
@@ -174,3 +190,5 @@ Textos do EXPERIENCE.md (Voice and Tone). Use estes; os que não estão aqui e s
 - O tom `quiet` da faixa usa `muted-strong`, não `muted`: sobre `canvas`, o `muted` fica abaixo de 4,5:1 (DESIGN.md, Colors).
 - O placeholder do campo usa `muted` (4,6:1), não `faint`.
 - O anel de foco é um `boxShadow` sem desfoque (`0 0 0 4px`), que não mexe no layout.
+- A folha de feedback não tem a sombra desfocada do `feedback-sheet` (o kit não usa sombra desfocada): uma borda de 2 dp em `line` a separa do conteúdo `[ASSUMPTION]`.
+- Na folha, Alex `cheer` tem 96 dp e o ícone do bloco tem 20 `[ASSUMPTION]`; o DESIGN.md não fixa as medidas. O ✓ vai em `ink` sobre o turquesa (AA).

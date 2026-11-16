@@ -171,6 +171,14 @@ export const size = {
   choiceLetter: 30,
   /** Cantos do topo da folha branca da boas-vindas (DESIGN.md, Shapes: 30–32 px; 32 como no protótipo). */
   welcomeSheetRadius: 32,
+  /** Bloco do ícone da folha de feedback (`feedback-sheet.iconTile`). */
+  sheetIconTile: 44,
+  /** Recuo da folha de feedback (`feedback-sheet.padding`: 20 20 18). */
+  sheetPaddingTop: 20,
+  sheetPaddingX: 20,
+  sheetPaddingBottom: 18,
+  /** Alex `cheer` espiando por cima da folha de Acerto [ASSUMPTION: 96; o DESIGN.md não fixa]. */
+  sheetAlex: 96,
 } as const;
 
 /** Altura da cena do Diálogo (DESIGN.md, Layout & Spacing): cerca de 46% da tela, entre 300 e 420 dp. */

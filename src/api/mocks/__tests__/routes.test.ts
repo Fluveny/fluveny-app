@@ -1,5 +1,5 @@
 import openapi from '../../openapi.json';
-import { MOCK_METHODS, mockRoutes } from '../routes';
+import { MOCK_METHODS, MockProblem, mockRoutes } from '../routes';
 
 type Schema = {
   $ref?: string;
@@ -108,15 +108,106 @@ describe('mocks da API', () => {
     expect(extra).toEqual([]);
   });
 
-  it('só trazem a visão do aluno, sem campos secretos', () => {
+  it('só trazem a visão do aluno, sem campos secretos', async () => {
     const secrets = secretFields();
-    const leaked = Object.entries(routes).flatMap(([path, operations]) =>
-      Object.entries(operations).flatMap(([method, resolve]) =>
-        [...keysOf(resolve?.(new Request(`http://mock${path}`)))]
-          .filter((key) => secrets.has(key))
-          .map((key) => `${method.toUpperCase()} ${path}: ${key}`),
-      ),
-    );
+    const leaked: string[] = [];
+    for (const [path, operations] of Object.entries(routes)) {
+      for (const [method, resolve] of Object.entries(operations)) {
+        if (path.startsWith('/api/v1/visitor/attempts')) continue;
+        for (const key of keysOf(await resolve?.(new Request(`http://mock${path}`)))) {
+          if (secrets.has(key)) leaked.push(`${method.toUpperCase()} ${path}: ${key}`);
+        }
+      }
+    }
     expect(leaked).toEqual([]);
+  });
+});
+
+const STAGE = mockRoutes['/api/v1/units/{unitKey}/stages/{stageKey}'].get(new Request('http://mock')).data;
+const THREE_ITEMS = STAGE.activities[0]!;
+
+/** Uma Tentativa da Atividade de 3 itens, com a opção `pick(item)` em cada um. */
+function attempt(pick: (item: (typeof THREE_ITEMS)['items'][number]) => string, activity = THREE_ITEMS) {
+  return {
+    attemptId: '6f1c2a4e-1b2c-4d3e-8f90-123456789abc',
+    versionId: STAGE.versionId,
+    activityKey: activity.activityKey,
+    type: 'choice',
+    answer: { type: 'choice', items: activity.items.map((item) => ({ itemKey: item.itemKey, optionKey: pick(item) })) },
+    studyTimeMs: 1000,
+  };
+}
+
+const send = (route: '/api/v1/visitor/attempts' | '/api/v1/visitor/attempts/reveal', body: unknown) =>
+  Promise.resolve(
+    mockRoutes[route].post(new Request(`http://mock${route}`, { method: 'POST', body: JSON.stringify(body) })),
+  ).then((response) => response.data);
+
+/** As chaves do Resultado, tirando só a exceção da API: `expected` e o `justification` do `ItemResult`. */
+function resultKeys(result: Record<string, unknown>): Set<string> {
+  const { expected: _expected, items, ...rest } = result;
+  const stripped = (items as Record<string, unknown>[]).map(({ justification: _justification, ...item }) => item);
+  return keysOf({ ...rest, items: stripped });
+}
+
+describe('corretor do mock', () => {
+  it('uma Escolha mockada tem 3 itens', () => {
+    expect(THREE_ITEMS.items).toHaveLength(3);
+  });
+
+  it('reveal: devolve expected e as justificativas, sem XP; fora da exceção, nada secreto', async () => {
+    const first = await send(
+      '/api/v1/visitor/attempts/reveal',
+      attempt((item) => item.options[0]!.optionKey),
+    );
+    expect(first.xpAwarded).toBe(0);
+    expect(first.expected?.items).toHaveLength(3);
+    expect(first.items.every((item) => item.justification !== undefined)).toBe(true);
+    const secrets = secretFields();
+    expect([...resultKeys(first)].filter((key) => secrets.has(key))).toEqual([]);
+  });
+
+  it('Acerto: 100, xp 10, expected e justificativas; Erro: n de m, xp proporcional, sem gabarito', async () => {
+    const revealed = await send(
+      '/api/v1/visitor/attempts/reveal',
+      attempt((item) => item.options[0]!.optionKey),
+    );
+    const right = new Map(revealed.expected!.items.map((item) => [item.itemKey, item.optionKey]));
+    const correct = await send(
+      '/api/v1/visitor/attempts',
+      attempt((item) => right.get(item.itemKey)!),
+    );
+    expect(correct).toMatchObject({ outcome: 'GRADED', resultPct: 100, xpAwarded: 10 });
+    expect(correct.expected).toBeDefined();
+    expect(correct.items.every((item) => item.correct && item.justification !== undefined)).toBe(true);
+    expect([...resultKeys(correct)].filter((key) => secretFields().has(key))).toEqual([]);
+
+    const wrongOf = (item: (typeof THREE_ITEMS)['items'][number]) =>
+      item.options.find((option) => option.optionKey !== right.get(item.itemKey))!.optionKey;
+    const [firstItem] = THREE_ITEMS.items;
+    const partial = await send(
+      '/api/v1/visitor/attempts',
+      attempt((item) => (item === firstItem ? wrongOf(item) : right.get(item.itemKey)!)),
+    );
+    expect(partial).toMatchObject({ resultPct: 67, xpAwarded: 7 });
+    expect(partial.expected).toBeUndefined();
+    expect(partial.items.some((item) => 'justification' in item)).toBe(false);
+    const secrets = secretFields();
+    expect([...keysOf(partial)].filter((key) => secrets.has(key))).toEqual([]);
+  });
+
+  it('resposta inválida é 400 INVALID_ANSWER; Atividade desconhecida, 404', async () => {
+    const valid = attempt((item) => item.options[0]!.optionKey);
+    const missing = { ...valid, answer: { ...valid.answer, items: valid.answer.items.slice(1) } };
+    await expect(send('/api/v1/visitor/attempts', missing)).rejects.toMatchObject({
+      status: 400,
+      code: 'INVALID_ANSWER',
+    });
+    await expect(send('/api/v1/visitor/attempts', { ...valid, activityKey: 'nope' })).rejects.toBeInstanceOf(
+      MockProblem,
+    );
+    await expect(send('/api/v1/visitor/attempts', { ...valid, activityKey: 'nope' })).rejects.toMatchObject({
+      status: 404,
+    });
   });
 });

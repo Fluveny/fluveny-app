@@ -100,6 +100,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/visitor/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Corrige a Tentativa. expected e as justificativas só voltam no Acerto (100%). */
+        post: operations["submitVisitorAttempt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visitor/attempts/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Ver resposta: corrige a mesma Tentativa e devolve o Resultado com expected e as justificativas, sem XP. */
+        post: operations["revealVisitorAttempt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -113,6 +147,13 @@ export interface components {
         ActivityTypeSupport: {
             sinceAppVersion?: string;
             type: string;
+        };
+        Answer: {
+            type: string;
+        } & components["schemas"]["ChoiceAnswer"];
+        ApiResponseAttemptResult: {
+            data: components["schemas"]["AttemptResult"];
+            message?: string;
         };
         ApiResponseListUnitListItemStudentView: {
             data: components["schemas"]["UnitListItemStudentView"][];
@@ -137,6 +178,26 @@ export interface components {
         ApiResponseUnitVersionPublication: {
             data: components["schemas"]["UnitVersionPublication"];
             message?: string;
+        };
+        Attempt: {
+            activityKey: string;
+            answer: components["schemas"]["Answer"];
+            /** Format: uuid */
+            attemptId: string;
+            /** Format: int64 */
+            studyTimeMs: number;
+            type: string;
+            versionId: string;
+        };
+        AttemptResult: {
+            expected?: components["schemas"]["Answer"];
+            items: components["schemas"]["ItemResult"][];
+            /** @enum {string} */
+            outcome: "GRADED" | "SKIPPED" | "VIEWED";
+            /** Format: int32 */
+            resultPct: number;
+            /** Format: int32 */
+            xpAwarded: number;
         };
         ChoiceActivity: {
             activityKey: string;
@@ -164,6 +225,18 @@ export interface components {
             /** Format: int32 */
             xp: number;
         };
+        ChoiceAnswer: {
+            items: components["schemas"]["ChoiceAnswerItem"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "choice";
+        };
+        ChoiceAnswerItem: {
+            itemKey: string;
+            optionKey: string;
+        };
         ChoiceItem: {
             correctOptionKey: string;
             itemKey: string;
@@ -183,6 +256,11 @@ export interface components {
         };
         /** @description Texto do conteúdo: uma string ou as variantes {he, she, they}. */
         ContentText: string | components["schemas"]["PronounVariants"];
+        ItemResult: {
+            correct: boolean;
+            itemKey: string;
+            justification?: components["schemas"]["ContentText"];
+        };
         MediaContent: {
             /** @enum {string} */
             kind: "image" | "video" | "audio";
@@ -429,6 +507,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseStageStudentView"];
+                };
+            };
+        };
+    };
+    submitVisitorAttempt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Attempt"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseAttemptResult"];
+                };
+            };
+        };
+    };
+    revealVisitorAttempt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Attempt"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseAttemptResult"];
                 };
             };
         };

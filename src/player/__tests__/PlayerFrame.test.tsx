@@ -2,12 +2,14 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react-n
 import { AccessibilityInfo, Animated, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import openapi from '../../api/openapi.json';
 import { styleOf } from '../../test-utils/kit';
 import { color, size } from '../../ui/tokens';
 import { ActivityTransition } from '../ActivityTransition';
 import { PendingActivity } from '../PendingActivity';
 import { CLOSE_LABEL, OFFLINE_LABEL, PlayerFrame, type PlayerFrameProps } from '../PlayerFrame';
 import { PENDING, registry, resolveActivity, type ActivityProps } from '../registry';
+import { ChoiceActivity } from '../types/ChoiceActivity';
 
 const METRICS = { frame: { x: 0, y: 0, width: 360, height: 640 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 
@@ -131,9 +133,31 @@ describe('ActivityTransition', () => {
 });
 
 describe('registry', () => {
-  it('nesta história, todo Tipo do contrato é PENDING e cai no cartão "em preparação"', () => {
-    expect(registry.choice).toBe(PENDING);
-    expect(resolveActivity('choice')).toBe(PendingActivity);
+  it('a Escolha (1.11) usa o componente do Vocab Mode', () => {
+    expect(registry.choice).toBe(ChoiceActivity);
+    expect(resolveActivity('choice')).toBe(ChoiceActivity);
+  });
+
+  it('todo `type` do ActivityStudentView do openapi.json está no registro', () => {
+    type Schema = { $ref?: string; oneOf?: Schema[]; discriminator?: { mapping?: Record<string, string> } };
+    const schemas = (
+      openapi as unknown as {
+        components: { schemas: Record<string, Schema & { properties?: Record<string, { enum?: string[] }> }> };
+      }
+    ).components.schemas;
+    const union = schemas.ActivityStudentView!;
+    const types = new Set(Object.keys(union.discriminator?.mapping ?? {}));
+    for (const variant of union.oneOf ?? []) {
+      const name = variant.$ref?.split('/').pop() ?? '';
+      for (const type of schemas[name]?.properties?.type?.enum ?? []) types.add(type);
+    }
+    expect(types.size).toBeGreaterThan(0);
+    const missing = [...types].filter((type) => !Object.prototype.hasOwnProperty.call(registry, type));
+    expect(missing).toEqual([]);
+  });
+
+  it('um Tipo PENDING cai no cartão "em preparação"', () => {
+    expect(resolveActivity('choice', { choice: PENDING })).toBe(PendingActivity);
   });
 
   it('Tipo desconhecido também cai no cartão, e um Tipo com componente usa o dele', () => {

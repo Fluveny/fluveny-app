@@ -9,7 +9,7 @@ import { useOnline } from '../../src/network/useOnline';
 import { captureError } from '../../src/observability/sentry';
 import { ActivityTransition } from '../../src/player/ActivityTransition';
 import { PlayerFooter, PlayerFrame, PlayerTop } from '../../src/player/PlayerFrame';
-import { resolveActivity, type ActivityResult, type FooterAction } from '../../src/player/registry';
+import { resolveActivity, type ActivityResult, type FooterAction, type SheetSpec } from '../../src/player/registry';
 import { useStage } from '../../src/player/useStage';
 import { renderPlain, toRenderContext } from '../../src/renderer';
 import { color, spacing, typography } from '../../src/ui/tokens';
@@ -29,7 +29,9 @@ function useLeave() {
 
 /**
  * Player do Estágio 1 do Visitante. Fechar (✕ ou voltar do Android) volta à
- * boas-vindas sem confirmação, e a Atividade em curso não é gravada.
+ * boas-vindas sem confirmação, e a Atividade em curso não é gravada. Com a
+ * folha de feedback aberta, o voltar também sai do player e não fecha a folha
+ * [ASSUMPTION: EXPERIENCE.md, o feedback pede uma decisão explícita].
  */
 export default function Player() {
   const leave = useLeave();
@@ -38,6 +40,7 @@ export default function Player() {
   const { stage, stageNumber, error, missingStage, loading, fetching, retry } = useStage();
   const [index, setIndex] = useState(0);
   const [footer, setFooter] = useState<FooterAction | null>(null);
+  const [sheet, setSheet] = useState<SheetSpec | null>(null);
 
   // O voltar do Android é o ✕.
   useEffect(() => {
@@ -79,6 +82,7 @@ export default function Player() {
         }
       }
       setFooter(null);
+      setSheet(null);
       if (position + 1 < total) setIndex(position + 1);
       else leave();
     },
@@ -116,6 +120,7 @@ export default function Player() {
       xp={visitor.xp}
       online={online}
       footer={footer}
+      sheet={sheet}
       onClose={leave}
       contentKey={current.activityKey}
     >
@@ -124,7 +129,9 @@ export default function Player() {
         {createElement(resolveActivity(current.type), {
           key: current.activityKey,
           activity: current,
+          versionId: stage.versionId,
           setFooter,
+          setSheet,
           advance: onAdvance,
         })}
       </ActivityTransition>
