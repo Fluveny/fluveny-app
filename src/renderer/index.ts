@@ -1,4 +1,5 @@
 export { format, type Run } from './format';
+export { renderLabel } from './label';
 export { RenderedText, type RenderedTextProps } from './RenderedText';
 export {
   chooseVariant,

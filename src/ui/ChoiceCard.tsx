@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Card } from './Card';
@@ -28,8 +29,13 @@ const BADGE: Record<ChoiceState, { background: string; border: string; label: st
 export type ChoiceCardProps = {
   /** Posição da alternativa, de 0 (A) a 3 (D). */
   index: number;
-  /** Texto da alternativa, em inglês. */
+  /** Texto da alternativa, em inglês, sem formatação: é o que o leitor de tela ouve. */
   label: string;
+  /**
+   * O texto desenhado, quando difere do rótulo: o `RenderedText` do conteúdo,
+   * com negrito e Variável do Aluno. Sem ele, desenha o `label`.
+   */
+  text?: ReactNode;
   state?: ChoiceState;
   /** Resposta travada (depois de Verificar): não dispara. */
   locked?: boolean;
@@ -41,7 +47,15 @@ export type ChoiceCardProps = {
  * Cartão de alternativa A–D: o `Card` tocável com a letra num selo. O leitor de
  * tela ouve a letra, o texto e o estado ("B, I'm from Brazil., errado").
  */
-export function ChoiceCard({ index, label, state = 'neutral', locked = false, onPress, testID }: ChoiceCardProps) {
+export function ChoiceCard({
+  index,
+  label,
+  text,
+  state = 'neutral',
+  locked = false,
+  onPress,
+  testID,
+}: ChoiceCardProps) {
   const letter = choiceLetter(index);
   const badge = BADGE[state];
   return (
@@ -58,7 +72,7 @@ export function ChoiceCard({ index, label, state = 'neutral', locked = false, on
             <Text style={[styles.letter, { color: badge.label }]}>{letter}</Text>
           </View>
         ) : null}
-        <Text style={[styles.text, state === 'wrong' ? styles.textWrong : null]}>{label}</Text>
+        <Text style={[styles.text, state === 'wrong' ? styles.textWrong : null]}>{text ?? label}</Text>
       </View>
     </Card>
   );

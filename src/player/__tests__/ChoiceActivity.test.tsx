@@ -2,7 +2,7 @@
 // com a API respondendo pelo corretor do mock.
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { useState } from 'react';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { messageFor, NETWORK_ERROR } from '../../api/errors';
@@ -136,6 +136,21 @@ describe('Escolha (Vocab Mode)', () => {
     expect(option(THREE, 0, 'B').props.accessibilityState).toMatchObject({ selected: false });
     await pick(THREE, 2, 'A');
     expect(button(CHECK_LABEL)).toBeEnabled();
+  });
+
+  it('alternativa com negrito: desenha o negrito e o rótulo do leitor sai sem os **', async () => {
+    const first = THREE.items[0]!;
+    const bold: ChoiceView = {
+      ...THREE,
+      items: [
+        { ...first, options: [{ ...first.options[0]!, text: '**Nice to meet you** too!' }, ...first.options.slice(1)] },
+      ],
+    };
+    await open(bold);
+    expect(label(bold, 0, 'A')).toBe('A, Nice to meet you too!');
+    expect(screen.queryByText(/\*\*/)).toBeNull();
+    const strong = screen.getByText('Nice to meet you');
+    expect(StyleSheet.flatten(strong.props.style)).toEqual(expect.objectContaining({ fontWeight: '800' }));
   });
 
   it('Acerto na primeira (3/3): folha turquesa, Alex, "+10", justificativas; CONTINUAR grava xp 10', async () => {

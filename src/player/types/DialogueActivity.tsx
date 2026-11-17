@@ -3,7 +3,7 @@ import { AccessibilityInfo, Platform, StyleSheet, Text, View } from 'react-nativ
 
 import { messageFor, UNKNOWN_ERROR } from '../../api/errors';
 import { captureError } from '../../observability/sentry';
-import { RenderedText, renderPlain, useRenderVars, type ContentText, type RenderContext } from '../../renderer';
+import { RenderedText, renderLabel, useRenderVars, type ContentText, type RenderContext } from '../../renderer';
 import { motion, SceneFrame, SpeechBubble, TextField, useReducedMotion, WordChip } from '../../ui';
 import { color, spacing, typography } from '../../ui/tokens';
 import { useVisitor } from '../../visitor/useVisitor';
@@ -33,7 +33,7 @@ export function validName(value: string): boolean {
 function plain(text: ContentText | undefined, { vars, pronoun }: RenderContext): string {
   if (text === undefined || text === null) return '';
   try {
-    return renderPlain(text, vars, pronoun);
+    return renderLabel(text, vars, pronoun);
   } catch (error) {
     captureError(error);
     return '';
