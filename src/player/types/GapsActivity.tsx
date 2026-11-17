@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Keyboard, StyleSheet, View } from 'react-native';
 
 import { captureError } from '../../observability/sentry';
 import { chooseVariant, RenderedText, tokenizeVariables, useRenderVars, type ContentText } from '../../renderer';
@@ -7,8 +7,8 @@ import { ModeTag } from '../../ui';
 import { color, spacing, typography } from '../../ui/tokens';
 import { fillLines, GapFill, type GapMark, type GapWord } from '../GapFill';
 import type { ActivityProps, ActivityView } from '../registry';
+import { stableShuffle } from '../shuffle';
 import { useEvaluation, type Answer, type AttemptResult } from '../useEvaluation';
-import { stableShuffle } from './MatchActivity';
 
 type GapsView = Extract<ActivityView, { type: 'gaps' }>;
 type GapsItem = GapsView['items'][number];
@@ -90,6 +90,11 @@ export function GapsActivity({ activity, versionId, setFooter, setSheet, advance
     onRetry,
     expectedLines,
   });
+
+  // A Tentativa saiu: o teclado das lacunas digitadas não fica por cima da folha.
+  useEffect(() => {
+    if (phase === 'checking' && mode === 'typed') Keyboard.dismiss();
+  }, [phase, mode]);
 
   const graded = phase !== 'answering' && phase !== 'checking';
   const marks = useMemo<(GapMark | null)[]>(

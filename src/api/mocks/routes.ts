@@ -85,9 +85,8 @@ const VERSION_ID = 'sha256:00000000000000000000000000000000000000000000000000000
 
 // Uma Unidade com um Estágio de um Diálogo, os Cartões, a Expressão Útil, três
 // Escolhas, o Associar, as duas Lacunas e a Fala (o player percorre 1 de 10 a
-// 10 de 10), e a Unit 2
-// "em breve" (sem Estágios). A primeira Escolha tem 3 itens (Resultado "n de 3
-// itens"); as outras, um só.
+// 10 de 10), e a Unit 2 "em breve" (sem Estágios). A primeira Escolha tem 3
+// itens (Resultado "n de 3 itens"); as outras, um só.
 const unit1 = { unitKey: 'unit-1', order: 1, title: 'Unit 1', comingSoon: false, versionId: VERSION_ID };
 const unit2 = {
   unitKey: 'unit-2',

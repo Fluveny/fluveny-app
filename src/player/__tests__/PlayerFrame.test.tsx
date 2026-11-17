@@ -247,6 +247,65 @@ describe('campo focado acima do teclado (1.17)', () => {
       restore();
     }
   });
+
+  /** A moldura com a sonda do `reveal`, na Atividade `contentKey`. */
+  function probed(contentKey: string, onReveal: (reveal: RevealField) => void) {
+    function Probe() {
+      onReveal(useRevealField());
+      return null;
+    }
+    return (
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <PlayerFrame
+          stageNumber={1}
+          stageTitle="Meet & Greet"
+          position={1}
+          total={2}
+          xp={0}
+          online
+          footer={null}
+          onClose={jest.fn()}
+          contentKey={contentKey}
+        >
+          <Probe />
+        </PlayerFrame>
+      </SafeAreaProvider>
+    );
+  }
+
+  it('a rolagem parte do deslocamento atual, e uma Atividade nova volta a base para 0', async () => {
+    const { listeners, scrollTo, restore } = withKeyboard();
+    jest.spyOn(TextInput.State, 'currentlyFocusedInput').mockReturnValue(null as never);
+    let reveal: RevealField = () => {};
+    const keep = (next: RevealField) => {
+      reveal = next;
+    };
+    try {
+      const view = await render(probed('a1', keep));
+      await act(async () => {
+        listeners.keyboardDidShow!({ endCoordinates: { screenY: 400 } });
+        await tick();
+      });
+      await fireEvent.scroll(screen.getByTestId('player-content'), {
+        nativeEvent: { contentOffset: { x: 0, y: 120 } },
+      });
+      await act(async () => {
+        reveal(field(450));
+        await tick();
+      });
+      const delta = 450 + 44 - (400 - 16);
+      expect(scrollTo).toHaveBeenLastCalledWith({ y: 120 + delta, animated: true });
+
+      await view.rerender(probed('a2', keep));
+      await act(async () => {
+        reveal(field(450));
+        await tick();
+      });
+      expect(scrollTo).toHaveBeenLastCalledWith({ y: delta, animated: true });
+    } finally {
+      restore();
+    }
+  });
 });
 
 describe('ActivityTransition', () => {

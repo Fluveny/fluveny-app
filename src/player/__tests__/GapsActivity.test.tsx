@@ -2,12 +2,14 @@
 // a API respondendo pelo corretor do mock.
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { useState } from 'react';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, Keyboard, ScrollView, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { mockResponse } from '../../api/mocks/handlers';
 import { mockRoutes, resetMockVisitorRecords } from '../../api/mocks/routes';
+import { ExpressionsProvider } from '../../renderer';
 import { EXPECTED_LABEL, FEEDBACK_TITLES } from '../../ui';
+import { color } from '../../ui/tokens';
 import { visitorStore } from '../../visitor/store';
 import { clearVisitorCache } from '../../visitor/useVisitor';
 import { fillLines, gapCount, placeWord, splitLine, wordsOf } from '../GapFill';
@@ -314,5 +316,129 @@ describe('Completar lacunas, digitado', () => {
     expect(screen.getByText("Hi Alex! I'm Ana.")).toBeTruthy();
     expect(screen.getByText('My name is Ana.')).toBeTruthy();
     expect(screen.queryByText(/\{name\}/)).toBeNull();
+  });
+});
+
+describe('Completar lacunas: leitor de tela, teclado e conteúdo', () => {
+  it('cada trecho entre lacunas é um só elemento, com o texto dele; a lacuna fica separada', async () => {
+    await open(TYPED);
+    const runs = screen.getAllByTestId(/^gap-fill-run-/);
+    expect(runs.map(label)).toEqual(['Hi Alex!', 'Ana.', 'My name is', '.']);
+    for (const run of runs) expect(run.props.accessible).toBe(true);
+    expect(label(gap(0))).toBe('Lacuna 1, vazia');
+    // As palavras não são elementos próprios: só o trecho é lido.
+    expect(screen.getByText('Hi ').props.accessibilityLabel).toBeUndefined();
+  });
+
+  it('digitado: VERIFICAR fecha o teclado antes da folha', async () => {
+    const dismiss = jest.spyOn(Keyboard, 'dismiss');
+    await open(TYPED);
+    await fireEvent.changeText(gap(0), "I'm");
+    await fireEvent.changeText(gap(1), 'Ana');
+    expect(dismiss).not.toHaveBeenCalled();
+    await fireEvent.press(button(CHECK_LABEL));
+    expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
+    expect(dismiss).toHaveBeenCalled();
+  });
+
+  it('com o teclado aberto, o foco na 2ª lacuna a traz para cima do teclado', async () => {
+    const listeners: Record<string, (event?: unknown) => void> = {};
+    jest.spyOn(Keyboard, 'addListener').mockImplementation(((event: string, handler: () => void) => {
+      listeners[event] = handler;
+      return { remove: jest.fn() };
+    }) as never);
+    const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(() => {});
+    jest.spyOn(ScrollView.prototype, 'scrollToEnd').mockImplementation(() => {});
+    scrollTo.mockClear();
+    jest.spyOn(TextInput.State, 'currentlyFocusedInput').mockReturnValue(null as never);
+    // A rolagem ocupa de 100 a 500 na janela; o teclado começa em 400; a 2ª lacuna está em 450.
+    const proto = ScrollView.prototype as unknown as { measureInWindow?: unknown };
+    const previous = proto.measureInWindow;
+    proto.measureInWindow = (callback: (x: number, y: number, w: number, h: number) => void) =>
+      callback(0, 100, 360, 400);
+    // O campo (o mock do TextInput) mede pela lacuna: a 2ª está em 450, atrás do teclado.
+    jest
+      .spyOn(TextInput.prototype as unknown as { measureInWindow: () => void }, 'measureInWindow')
+      .mockImplementation(function (
+        this: { props: { testID?: string } },
+        callback: (x: number, y: number, w: number, h: number) => void,
+      ) {
+        callback(0, this.props.testID === 'gap-fill-gap-1' ? 450 : 200, 128, 44);
+      } as never);
+    try {
+      await open(TYPED);
+      await act(async () => {
+        listeners.keyboardDidShow!({ endCoordinates: { screenY: 400 } });
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+      await act(async () => {
+        await fireEvent(gap(1), 'focus', {});
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+      expect(scrollTo).toHaveBeenCalledWith({ y: 450 + 44 - (400 - 16), animated: true });
+    } finally {
+      proto.measureInWindow = previous;
+    }
+  });
+
+  it('banco com {name} e palavra com variantes: a Tentativa leva o token e a variante do pronome', async () => {
+    const synthetic = {
+      activityKey: 'gaps-synthetic',
+      type: 'gaps',
+      title: 'Complete',
+      mode: 'bank',
+      lines: ['My name is ___.', { he: 'He ___ here.', she: 'She ___ here.', they: 'They ___ here.' }],
+      items: [{ itemKey: 'synthetic-name' }, { itemKey: 'synthetic-be' }],
+      bank: [
+        { wordKey: 'name', text: '{name}' },
+        { wordKey: 'be', text: { he: 'is', she: 'is', they: 'are' } },
+        { wordKey: 'am', text: 'am' },
+      ],
+      xp: 4,
+    } as GapsView;
+    await visitorStore.setVariable('pronoun', 'she');
+    await open(synthetic);
+    // Na tela, o nome e a variante.
+    expect(label(word('name'))).toBe('Ana');
+    expect(label(word('be'))).toBe('is');
+    expect(screen.getByText('She ')).toBeTruthy();
+    await fireEvent.press(word('name'));
+    await fireEvent.press(word('be'));
+    expect(label(gap(0))).toBe('Lacuna 1: Ana');
+    await fireEvent.press(button(CHECK_LABEL));
+    await act(async () => {});
+    expect(bodies[0]).toMatchObject({
+      answer: {
+        type: 'gaps',
+        items: [
+          { itemKey: 'synthetic-name', value: '{name}' },
+          { itemKey: 'synthetic-be', value: 'is' },
+        ],
+      },
+    });
+    expect(JSON.stringify(bodies[0])).not.toContain('Ana');
+  });
+
+  it('Expressão Útil na linha: destacada, mas o toque não abre a folha', async () => {
+    const expressive = {
+      ...TYPED,
+      activityKey: 'gaps-expressive',
+      lines: ['[[Nice to meet you|nice-to-meet-you]], ___!'],
+      items: [{ itemKey: 'expressive-name' }],
+    } as GapsView;
+    await visitorStore.setVariable('name', 'Ana');
+    const expressions = [
+      { expressionKey: 'nice-to-meet-you', term: 'Nice to meet you', meaning: 'Prazer.', examples: [] },
+    ];
+    await render(
+      <ExpressionsProvider expressions={expressions}>
+        <Harness activity={expressive} advance={jest.fn()} />
+      </ExpressionsProvider>,
+    );
+    const chunk = screen.getByTestId('expression-nice-to-meet-you');
+    expect(StyleSheet.flatten(chunk.props.style)).toEqual(expect.objectContaining({ color: color.blue }));
+    expect(chunk.props.onPress).toBeUndefined();
+    await fireEvent.press(chunk);
+    expect(screen.queryByTestId('expression-sheet')).toBeNull();
   });
 });

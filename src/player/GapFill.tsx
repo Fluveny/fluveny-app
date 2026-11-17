@@ -190,23 +190,34 @@ export function GapFill({
     const pieces = splitLine(variantOf(line, context.pronoun));
     return (
       <View key={lineIndex} style={styles.line} testID={`${testID}-line-${lineIndex}`}>
-        {pieces.map((piece, i) => (
-          <Fragment key={i}>
-            {i > 0 ? (
-              <>
-                {slot(next++)}
-                {/* O espaço depois da lacuna, quando o texto segue com um. */}
-                {/^\s/.test(piece) ? <Text style={styles.text}> </Text> : null}
-              </>
-            ) : null}
-            {wordsOf(piece).map((word, w) => (
-              // O toque no trecho de Expressão Útil não abre a folha no meio do preenchimento.
-              <ExpressionsInert key={w}>
-                <RenderedText style={styles.text} text={word} vars={context.vars} pronoun={context.pronoun} />
-              </ExpressionsInert>
-            ))}
-          </Fragment>
-        ))}
+        {pieces.map((piece, i) => {
+          const words = wordsOf(piece);
+          // O espaço depois da lacuna, quando o texto segue com um.
+          const lead = i > 0 && /^\s/.test(piece);
+          return (
+            <Fragment key={i}>
+              {i > 0 ? slot(next++) : null}
+              {words.length > 0 || lead ? (
+                // Cada trecho entre lacunas é um só elemento para o leitor de tela: a frase
+                // não sai palavra por palavra. As palavras seguem soltas para quebrar linha.
+                <View
+                  accessible={words.length > 0}
+                  accessibilityLabel={words.length > 0 ? labelOf(piece.trim()) : undefined}
+                  style={styles.run}
+                  testID={`${testID}-run-${lineIndex}-${i}`}
+                >
+                  {lead ? <Text style={styles.text}> </Text> : null}
+                  {words.map((word, w) => (
+                    // O toque no trecho de Expressão Útil não abre a folha no meio do preenchimento.
+                    <ExpressionsInert key={w}>
+                      <RenderedText style={styles.text} text={word} vars={context.vars} pronoun={context.pronoun} />
+                    </ExpressionsInert>
+                  ))}
+                </View>
+              ) : null}
+            </Fragment>
+          );
+        })}
       </View>
     );
   });
@@ -243,5 +254,6 @@ const styles = StyleSheet.create({
   lines: { gap: spacing[3] },
   line: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', rowGap: spacing[2] },
   text: { ...typography.reading, color: color.ink },
+  run: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', flexShrink: 1, maxWidth: '100%' },
   bank: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
 });

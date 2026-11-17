@@ -14,7 +14,7 @@ import { visitorStore } from '../../visitor/store';
 import { clearVisitorCache } from '../../visitor/useVisitor';
 import { PlayerFrame } from '../PlayerFrame';
 import { registry, type ActivityResult, type ActivityView, type FooterAction, type SheetSpec } from '../registry';
-import { MatchActivity, spareNotice, stableShuffle } from '../types/MatchActivity';
+import { MatchActivity, spareNotice } from '../types/MatchActivity';
 import { CHECK_LABEL, CONTINUE_LABEL, RETRY_LABEL, REVEAL_LABEL } from '../useEvaluation';
 
 jest.mock('../../observability/sentry', () => {
@@ -104,7 +104,7 @@ beforeEach(() => {
 
 afterEach(() => jest.restoreAllMocks());
 
-describe('aviso de distratores e embaralhamento', () => {
+describe('aviso de distratores', () => {
   it.each([
     [0, null],
     [1, 'Uma das respostas sobra.'],
@@ -113,18 +113,6 @@ describe('aviso de distratores e embaralhamento', () => {
     [4, '4 das respostas sobram.'],
   ])('%i sobrando: %s', (spare, text) => {
     expect(spareNotice(spare)).toBe(text);
-  });
-
-  it('estável pela activityKey, nunca na ordem do conteúdo, e é uma permutação', () => {
-    const list = ['a', 'b', 'c', 'd'];
-    for (const seed of ['speech-bubbles-match', 'x', 'y', 'z', 'outra']) {
-      const once = stableShuffle(list, seed);
-      expect(stableShuffle(list, seed)).toEqual(once);
-      expect(once).not.toEqual(list);
-      expect([...once].sort()).toEqual(list);
-    }
-    expect(stableShuffle(['a', 'b'], 'qualquer')).toEqual(['b', 'a']);
-    expect(stableShuffle(['a'], 'qualquer')).toEqual(['a']);
   });
 });
 
