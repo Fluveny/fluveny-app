@@ -75,8 +75,8 @@ export function problemBody(problem: MockProblem) {
 
 const VERSION_ID = 'sha256:0000000000000000000000000000000000000000000000000000000000000001';
 
-// Uma Unidade com um Estágio de um Diálogo, os Cartões, a Expressão Útil e três
-// Escolhas (o player percorre 1 de 6 a 6 de 6), e a Unit 2 "em breve" (sem Estágios). A primeira Escolha
+// Uma Unidade com um Estágio de um Diálogo, os Cartões, a Expressão Útil, três
+// Escolhas e a Fala (o player percorre 1 de 7 a 7 de 7), e a Unit 2 "em breve" (sem Estágios). A primeira Escolha
 // tem 3 itens (Resultado "n de 3 itens"); as outras, um só.
 const unit1 = { unitKey: 'unit-1', order: 1, title: 'Unit 1', comingSoon: false, versionId: VERSION_ID };
 const unit2 = {
@@ -92,7 +92,8 @@ type ChoiceView = components['schemas']['ChoiceActivityStudentView'];
 type DialogueView = components['schemas']['DialogueActivityStudentView'];
 type CardsView = components['schemas']['CardsActivityStudentView'];
 type ExpressionView = components['schemas']['ExpressionActivityStudentView'];
-type ActivityView = ChoiceView | DialogueView | CardsView | ExpressionView;
+type SpeechView = components['schemas']['SpeechActivityStudentView'];
+type ActivityView = ChoiceView | DialogueView | CardsView | ExpressionView | SpeechView;
 type UsefulExpression = components['schemas']['UsefulExpressionStudentView'];
 type AttemptResult = components['schemas']['AttemptResult'];
 type CompletionResult = components['schemas']['CompletionResult'];
@@ -219,7 +220,67 @@ const ALLOWED_COMPLETION: Partial<Record<ActivityView['type'], string>> = {
   dialogue: 'VIEWED',
   cards: 'VIEWED',
   expression: 'VIEWED',
+  speech: 'SKIPPED',
 };
+
+/** Gabarito da Fala no mock: as formas aceitas (alvo e alternativas) e o XP. */
+const speechKey = new Map<string, { xp: number; target: string; forms: string[] }>();
+
+function speech(
+  activityKey: string,
+  title: string,
+  prompt: string,
+  target: string,
+  alternatives: string[],
+): SpeechView {
+  const xp = 10;
+  speechKey.set(activityKey, { xp, target, forms: [target, ...alternatives] });
+  return { activityKey, type: 'speech', title, prompt, target, xp };
+}
+
+/** As contrações mais comuns, expandidas dos dois lados (a lista da API é maior). */
+const CONTRACTIONS: Record<string, string> = {
+  "i'm": 'i am',
+  "you're": 'you are',
+  "it's": 'it is',
+  "name's": 'name is',
+  "what's": 'what is',
+  "that's": 'that is',
+};
+
+/** As palavras que contam: sem placeholder, minúsculas, sem pontuação, contrações expandidas. */
+function speechWords(text: string): string[] {
+  return text
+    .replace(/\{[^{}\s]+\}/g, ' ')
+    .toLowerCase()
+    .replace(/[‘’`´]/g, "'")
+    .replace(/[^\p{L}\p{N}']+/gu, ' ')
+    .trim()
+    .split(/ +/)
+    .flatMap((word) => (CONTRACTIONS[word] ?? word).split(' '))
+    .map((word) => word.replace(/'/g, ''))
+    .filter(Boolean);
+}
+
+/** Acerto com ao menos 80% das palavras de alguma forma, em qualquer ordem (multiconjunto). */
+function speechMatches(transcript: string, forms: string[]): boolean {
+  const said = new Map<string, number>();
+  for (const word of speechWords(transcript)) said.set(word, (said.get(word) ?? 0) + 1);
+  return forms.some((form) => {
+    const expected = speechWords(form);
+    if (expected.length === 0) return false;
+    const counts = new Map<string, number>();
+    for (const word of expected) counts.set(word, (counts.get(word) ?? 0) + 1);
+    let found = 0;
+    for (const [word, count] of counts) found += Math.min(count, said.get(word) ?? 0);
+    return found * 5 >= expected.length * 4;
+  });
+}
+
+/** A Fala (1.15) que fecha o Estágio, com o alvo da API (`s1-your-turn`). */
+const yourTurn = speech('your-turn-speech', "It's your turn", 'Se apresente para o Alex.', "Hi Alex, I'm {name}.", [
+  'Hello Alex, my name is {name}.',
+]);
 
 const stage1Activities: ActivityView[] = [
   meetAlex,
@@ -282,6 +343,7 @@ const stage1Activities: ActivityView[] = [
       justification: 'Answer with **Nice to meet you too!**',
     },
   ]),
+  yourTurn,
 ];
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -341,11 +403,13 @@ async function gradeAttempt(request: Request, reveal: boolean): Promise<{ data: 
     deviceId?: unknown;
     activityKey?: unknown;
     type?: unknown;
-    answer?: { type?: unknown; items?: unknown };
+    answer?: { type?: unknown; items?: unknown; transcript?: unknown };
   } | null;
   const key = typeof body?.activityKey === 'string' ? answerKey.get(body.activityKey) : undefined;
   if (!body || typeof body.activityKey !== 'string') throw new MockProblem(400, 'VALIDATION_FAILED');
   const deviceId = deviceIdOf(body.deviceId);
+  const spoken = speechKey.get(body.activityKey);
+  if (spoken) return gradeSpeech(body, deviceId, spoken, reveal);
   if (!key) throw new MockProblem(404, 'NOT_FOUND');
   const answers = body.answer?.items;
   if (body.type !== 'choice' || body.answer?.type !== 'choice' || !Array.isArray(answers)) {
@@ -388,6 +452,46 @@ async function gradeAttempt(request: Request, reveal: boolean): Promise<{ data: 
             },
           }
         : {}),
+    },
+  };
+}
+
+/**
+ * A Fala no corretor do mock, como o `Grader.speech` da API: tudo ou nada, um
+ * item (a `activityKey`), transcrição em branco ou acima de 500 caracteres é
+ * `400 INVALID_ANSWER`. O `expected` é o alvo cru, e vem sempre (o da API também).
+ */
+function gradeSpeech(
+  body: {
+    attemptId?: unknown;
+    activityKey?: unknown;
+    type?: unknown;
+    answer?: { type?: unknown; transcript?: unknown };
+  },
+  deviceId: string | undefined,
+  key: { xp: number; target: string; forms: string[] },
+  reveal: boolean,
+): { data: AttemptResult } {
+  const activityKey = body.activityKey as string;
+  const transcript = body.answer?.transcript;
+  if (body.type !== 'speech' || body.answer?.type !== 'speech' || typeof transcript !== 'string') {
+    throw new MockProblem(400, 'INVALID_ANSWER');
+  }
+  if (!transcript.trim() || [...transcript].length > 500) throw new MockProblem(400, 'INVALID_ANSWER');
+  if (reveal && (!deviceId || !firstRecords.has(`${deviceId}|${activityKey}`))) {
+    throw new MockProblem(409, 'ATTEMPT_REQUIRED');
+  }
+  const right = speechMatches(transcript, key.forms);
+  const resultPct = right ? 100 : 0;
+  const receipt = reveal ? undefined : receiptFor(deviceId, activityKey, body.attemptId, 'GRADED', resultPct);
+  return {
+    data: {
+      ...(receipt ? { receipt } : {}),
+      outcome: 'GRADED',
+      resultPct,
+      xpAwarded: reveal || !right ? 0 : key.xp,
+      items: [{ itemKey: activityKey, correct: right }],
+      expected: { type: 'speech', transcript: key.target },
     },
   };
 }

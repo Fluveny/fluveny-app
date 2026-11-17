@@ -3,7 +3,8 @@
 // - `device`: uma linha só, com o `deviceId` (UUID v4 do expo-crypto);
 // - `variables`: chave/valor das Variáveis do Aluno (nome, país, pronome…);
 // - `progress`: a primeira conclusão de cada Atividade (`activityKey`, `outcome`, `xp`);
-// - `receipts`: o primeiro recibo opaco da API por Atividade (1.12).
+// - `receipts`: o primeiro recibo opaco da API por Atividade (1.12);
+// - `seen`: os avisos já vistos no aparelho (o de privacidade do microfone, 1.15).
 // Tabela nova entra com `IF NOT EXISTS`: um banco antigo a ganha na abertura.
 import { randomUUID } from 'expo-crypto';
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
@@ -14,11 +15,12 @@ import {
   safeXp,
   type ProgressEntry,
   type ReceiptEntry,
+  type SeenKey,
   type VariableKey,
   type VisitorStore,
 } from './types';
 
-export type { Outcome, ProgressEntry, Pronoun, ReceiptEntry, VariableKey, VisitorStore } from './types';
+export type { Outcome, ProgressEntry, Pronoun, ReceiptEntry, SeenKey, VariableKey, VisitorStore } from './types';
 
 /** Arquivo do banco no aparelho. */
 export const VISITOR_DB = 'visitor.db';
@@ -44,6 +46,10 @@ CREATE TABLE IF NOT EXISTS progress (
 CREATE TABLE IF NOT EXISTS receipts (
   activity_key TEXT PRIMARY KEY NOT NULL,
   receipt TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS seen (
+  key TEXT PRIMARY KEY NOT NULL,
   created_at INTEGER NOT NULL
 );
 `;
@@ -132,6 +138,15 @@ export function createVisitorStore(
         'SELECT activity_key, receipt FROM receipts ORDER BY rowid',
       );
       return rows.map((row): ReceiptEntry => ({ activityKey: row.activity_key, receipt: row.receipt }));
+    },
+    async seen(key: SeenKey) {
+      const database = await db();
+      const row = await database.getFirstAsync<{ key: string }>('SELECT key FROM seen WHERE key = ?', key);
+      return row !== null && row !== undefined;
+    },
+    async markSeen(key: SeenKey) {
+      const database = await db();
+      await database.runAsync('INSERT OR IGNORE INTO seen (key, created_at) VALUES (?, ?)', key, Date.now());
     },
     subscribe: emitter.subscribe,
   };

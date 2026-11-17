@@ -50,8 +50,20 @@ type State = {
 const INITIAL: State = { phase: 'answering', result: null, error: null, attempts: 0, firstXp: null, lastAnswer: null };
 
 export type EvaluationOptions = Pick<ActivityProps, 'activity' | 'versionId' | 'setFooter' | 'setSheet' | 'advance'> & {
-  /** A resposta completa, ou `null` enquanto falta item (VERIFICAR desabilitado). */
+  /**
+   * A resposta completa, ou `null` enquanto falta item (VERIFICAR desabilitado).
+   * Com `trigger: 'activity'`, a resposta vem no `check(answer)`.
+   */
   answer: Answer | null;
+  /**
+   * Quem dispara a Tentativa. `footer` (padrão): o VERIFICAR do rodapé.
+   * `activity`: a própria Atividade chama `check(answer)` (o microfone da Fala,
+   * 1.15) e cuida do rodapé enquanto o aluno responde; a falha do envio volta
+   * em `error`, e a folha de feedback segue com o `useEvaluation`.
+   */
+  trigger?: 'footer' | 'activity';
+  /** O que o aluno disse, para a folha: "A gente ouviu: “…”" (Fala). */
+  heard?: string | null;
   /** TENTAR DE NOVO: a Atividade mantém e trava os itens certos e limpa os errados. */
   onRetry: (result: AttemptResult) => void;
   /** As linhas da caixa "RESPOSTA ESPERADA", a partir do `expected` do servidor. */
@@ -122,6 +134,8 @@ export function useEvaluation({
   answer,
   onRetry,
   expectedLines,
+  trigger = 'footer',
+  heard = null,
   store = visitorStore,
 }: EvaluationOptions) {
   const [state, setState] = useState<State>(INITIAL);
@@ -160,34 +174,38 @@ export function useEvaluation({
     [activity.activityKey, activity.type, versionId, startedAt, store],
   );
 
-  const check = useCallback(async () => {
-    if (!answer || current.current.phase !== 'answering') return;
-    current.current = { ...current.current, phase: 'checking' };
-    setState((s) => ({ ...s, phase: 'checking', error: null }));
-    const key = JSON.stringify(answer);
-    if (pendingAttempt.current?.answer !== key) pendingAttempt.current = { answer: key, attemptId: randomUUID() };
-    const { attemptId } = pendingAttempt.current;
-    try {
-      const result = await send(ATTEMPT_PATH, answer, attemptId);
-      // Chegou um Resultado: o próximo VERIFICAR é outra Tentativa.
-      if (pendingAttempt.current?.attemptId === attemptId) pendingAttempt.current = null;
-      // O recibo é gravado antes da folha, e mesmo se o aluno já saiu: o ✕ não o perde.
-      await keepReceipt(store, activity.activityKey, result.receipt);
-      if (!alive.current) return;
-      setState((s) => ({
-        ...s,
-        phase: isHit(result) ? 'correct' : 'wrong',
-        result,
-        attempts: s.attempts + 1,
-        firstXp: s.firstXp ?? Math.max(0, result.xpAwarded),
-        lastAnswer: answer,
-      }));
-    } catch (error) {
-      if (!alive.current) return;
-      // A resposta destrava e VERIFICAR volta.
-      setState((s) => ({ ...s, phase: 'answering', error: codeOf(error) }));
-    }
-  }, [answer, send, store, activity.activityKey]);
+  const check = useCallback(
+    async (given?: Answer) => {
+      const sent = given ?? answer;
+      if (!sent || current.current.phase !== 'answering') return;
+      current.current = { ...current.current, phase: 'checking' };
+      setState((s) => ({ ...s, phase: 'checking', error: null }));
+      const key = JSON.stringify(sent);
+      if (pendingAttempt.current?.answer !== key) pendingAttempt.current = { answer: key, attemptId: randomUUID() };
+      const { attemptId } = pendingAttempt.current;
+      try {
+        const result = await send(ATTEMPT_PATH, sent, attemptId);
+        // Chegou um Resultado: o próximo VERIFICAR é outra Tentativa.
+        if (pendingAttempt.current?.attemptId === attemptId) pendingAttempt.current = null;
+        // O recibo é gravado antes da folha, e mesmo se o aluno já saiu: o ✕ não o perde.
+        await keepReceipt(store, activity.activityKey, result.receipt);
+        if (!alive.current) return;
+        setState((s) => ({
+          ...s,
+          phase: isHit(result) ? 'correct' : 'wrong',
+          result,
+          attempts: s.attempts + 1,
+          firstXp: s.firstXp ?? Math.max(0, result.xpAwarded),
+          lastAnswer: sent,
+        }));
+      } catch (error) {
+        if (!alive.current) return;
+        // A resposta destrava e VERIFICAR volta.
+        setState((s) => ({ ...s, phase: 'answering', error: codeOf(error) }));
+      }
+    },
+    [answer, send, store, activity.activityKey],
+  );
 
   const reveal = useCallback(async () => {
     const { phase, lastAnswer } = current.current;
@@ -232,6 +250,8 @@ export function useEvaluation({
   useEffect(() => {
     if (phase === 'answering' || phase === 'checking') {
       setSheet(null);
+      // Disparo pela Atividade: o rodapé é dela enquanto o aluno responde.
+      if (trigger === 'activity') return;
       setFooter({
         label: CHECK_LABEL,
         disabled: !answer,
@@ -242,7 +262,11 @@ export function useEvaluation({
       return;
     }
     if (!result) return;
-    const shared = { result: resultOf(result), ...(error ? { error: messageFor(error) } : {}) };
+    const shared = {
+      result: resultOf(result),
+      ...(error ? { error: messageFor(error) } : {}),
+      ...(heard ? { heard } : {}),
+    };
     let sheet: SheetSpec;
     if (phase === 'correct') {
       sheet = {
@@ -292,6 +316,8 @@ export function useEvaluation({
     expectedLines,
     setFooter,
     setSheet,
+    trigger,
+    heard,
   ]);
 
   return {
@@ -300,5 +326,11 @@ export function useEvaluation({
     locked: phase !== 'answering',
     /** O último Resultado (vazio depois de TENTAR DE NOVO). */
     result,
+    /** Tentativas corrigidas pelo servidor. */
+    attempts,
+    /** Manda a Tentativa (com `trigger: 'activity'`, a resposta vem aqui). */
+    check,
+    /** Código da última falha do envio, enquanto o aluno responde (para `messageFor`). */
+    error: phase === 'answering' ? error : null,
   };
 }

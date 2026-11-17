@@ -179,6 +179,12 @@ export const size = {
   sheetPaddingBottom: 18,
   /** Alex `cheer` espiando por cima da folha de Acerto [ASSUMPTION: 96; o DESIGN.md não fixa]. */
   sheetAlex: 96,
+  /** Microfone (`mic-button.size`) e os halos de fora e de dentro (DESIGN.md, Components: 226 e 176). */
+  mic: 132,
+  micHaloOuter: 226,
+  micHaloInner: 176,
+  /** Ícone dentro do microfone [ASSUMPTION: 52; o DESIGN.md não fixa]. */
+  micIcon: 52,
 } as const;
 
 /** Altura da cena do Diálogo (DESIGN.md, Layout & Spacing): cerca de 46% da tela, entre 300 e 420 dp. */

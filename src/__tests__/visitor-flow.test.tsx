@@ -24,6 +24,7 @@ import { CONTINUE_LABEL, PendingActivity, PENDING_TITLE } from '../player/Pendin
 import { NEXT_BLOCK_LABEL } from '../player/types/CardsActivity';
 import { ChoiceActivity } from '../player/types/ChoiceActivity';
 import { NAME_LABEL } from '../player/types/DialogueActivity';
+import { PRIVACY_OK_LABEL, SKIP_LABEL as SPEECH_SKIP } from '../player/types/SpeechActivity';
 import { PENDING, registry, type ActivityProps, type ActivityRegistry } from '../player/registry';
 import { OFFLINE_TEXT } from '../network/text';
 import { CLOSE_LABEL, OFFLINE_LABEL } from '../player/PlayerFrame';
@@ -485,7 +486,8 @@ describe('conclusão vista ou pulada (1.12)', () => {
   const finishing = (outcome: 'viewed' | 'skipped') =>
     function FinishingActivity({ activity, setFooter, advance }: ActivityProps) {
       useEffect(() => {
-        setFooter({ label: SKIP_LABEL, onPress: () => advance({ outcome, xp: 5 }) });
+        // `void`: o toque não espera a conclusão (um teste a segura no ar).
+        setFooter({ label: SKIP_LABEL, onPress: () => void advance({ outcome, xp: 5 }) });
       }, [setFooter, advance]);
       return <Text>{activity.activityKey}</Text>;
     };
@@ -744,13 +746,19 @@ describe('Expressões Úteis no player (1.14)', () => {
     await fireEvent.press(chunk);
     expect(screen.queryByTestId('expression-sheet')).toBeNull();
     await fireEvent.press(button(CONTINUE_SHEET));
+
+    // A Fala (1.15) fecha o Estágio: o aviso de privacidade, e "Não posso falar agora" pula.
+    expect(await screen.findByText(`7 DE ${FULL}`)).toBeTruthy();
+    expect(await screen.findByTestId('speech-privacy')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('speech-privacy-decline'));
     expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
 
-    // Os três expositivos passaram pela completions com VIEWED; todos têm recibo.
+    // Os três expositivos passaram pela completions com VIEWED, e a Fala com SKIPPED; todos têm recibo.
     expect(completions.map((body) => [body.activityKey, body.outcome])).toEqual([
       [dialogue!.activityKey, 'VIEWED'],
       [cards!.activityKey, 'VIEWED'],
       [expression!.activityKey, 'VIEWED'],
+      [MOCK_STAGE.activities.find((activity) => activity.type === 'speech')!.activityKey, 'SKIPPED'],
     ]);
     const receipts = await visitorStore.receipts();
     expect(receipts.map((entry) => entry.activityKey).sort()).toEqual(
@@ -762,5 +770,55 @@ describe('Expressões Úteis no player (1.14)', () => {
         { activityKey: expression!.activityKey, outcome: 'viewed', xp: 0 },
       ]),
     );
+  });
+});
+
+describe('Fala no player (1.15)', () => {
+  const SPEECH = MOCK_STAGE.activities.find((activity) => activity.type === 'speech')!;
+
+  beforeEach(() => {
+    servedStage = { ...MOCK_STAGE, activities: [SPEECH] };
+    global.__speech.reset();
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
+    jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it('o aviso aparece uma vez por aparelho; "Não posso falar agora" conclui com SKIPPED, recibo e xp 0', async () => {
+    await startTrying(1);
+    expect(await screen.findByTestId('speech-privacy')).toBeTruthy();
+    await fireEvent.press(button(PRIVACY_OK_LABEL));
+    await waitFor(() => expect(screen.queryByTestId('speech-privacy')).toBeNull());
+    await fireEvent.press(button(SPEECH_SKIP));
+    expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
+    expect(completions).toEqual([expect.objectContaining({ activityKey: SPEECH.activityKey, outcome: 'SKIPPED' })]);
+    expect(await visitorStore.receipts()).toEqual([{ activityKey: SPEECH.activityKey, receipt: expect.any(String) }]);
+    expect(await visitorStore.progress()).toEqual([{ activityKey: SPEECH.activityKey, outcome: 'skipped', xp: 0 }]);
+
+    // Na volta, sem o aviso.
+    await fireEvent.press(await screen.findByRole('button', { name: TRY_NOW }));
+    expect(await screen.findByText('1 DE 1')).toBeTruthy();
+    await act(async () => {});
+    expect(screen.queryByTestId('speech-privacy')).toBeNull();
+  });
+
+  it('falha ao pular no aviso: a folha fecha e o rodapé mostra messageFor(code)', async () => {
+    apiResponds({ completion: () => json({ code: NETWORK_ERROR }, 503) });
+    await startTrying(1);
+    await fireEvent.press(await screen.findByTestId('speech-privacy-decline'));
+    expect(await screen.findByText(messageFor(NETWORK_ERROR))).toBeTruthy();
+    expect(screen.queryByTestId('speech-privacy')).toBeNull();
+    expect(screen.getByText('1 DE 1')).toBeTruthy();
+    expect(await visitorStore.progress()).toEqual([]);
+  });
+
+  it('sem reconhecimento: o pular é o botão primário e conclui como pulada', async () => {
+    global.__speech.set({ available: false });
+    await startTrying(1);
+    await act(async () => {});
+    expect(screen.queryByTestId('speech-privacy')).toBeNull();
+    await fireEvent.press(button(SPEECH_SKIP));
+    expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
+    expect(await visitorStore.progress()).toEqual([{ activityKey: SPEECH.activityKey, outcome: 'skipped', xp: 0 }]);
   });
 });

@@ -10,11 +10,12 @@ import {
   safeXp,
   type ProgressEntry,
   type ReceiptEntry,
+  type SeenKey,
   type VariableKey,
   type VisitorStore,
 } from './types';
 
-export type { Outcome, ProgressEntry, Pronoun, ReceiptEntry, VariableKey, VisitorStore } from './types';
+export type { Outcome, ProgressEntry, Pronoun, ReceiptEntry, SeenKey, VariableKey, VisitorStore } from './types';
 
 /** Prefixo das chaves no `localStorage`. */
 export const VISITOR_PREFIX = 'fluveny:visitor:';
@@ -23,6 +24,8 @@ const VARIABLES = `${VISITOR_PREFIX}variables`;
 const PROGRESS = `${VISITOR_PREFIX}progress`;
 /** Os recibos da API (1.12): `[{activityKey, receipt, createdAt}]`. */
 export const RECEIPTS = `${VISITOR_PREFIX}receipts`;
+/** Os avisos já vistos no aparelho (1.15): `[key]`. */
+export const SEEN = `${VISITOR_PREFIX}seen`;
 
 type KeyValue = Pick<Storage, 'getItem' | 'setItem'>;
 
@@ -60,6 +63,10 @@ function asProgress(value: unknown): ProgressEntry[] {
     if (typeof activityKey !== 'string' || !isOutcome(outcome) || typeof xp !== 'number') return [];
     return [{ activityKey, outcome, xp: safeXp(xp) }];
   });
+}
+
+function asKeys(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
 type StoredReceipt = ReceiptEntry & { createdAt: number };
@@ -131,6 +138,14 @@ export function createVisitorStore(storage: KeyValue | undefined = defaultStorag
     },
     async receipts() {
       return asReceipts(readJson(read(RECEIPTS))).map(({ activityKey, receipt }) => ({ activityKey, receipt }));
+    },
+    async seen(key: SeenKey) {
+      return asKeys(readJson(read(SEEN))).includes(key);
+    },
+    async markSeen(key: SeenKey) {
+      const keys = asKeys(readJson(read(SEEN)));
+      if (keys.includes(key)) return;
+      write(SEEN, JSON.stringify([...keys, key]));
     },
     subscribe: emitter.subscribe,
   };

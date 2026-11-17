@@ -13,14 +13,17 @@ import {
   ExpressionCard,
   ExpressionSheet,
   FeedbackSheet,
+  MicButton,
   MODE_TAGS,
   resultLine,
   ModeTag,
+  NoticeSheet,
   ProgressBar,
   SceneFrame,
   SpeechBubble,
   StatusBanner,
   TextField,
+  TextLink,
   WordChip,
   XpChip,
   XpChipLight,
@@ -30,6 +33,7 @@ import {
   type StatusBannerTone,
   type WordChipState,
 } from '../src/ui';
+import { privacyText } from '../src/player/speechPrivacy';
 import { color, size, spacing, typography } from '../src/ui/tokens';
 
 const VARIANTS: ButtonVariant[] = ['primary', 'ghost', 'success', 'danger', 'reward', 'disabled'];
@@ -74,6 +78,8 @@ function KitCatalog() {
   const [pick, setPick] = useState<number | null>(null);
   const [name, setName] = useState('');
   const [dictionary, setDictionary] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [notice, setNotice] = useState(false);
   const progress = PROGRESS_STEPS[step % PROGRESS_STEPS.length] ?? 0;
 
   return (
@@ -222,6 +228,23 @@ function KitCatalog() {
           <ExpressionCard expression={EXPRESSION} testID="kit-expression-card" />
           <Button label="Abrir a folha" variant="ghost" small onPress={() => setDictionary(true)} />
           <ExpressionSheet expression={dictionary ? EXPRESSION : null} onClose={() => setDictionary(false)} />
+        </Section>
+
+        <Section title="MICROFONE">
+          <MicButton listening={listening} onPress={() => setListening((value) => !value)} testID="kit-mic" />
+          <MicButton disabled testID="kit-mic-off" />
+          <TextLink label="Não posso falar agora" caps onPress={() => setNotice(true)} testID="kit-link-caps" />
+          <TextLink label="Permitir microfone" onPress={() => {}} testID="kit-link" />
+          <NoticeSheet
+            open={notice}
+            text={privacyText()}
+            confirmLabel="ENTENDI"
+            onConfirm={() => setNotice(false)}
+            declineLabel="Não posso falar agora"
+            onDecline={() => setNotice(false)}
+            onRequestClose={() => setNotice(false)}
+            testID="kit-notice"
+          />
         </Section>
 
         <Section title="FAIXAS DE ESTADO">

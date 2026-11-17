@@ -11,6 +11,9 @@ export type Pronoun = 'he' | 'she' | 'they';
 /** Chaves conhecidas das Variáveis do Aluno; o conteúdo pode criar outras. */
 export type VariableKey = 'name' | 'country' | 'pronoun' | (string & {});
 
+/** Avisos que aparecem uma vez por aparelho (`seen`/`markSeen`). */
+export type SeenKey = 'speech-privacy' | (string & {});
+
 /**
  * Como a Atividade terminou. `completed`: verificada; `viewed`: vista, sem
  * correção; `skipped`: pulada ("Não posso falar agora"). `viewed` e `skipped`
@@ -50,6 +53,13 @@ export type VisitorStore = {
   recordReceipt(activityKey: string, receipt: string): Promise<void>;
   /** Os recibos guardados, na ordem em que chegaram. */
   receipts(): Promise<ReceiptEntry[]>;
+  /**
+   * Se o aviso `key` já foi visto neste aparelho (o de privacidade do
+   * microfone, 1.15). É um flag da loja, não uma Variável do Aluno.
+   */
+  seen(key: SeenKey): Promise<boolean>;
+  /** Marca o aviso `key` como visto; fica para sempre no aparelho. */
+  markSeen(key: SeenKey): Promise<void>;
   /** Avisa quando variáveis ou Progresso mudam. Devolve a função que cancela. */
   subscribe(listener: () => void): () => void;
 };

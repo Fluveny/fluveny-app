@@ -109,6 +109,10 @@ describe('tokens vs. DESIGN.md (design.yaml)', () => {
       sheetPaddingX: sheetX,
       sheetPaddingBottom: sheetBottom,
       sheetAlex: 96, // [ASSUMPTION] Alex espiando a folha de Acerto
+      mic: px(c['mic-button'].size),
+      micHaloOuter: 226, // DESIGN.md, Components: halos de 226 e 176 px
+      micHaloInner: 176,
+      micIcon: 52, // [ASSUMPTION] ícone do microfone
     });
     expect(size.avatar).toBeGreaterThanOrEqual(58);
     expect(size.avatar).toBeLessThanOrEqual(64);

@@ -28,13 +28,25 @@ export {
 } from './FeedbackSheet';
 export { Icon, type IconName } from './icons';
 export { Logo } from './Logo';
+export {
+  MIC_IDLE_CAPTION,
+  MIC_LABEL,
+  MIC_LISTENING_CAPTION,
+  MIC_STOP_LABEL,
+  MIC_UNAVAILABLE_CAPTION,
+  MicButton,
+  type MicButtonProps,
+} from './MicButton';
 export { MODE_TAGS, ModeTag, type ModeTagLabel } from './ModeTag';
+export { NoticeSheet, type NoticeSheetProps } from './NoticeSheet';
 export { motion, useReducedMotion } from './motion';
 export { edgeStyle, Pressable3D, touchSlop, type Pressable3DProps } from './Pressable3D';
 export { clampProgress, ProgressBar } from './ProgressBar';
+export { SheetModal, type SheetModalProps } from './SheetModal';
 export { SceneFrame, sceneHeight, type SceneFrameProps } from './SceneFrame';
 export { SpeechBubble, type SpeechBubbleProps, type SpeechBubbleTail } from './SpeechBubble';
 export { STATUS_BANNER_TONES, StatusBanner, type StatusBannerProps, type StatusBannerTone } from './StatusBanner';
+export { TextLink, type TextLinkProps } from './TextLink';
 export { FOCUS_RING, TextField, type TextFieldProps } from './TextField';
 export { WORD_CHIP_STATES, WordChip, type WordChipProps, type WordChipState } from './WordChip';
 export { XpChip, XpChipLight, xpGainLabel, xpLabel } from './XpChip';

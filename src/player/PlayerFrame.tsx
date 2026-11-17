@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { OFFLINE_TEXT } from '../network/text';
-import { Button, Icon, Pressable3D, ProgressBar, StatusBanner, XpChip } from '../ui';
+import { Button, Icon, Pressable3D, ProgressBar, StatusBanner, TextLink, XpChip } from '../ui';
 import { color, size, spacing, typography } from '../ui/tokens';
 import { PlayerSheet } from './PlayerSheet';
 import type { FooterAction, SheetSpec } from './registry';
@@ -74,7 +74,10 @@ export function PlayerTop({
   );
 }
 
-/** Rodapé fixo com o único botão primário. Sem rede, vira "SEM CONEXÃO" desabilitado. */
+/**
+ * Rodapé fixo com o único botão primário, ou com um link de texto (`variant:
+ * 'link'`). Sem rede, vira "SEM CONEXÃO" desabilitado.
+ */
 export function PlayerFooter({ footer, online }: { footer: FooterAction | null; online: boolean }) {
   if (!footer) return <View style={styles.footer} testID="player-footer" />;
   return (
@@ -84,7 +87,16 @@ export function PlayerFooter({ footer, online }: { footer: FooterAction | null; 
           {footer.message}
         </Text>
       ) : null}
-      {online ? (
+      {online && footer.variant === 'link' ? (
+        <TextLink
+          label={footer.label}
+          caps
+          disabled={footer.disabled}
+          busy={footer.busy}
+          onPress={footer.onPress}
+          testID="player-action"
+        />
+      ) : online ? (
         <Button
           label={footer.label}
           disabled={footer.disabled}

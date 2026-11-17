@@ -38,7 +38,7 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 
 ## Kit de UI
 
-- Telas usam as peças de `src/ui` (importe de `src/ui/index.ts`): `Button`, `Card`, `WordChip`, `XpChip`, `ProgressBar`, `ModeTag`, `SpeechBubble`, `SceneFrame`, `AlexAvatar`, `TextField`, `ChoiceCard`, `StatusBanner`, `ExpressionCard`, `ExpressionSheet`. Nada de estilo de botão, cartão ou chip solto numa tela nem `Pressable` com `solid()`/`sunk()` à mão; peça nova do kit usa `Pressable3D`. Regras, variantes e copy em `src/ui/README.md`; catálogo em `/kit` (só com `__DEV__`).
+- Telas usam as peças de `src/ui` (importe de `src/ui/index.ts`): `Button`, `Card`, `WordChip`, `XpChip`, `ProgressBar`, `ModeTag`, `SpeechBubble`, `SceneFrame`, `AlexAvatar`, `TextField`, `ChoiceCard`, `StatusBanner`, `ExpressionCard`, `ExpressionSheet`, `MicButton`, `TextLink`, `NoticeSheet`. Nada de estilo de botão, cartão ou chip solto numa tela nem `Pressable` com `solid()`/`sunk()` à mão; peça nova do kit usa `Pressable3D`. Regras, variantes e copy em `src/ui/README.md`; catálogo em `/kit` (só com `__DEV__`).
 
 ## Build do EAS só sob pedido
 
@@ -54,8 +54,15 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 - Recibos (1.12): o Resultado da Tentativa ou da conclusão pode trazer `receipt`, opaco. Ele é gravado na hora (`recordReceipt`, só o primeiro por `activityKey`), antes da folha, e o App nunca o decodifica nem o mostra. Um `attemptId` por resposta enviada: repetir depois de falha reaproveita o id; ele muda com outra resposta ou depois de um Resultado. O reveal tem o seu.
 - Atividade que termina com `advance({outcome: 'viewed' | 'skipped'})` passa pela rota `completions` (`src/player/completion.ts`) antes de avançar: recibo, depois Progresso com xp 0. Falha deixa a tela com `messageFor(code)`. O cartão PENDING avança sem registrar nada.
 - `src/network/useOnline.ts`: estado da rede (expo-network no nativo, `navigator.onLine` no web).
-- Dependências nativas: `expo-sqlite`, `expo-crypto`, `expo-network`. Nos testes, o `jest.setup.js` as simula (o `expo-sqlite` vira `node:sqlite` em memória).
+- Dependências nativas: `expo-sqlite`, `expo-crypto`, `expo-network`, `expo-speech-recognition` (1.15). Nos testes, o `jest.setup.js` as simula (o `expo-sqlite` vira `node:sqlite` em memória; o reconhecimento de fala é controlado por `global.__speech`).
 - Testing Library v14: `fireEvent` também é assíncrono. Sem `await`, os `act()` se sobrepõem e o próximo `renderRouter` do arquivo renderiza vazio.
+
+## Fala (1.15)
+
+- `SpeechActivity` usa o `useEvaluation` com `trigger: 'activity'`: o microfone chama `check(answer)` e a Atividade cuida do rodapé (o link "NÃO POSSO FALAR AGORA", primário com o microfone indisponível). `heard` põe "A gente ouviu: “…”" na folha.
+- `useSpeechRecognition` (`src/player`): `en-US`, sem gravar, só resultado final, no aparelho no Android quando suportado; 7 s sem ouvir som nem fala volta ao início; eventos de sessão abortada são descartados; sem o modelo en-US no aparelho, tenta de novo online. O módulo é requerido na primeira chamada: sem o nativo no APK, o microfone fica indisponível em vez de quebrar.
+- Antes de enviar, `tokenizeVariables` (`src/renderer/tokenize.ts`) troca `name` e `country` da transcrição pelos tokens (sem caixa nem acento, palavra inteira). Faz o possível: um nome ouvido com outra grafia ainda vai como veio. Quando o valor também é palavra literal da frase-alvo (nome "Alex"), as ocorrências que o alvo tem ficam e só as outras viram token.
+- O aviso de privacidade é o flag `seen('speech-privacy')`/`markSeen` da loja do Visitante (tabela `seen` no nativo, `fluveny:visitor:seen` no web), não uma Variável do Aluno.
 
 ## Renderizador do conteúdo (1.10)
 

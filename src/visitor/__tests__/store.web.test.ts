@@ -83,4 +83,17 @@ describe('loja do Visitante no web (localStorage)', () => {
     storage.setItem('fluveny:visitor:receipts', '[{"activityKey":1},"x"]');
     expect(await createWebStore(storage).receipts()).toEqual([]);
   });
+
+  it('aviso visto (1.15): na chave fluveny:visitor:seen, sobrevive a uma loja nova e ignora dado torto', async () => {
+    const storage = memoryStorage();
+    const store = createWebStore(storage);
+    expect(await store.seen('speech-privacy')).toBe(false);
+    await store.markSeen('speech-privacy');
+    await store.markSeen('speech-privacy');
+    expect(await createWebStore(storage).seen('speech-privacy')).toBe(true);
+    expect(JSON.parse(storage.getItem('fluveny:visitor:seen')!)).toEqual(['speech-privacy']);
+    expect(await store.variables()).toEqual({});
+    storage.setItem('fluveny:visitor:seen', '{"speech-privacy":true}');
+    expect(await createWebStore(storage).seen('speech-privacy')).toBe(false);
+  });
 });

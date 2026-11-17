@@ -109,7 +109,8 @@ export default function Player() {
     },
     [activity, position, total, leave, store, complete],
   );
-  const onAdvance = useCallback((result?: ActivityResult) => void advance(result), [advance]);
+  // A Atividade pode esperar o fim (a Fala trava o microfone enquanto o pular está no ar).
+  const onAdvance = useCallback((result?: ActivityResult) => advance(result), [advance]);
 
   // A conclusão em curso ou com falha aparece por cima da ação que a Atividade definiu.
   const shownFooter = useMemo<FooterAction | null>(() => {
