@@ -119,12 +119,15 @@ export function FeedbackSheet({
   }, [offset]);
 
   // O foco vai para o título, e o leitor anuncia título e Resultado (UX-DR135).
+  // No web, sem rolar: a folha ainda está SHEET_START abaixo, subindo com a mola, e o
+  // `focus()` puro faria o navegador rolar a tela inteira até ela (o conteúdo saltava).
   useEffect(() => {
     AccessibilityInfo.announceForAccessibility(announcement);
     const node = header.current;
     if (!node) return;
-    if (Platform.OS === 'web') (node as unknown as { focus?: () => void }).focus?.();
-    else AccessibilityInfo.sendAccessibilityEvent(node, 'focus');
+    if (Platform.OS === 'web') {
+      (node as unknown as { focus?: (options?: FocusOptions) => void }).focus?.({ preventScroll: true });
+    } else AccessibilityInfo.sendAccessibilityEvent(node, 'focus');
   }, [announcement]);
 
   return (
