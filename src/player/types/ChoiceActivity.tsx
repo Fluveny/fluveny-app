@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { captureError } from '../../observability/sentry';
-import { RenderedText, renderPlain, useRenderVars, type ContentText, type RenderContext } from '../../renderer';
+import { RenderedText, renderLabel, useRenderVars, type ContentText, type RenderContext } from '../../renderer';
 import { ChoiceCard, CHOICE_LETTERS, ModeTag, type ChoiceState } from '../../ui';
 import { color, spacing, typography } from '../../ui/tokens';
 import type { ActivityProps, ActivityView } from '../registry';
@@ -11,11 +11,11 @@ import { useEvaluation, type Answer, type AttemptResult } from '../useEvaluation
 type ChoiceView = Extract<ActivityView, { type: 'choice' }>;
 type ChoiceItem = ChoiceView['items'][number];
 
-/** Texto puro da alternativa (o `ChoiceCard` recebe string); conteúdo malformado vai ao Sentry. */
+/** Rótulo da alternativa para o leitor de tela, sem `**`; conteúdo malformado vai ao Sentry. */
 function plain(text: ContentText | undefined, { vars, pronoun }: RenderContext): string {
   if (text === undefined || text === null) return '';
   try {
-    return renderPlain(text, vars, pronoun);
+    return renderLabel(text, vars, pronoun);
   } catch (error) {
     captureError(error);
     return '';
@@ -118,6 +118,7 @@ export function ChoiceActivity({ activity, versionId, setFooter, setSheet, advan
                 key={option.optionKey}
                 index={index}
                 label={plain(option.text, context)}
+                text={<RenderedText text={option.text} vars={context.vars} pronoun={context.pronoun} />}
                 state={stateOf(item, option.optionKey)}
                 locked={locked || kept.has(item.itemKey)}
                 onPress={() => setChosen((previous) => ({ ...previous, [item.itemKey]: option.optionKey }))}

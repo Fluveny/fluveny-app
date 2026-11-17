@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { useState } from 'react';
+import { Text } from 'react-native';
 
 import { CARD_TONES } from '../Card';
 import { ChoiceCard, choiceLetter, type ChoiceState } from '../ChoiceCard';
@@ -26,6 +27,13 @@ function Choices() {
 }
 
 describe('ChoiceCard (alternativa A–D)', () => {
+  it('text: desenha o nó no lugar do label, e o leitor ouve o label', async () => {
+    await render(<ChoiceCard index={1} label="Nice to meet you!" text={<Text>formatado</Text>} onPress={() => {}} />);
+    expect(screen.getByText('formatado')).toBeTruthy();
+    expect(screen.queryByText('Nice to meet you!')).toBeNull();
+    expect(screen.getByRole('button').props.accessibilityLabel).toBe('B, Nice to meet you!');
+  });
+
   it('papel botão, letra no rótulo, área de toque ≥ 48 e texto sem corte', async () => {
     await render(<ChoiceCard index={0} label="I'm from Brazil." onPress={() => {}} />);
     const card = screen.getByRole('button', { name: "A, I'm from Brazil." });
