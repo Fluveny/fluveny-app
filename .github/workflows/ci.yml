@@ -160,7 +160,14 @@ jobs:
         env:
           ORIGIN: ${{ vars.FLUVENY_WEB_ORIGIN }}
         run: |
-          page="$(curl -s -o /dev/null -w '%{http_code}' --max-time 180 --retry 2 --retry-all-errors "$ORIGIN/" || true)"
+          # Um Worker recém-criado leva até alguns minutos para responder no workers.dev (404 até
+          # lá), e o --retry do curl não repete 404: espera até 3 min pela página.
+          page=""
+          for _ in $(seq 1 18); do
+            page="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$ORIGIN/" || true)"
+            [ "$page" = "200" ] && break
+            sleep 10
+          done
           if [ "$page" != "200" ]; then
             echo "::error::$ORIGIN/ respondeu $page (esperado 200)."
             exit 1
