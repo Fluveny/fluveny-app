@@ -23,6 +23,7 @@ export const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   PAYLOAD_TOO_LARGE: 'O envio ficou grande demais. Tente com menos conteúdo.',
   UNPROCESSABLE: 'Não deu para concluir isso agora. Tente de novo.',
   ATTEMPT_REQUIRED: 'Responda a Atividade antes de ver a resposta.',
+  COMPLETION_NOT_ALLOWED: 'Não deu para concluir esta Atividade assim. Volte e abra de novo.',
   TOO_MANY_REQUESTS: 'Muitas tentativas seguidas. Espere um pouco e tente de novo.',
   METHOD_NOT_ALLOWED: GENERIC_MESSAGE,
   NOT_ACCEPTABLE: GENERIC_MESSAGE,

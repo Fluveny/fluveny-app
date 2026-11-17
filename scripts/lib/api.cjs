@@ -16,6 +16,10 @@ const TYPES = join(ROOT, 'src/api/schema.d.ts');
 const VECTORS_PATH = 'content/schema/render-vectors.json';
 const VECTORS_COPY = join(ROOT, 'src/renderer/render-vectors.json');
 const VECTORS_LOCK = join(ROOT, 'src/renderer/render-vectors.lock');
+// Lista de países da pergunta `country` do Diálogo (1.13): copiada no mesmo sha do contrato.
+const COUNTRIES_PATH = 'content/schema/countries.json';
+const COUNTRIES_COPY = join(ROOT, 'src/player/countries.json');
+const COUNTRIES_LOCK = join(ROOT, 'src/player/countries.lock');
 
 // openapi-typescript 7.13 pede typescript ^5; o App usa o 6. O gerador fica
 // isolado em tools/openapi-types, com as versões presas no package-lock dele.
@@ -80,6 +84,11 @@ function vectorsAt(sha) {
   return fileAt(sha, VECTORS_PATH);
 }
 
+/** A lista de países no sha, como texto. */
+function countriesAt(sha) {
+  return fileAt(sha, COUNTRIES_PATH);
+}
+
 /** Caminho relativo à raiz, para as mensagens. */
 function relative(file) {
   return file.slice(ROOT.length + 1);
@@ -124,50 +133,68 @@ function readVectorsLock() {
   return readLockAt(VECTORS_LOCK, VECTORS_PATH);
 }
 
+function readCountriesLock() {
+  return readLockAt(COUNTRIES_LOCK, COUNTRIES_PATH);
+}
+
 /**
- * Conferências dos vetores de renderização (api:check): a cópia bate com o
- * lock, o lock está no sha do contrato e o arquivo da API nesse sha é o do
- * lock. Devolve as falhas (vazio quando confere). `lock` e `copy` vêm dos
- * arquivos; os testes passam outros.
+ * Conferências de um arquivo da API copiado com lock próprio (api:check): a
+ * cópia bate com o lock, o lock está no sha do contrato e o arquivo da API
+ * nesse sha é o do lock. Devolve as falhas (vazio quando confere). `lock` e
+ * `copy` vêm dos arquivos; os testes passam outros.
  */
-async function checkVectors(contractLock, overrides = {}) {
+async function checkLockedCopy(contractLock, { path, copyFile, lockFile }, overrides = {}) {
   const failures = [];
+  const copyName = relative(copyFile);
   let lock;
   try {
-    lock =
-      'lock' in overrides
-        ? validateLock(overrides.lock, { path: VECTORS_PATH, file: VECTORS_LOCK })
-        : readVectorsLock();
+    lock = 'lock' in overrides ? validateLock(overrides.lock, { path, file: lockFile }) : readLockAt(lockFile, path);
   } catch (error) {
     return [error.message];
   }
   let copy = overrides.copy;
   if (copy === undefined) {
-    copy = existsSync(VECTORS_COPY) ? readFileSync(VECTORS_COPY, 'utf8') : null;
+    copy = existsSync(copyFile) ? readFileSync(copyFile, 'utf8') : null;
   }
   if (copy === null) {
-    failures.push('src/renderer/render-vectors.json não existe. Rode `npm run api:sync`.');
+    failures.push(`${copyName} não existe. Rode \`npm run api:sync\`.`);
   } else if (sha256(copy) !== lock.sha256) {
-    failures.push(
-      'src/renderer/render-vectors.json não bate com o sha256 do lock. Não edite a cópia: rode `npm run api:sync`.',
-    );
+    failures.push(`${copyName} não bate com o sha256 do lock. Não edite a cópia: rode \`npm run api:sync\`.`);
   }
   if (lock.sha !== contractLock.sha) {
     failures.push(
-      `O lock dos vetores (${lock.sha.slice(0, 12)}) não está no sha do contrato (${contractLock.sha.slice(0, 12)}). Rode \`npm run api:sync ${contractLock.sha}\`.`,
+      `O lock de ${copyName} (${lock.sha.slice(0, 12)}) não está no sha do contrato (${contractLock.sha.slice(0, 12)}). Rode \`npm run api:sync ${contractLock.sha}\`.`,
     );
   }
   try {
-    const upstream = await vectorsAt(lock.sha);
+    const upstream = await fileAt(lock.sha, path);
     if (sha256(upstream) !== lock.sha256) {
       failures.push(
-        `Os vetores da API em ${lock.sha.slice(0, 12)} não são os do lock. Rode \`npm run api:sync ${lock.sha}\`.`,
+        `O ${path} da API em ${lock.sha.slice(0, 12)} não é o do lock. Rode \`npm run api:sync ${lock.sha}\`.`,
       );
     }
   } catch (error) {
     failures.push(error.message);
   }
   return failures;
+}
+
+/** Conferências dos vetores de renderização (AD-8). */
+function checkVectors(contractLock, overrides = {}) {
+  return checkLockedCopy(
+    contractLock,
+    { path: VECTORS_PATH, copyFile: VECTORS_COPY, lockFile: VECTORS_LOCK },
+    overrides,
+  );
+}
+
+/** Conferências da lista de países do Diálogo (1.13). */
+function checkCountries(contractLock, overrides = {}) {
+  return checkLockedCopy(
+    contractLock,
+    { path: COUNTRIES_PATH, copyFile: COUNTRIES_COPY, lockFile: COUNTRIES_LOCK },
+    overrides,
+  );
 }
 
 /** Gera os tipos de `input` em `output` com o openapi-typescript de tools/openapi-types. */
@@ -237,6 +264,9 @@ module.exports = {
   VECTORS_PATH,
   VECTORS_COPY,
   VECTORS_LOCK,
+  COUNTRIES_PATH,
+  COUNTRIES_COPY,
+  COUNTRIES_LOCK,
   OPENAPI_TYPESCRIPT_CLI,
   sha256,
   mainSha,
@@ -244,10 +274,13 @@ module.exports = {
   fileAt,
   contractAt,
   vectorsAt,
+  countriesAt,
   validateLock,
   readLock,
   readVectorsLock,
+  readCountriesLock,
   checkVectors,
+  checkCountries,
   generateTypes,
   withTempDir,
   typesFrom,

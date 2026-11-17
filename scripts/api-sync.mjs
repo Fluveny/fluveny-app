@@ -3,9 +3,10 @@
 // Copia o openapi/openapi.json da API num sha da `main` (padrão: a ponta da
 // `main`) para src/api/openapi.json, grava o lock (sha e sha256) e regenera
 // src/api/schema.d.ts. No mesmo sha, copia o content/schema/render-vectors.json
-// para src/renderer/render-vectors.json, com o lock dele (AD-8). É o único
+// para src/renderer/render-vectors.json, com o lock dele (AD-8), e o
+// content/schema/countries.json para src/player/countries.json (1.13). É o único
 // jeito de mudar esses arquivos (AD-11).
-// Atômico: baixa e gera os tipos numa pasta temporária; só então grava os cinco
+// Atômico: baixa e gera os tipos numa pasta temporária; só então grava os sete
 // arquivos como temporários na pasta de destino e os renomeia no fim (o rename
 // na mesma pasta não deixa arquivo pela metade).
 import { renameSync, rmSync, writeFileSync } from 'node:fs';
@@ -22,7 +23,11 @@ const {
   VECTORS_COPY,
   VECTORS_LOCK,
   VECTORS_PATH,
+  COUNTRIES_COPY,
+  COUNTRIES_LOCK,
+  COUNTRIES_PATH,
   contractAt,
+  countriesAt,
   mainSha,
   sha256,
   shaOnMain,
@@ -38,6 +43,8 @@ async function main() {
   JSON.parse(contract); // falha cedo se não for JSON
   const vectors = await vectorsAt(sha);
   JSON.parse(vectors);
+  const countries = await countriesAt(sha);
+  JSON.parse(countries);
 
   const types = withTempDir((dir) => {
     const copy = join(dir, 'openapi.json');
@@ -46,6 +53,7 @@ async function main() {
   });
   const lock = { repo: API_REPO, path: CONTRACT_PATH, sha, sha256: sha256(contract) };
   const vectorsLock = { repo: API_REPO, path: VECTORS_PATH, sha, sha256: sha256(vectors) };
+  const countriesLock = { repo: API_REPO, path: COUNTRIES_PATH, sha, sha256: sha256(countries) };
 
   const outputs = [
     [COPY, contract],
@@ -53,6 +61,8 @@ async function main() {
     [TYPES, types],
     [VECTORS_COPY, vectors],
     [VECTORS_LOCK, JSON.stringify(vectorsLock, null, 2) + '\n'],
+    [COUNTRIES_COPY, countries],
+    [COUNTRIES_LOCK, JSON.stringify(countriesLock, null, 2) + '\n'],
   ];
   const temps = outputs.map(([target]) => `${target}.${process.pid}.tmp`);
   try {
@@ -62,7 +72,7 @@ async function main() {
     for (const temp of temps) rmSync(temp, { force: true });
   }
   console.log(
-    `Contrato de ${API_REPO}@${sha.slice(0, 12)} copiado; tipos regenerados; vetores de renderização copiados.`,
+    `Contrato de ${API_REPO}@${sha.slice(0, 12)} copiado; tipos regenerados; vetores de renderização e países copiados.`,
   );
 }
 

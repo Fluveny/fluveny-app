@@ -1,15 +1,16 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
-import { AccessibilityInfo, Animated, Text } from 'react-native';
+import { AccessibilityInfo, Animated, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import openapi from '../../api/openapi.json';
 import { styleOf } from '../../test-utils/kit';
-import { color, size } from '../../ui/tokens';
+import { color, size, spacing } from '../../ui/tokens';
 import { ActivityTransition } from '../ActivityTransition';
 import { PendingActivity } from '../PendingActivity';
 import { CLOSE_LABEL, OFFLINE_LABEL, PlayerFrame, type PlayerFrameProps } from '../PlayerFrame';
 import { PENDING, registry, resolveActivity, type ActivityProps } from '../registry';
 import { ChoiceActivity } from '../types/ChoiceActivity';
+import { DialogueActivity } from '../types/DialogueActivity';
 
 const METRICS = { frame: { x: 0, y: 0, width: 360, height: 640 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 
@@ -43,6 +44,22 @@ beforeEach(() => {
 afterEach(() => jest.restoreAllMocks());
 
 describe('PlayerFrame', () => {
+  it('bleed: o conteúdo perde só o recuo lateral; sem ele, o recuo é o da tela', async () => {
+    const padding = () =>
+      StyleSheet.flatten(screen.getByTestId('player-content').props.contentContainerStyle) as {
+        padding?: number;
+        paddingHorizontal?: number;
+      };
+    const view = await render(frame());
+    expect(padding()).toMatchObject({ padding: spacing.screenX });
+    expect(padding().paddingHorizontal).toBeUndefined();
+    await view.rerender(frame({ bleed: true }));
+    expect(padding()).toMatchObject({ padding: spacing.screenX, paddingHorizontal: 0 });
+    // Topo e rodapé continuam.
+    expect(screen.getByTestId('player-top')).toBeTruthy();
+    expect(screen.getByTestId('player-footer')).toBeTruthy();
+  });
+
   it('Atividade incompleta: o rodapé fica desabilitado; topo e rodapé ficam fora da rolagem', async () => {
     await render(frame());
     expect(screen.getByRole('button', { name: 'VERIFICAR' })).toBeDisabled();
@@ -136,6 +153,13 @@ describe('registry', () => {
   it('a Escolha (1.11) usa o componente do Vocab Mode', () => {
     expect(registry.choice).toBe(ChoiceActivity);
     expect(resolveActivity('choice')).toBe(ChoiceActivity);
+  });
+
+  it('o Diálogo (1.13) usa o componente da cena, que pede a largura toda (bleed)', () => {
+    expect(registry.dialogue).toBe(DialogueActivity);
+    expect(resolveActivity('dialogue')).toBe(DialogueActivity);
+    expect(resolveActivity('dialogue').bleed).toBe(true);
+    expect(resolveActivity('choice').bleed).toBeUndefined();
   });
 
   it('todo `type` do ActivityStudentView do openapi.json está no registro', () => {

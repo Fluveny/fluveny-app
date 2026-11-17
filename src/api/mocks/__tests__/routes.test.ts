@@ -124,7 +124,7 @@ describe('mocks da API', () => {
                   attemptId: '6f1c2a4e-1b2c-4d3e-8f90-123456789abc',
                   deviceId: '0b6a3f0e-4c1d-4e2a-9b3c-5d6e7f809a1b',
                   versionId: 'v',
-                  activityKey: 'greeting-choice',
+                  activityKey: 'meet-alex-dialogue',
                   outcome: 'VIEWED',
                   studyTimeMs: 0,
                 }),
@@ -140,7 +140,11 @@ describe('mocks da API', () => {
 });
 
 const STAGE = mockRoutes['/api/v1/units/{unitKey}/stages/{stageKey}'].get(new Request('http://mock')).data;
-const THREE_ITEMS = STAGE.activities[0]!;
+type StageActivity = (typeof STAGE.activities)[number];
+type ChoiceView = Extract<StageActivity, { type: 'choice' }>;
+const CHOICES = STAGE.activities.filter((activity): activity is ChoiceView => activity.type === 'choice');
+const DIALOGUE = STAGE.activities.find((activity) => activity.type === 'dialogue')!;
+const THREE_ITEMS = CHOICES[0]!;
 
 /** Uma Tentativa da Atividade de 3 itens, com a opção `pick(item)` em cada um. */
 function attempt(
@@ -301,27 +305,53 @@ describe('recibos do mock (1.12)', () => {
     expect(revealed.receipt).toBeUndefined();
   });
 
-  it('completions: VIEWED/SKIPPED sem XP, recibo só na primeira, reenvio devolve o mesmo', async () => {
+  it('completions: VIEWED do Diálogo sem XP, recibo só na primeira, reenvio devolve o mesmo', async () => {
     const attemptId = randomUUID();
     const body = {
       attemptId,
       deviceId: DEVICE,
       versionId: STAGE.versionId,
-      activityKey: STAGE.activities[1]!.activityKey,
-      outcome: 'SKIPPED',
+      activityKey: DIALOGUE.activityKey,
+      outcome: 'VIEWED',
       studyTimeMs: 1000,
     };
     const first = await complete(body);
-    expect(first).toEqual({ outcome: 'SKIPPED', xpAwarded: 0, receipt: expect.any(String) });
+    expect(first).toEqual({ outcome: 'VIEWED', xpAwarded: 0, receipt: expect.any(String) });
     expect(Object.keys(first).sort()).toEqual(['outcome', 'receipt', 'xpAwarded']);
     expect((await complete(body)).receipt).toBe(first.receipt);
-    expect((await complete({ ...body, attemptId: randomUUID(), outcome: 'VIEWED' })).receipt).toBeUndefined();
-    // A conclusão ocupa a vaga do recibo: a Tentativa depois dela volta sem.
+    expect((await complete({ ...body, attemptId: randomUUID() })).receipt).toBeUndefined();
+  });
+
+  it('completions: cada Tipo aceita a sua conclusão; o resto é 409 COMPLETION_NOT_ALLOWED, sem recibo', async () => {
+    const body = {
+      attemptId: randomUUID(),
+      deviceId: DEVICE,
+      versionId: STAGE.versionId,
+      activityKey: CHOICES[1]!.activityKey,
+      outcome: 'VIEWED',
+      studyTimeMs: 0,
+    };
+    await expect(complete(body)).rejects.toMatchObject({ status: 409, code: 'COMPLETION_NOT_ALLOWED' });
+    await expect(complete({ ...body, outcome: 'SKIPPED' })).rejects.toMatchObject({
+      status: 409,
+      code: 'COMPLETION_NOT_ALLOWED',
+    });
+    await expect(complete({ ...body, activityKey: DIALOGUE.activityKey, outcome: 'SKIPPED' })).rejects.toMatchObject({
+      status: 409,
+      code: 'COMPLETION_NOT_ALLOWED',
+    });
+    // A recusa não ocupa a vaga do recibo: a Tentativa depois dela ainda traz.
     const after = await send(
       '/api/v1/visitor/attempts',
-      attempt((item) => item.options[0]!.optionKey, STAGE.activities[1]!),
+      attempt((item) => item.options[0]!.optionKey, CHOICES[1]!),
     );
-    expect(after.receipt).toBeUndefined();
+    expect(after.receipt).toEqual(expect.any(String));
+  });
+
+  it('o Estágio abre com um Diálogo que pergunta o nome e o país', () => {
+    expect(STAGE.activities[0]!.type).toBe('dialogue');
+    const asks = (DIALOGUE as Extract<StageActivity, { type: 'dialogue' }>).lines.map((line) => line.ask);
+    expect(asks).toEqual(expect.arrayContaining(['name', 'country']));
   });
 
   it('completions inválida: sem deviceId ou outcome fora de VIEWED/SKIPPED é 400; Atividade desconhecida, 404', async () => {
@@ -329,7 +359,7 @@ describe('recibos do mock (1.12)', () => {
       attemptId: randomUUID(),
       deviceId: DEVICE,
       versionId: STAGE.versionId,
-      activityKey: THREE_ITEMS.activityKey,
+      activityKey: DIALOGUE.activityKey,
       outcome: 'VIEWED',
       studyTimeMs: 0,
     };

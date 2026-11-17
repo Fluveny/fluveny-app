@@ -2,6 +2,7 @@
 src/api/openapi.json
 src/api/schema.d.ts
 src/renderer/render-vectors.json
+src/player/countries.json
 src/ui/tokens/design.yaml
 public/mockServiceWorker.js
 package-lock.json

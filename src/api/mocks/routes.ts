@@ -14,6 +14,10 @@
 // `(deviceId, activityKey)` volta com um `receipt` falso e opaco; o reenvio do
 // mesmo `attemptId` com o mesmo Resultado devolve o mesmo recibo; o reveal sem
 // Tentativa do aparelho é `409 ATTEMPT_REQUIRED`.
+//
+// Diálogo (1.13): o Estágio abre com um Diálogo que pergunta o nome e o país
+// (UX-DR122). Como a API, cada Tipo aceita a sua conclusão: o `dialogue`, só
+// `VIEWED`; o resto é `409 COMPLETION_NOT_ALLOWED`.
 import type { components, paths } from '../schema';
 
 export const MOCK_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
@@ -67,9 +71,9 @@ export function problemBody(problem: MockProblem) {
 
 const VERSION_ID = 'sha256:0000000000000000000000000000000000000000000000000000000000000001';
 
-// Uma Unidade com um Estágio de três Escolhas (o player percorre 1 de 3, 2 de
-// 3, 3 de 3), e a Unit 2 "em breve" (sem Estágios). A primeira Escolha tem 3
-// itens (Resultado "n de 3 itens"); as outras, um só.
+// Uma Unidade com um Estágio de um Diálogo e três Escolhas (o player percorre
+// 1 de 4 a 4 de 4), e a Unit 2 "em breve" (sem Estágios). A primeira Escolha
+// tem 3 itens (Resultado "n de 3 itens"); as outras, um só.
 const unit1 = { unitKey: 'unit-1', order: 1, title: 'Unit 1', comingSoon: false, versionId: VERSION_ID };
 const unit2 = {
   unitKey: 'unit-2',
@@ -81,6 +85,8 @@ const unit2 = {
 
 type ContentText = components['schemas']['ContentText'];
 type ChoiceView = components['schemas']['ChoiceActivityStudentView'];
+type DialogueView = components['schemas']['DialogueActivityStudentView'];
+type ActivityView = ChoiceView | DialogueView;
 type AttemptResult = components['schemas']['AttemptResult'];
 type CompletionResult = components['schemas']['CompletionResult'];
 
@@ -121,7 +127,25 @@ function choice(activityKey: string, title: string, items: MockItem[], prompt?: 
   };
 }
 
-const stage1Activities = [
+/** O Diálogo que abre o Estágio: Alex se apresenta e pergunta o nome e o país. */
+const meetAlex: DialogueView = {
+  activityKey: 'meet-alex-dialogue',
+  type: 'dialogue',
+  title: 'Meet Alex',
+  lines: [
+    { lineKey: 'hi', speaker: 'Alex', text: "Hi! I'm Alex. Welcome to my room!" },
+    { lineKey: 'ask-name', speaker: 'Alex', text: "What's your name?", ask: 'name' },
+    { lineKey: 'nice', speaker: 'Alex', text: 'Nice to meet you, {name}!' },
+    { lineKey: 'ask-country', speaker: 'Alex', text: 'Where are you from?', ask: 'country' },
+    { lineKey: 'cool', speaker: 'Alex', text: "{country}? Cool! Let's start." },
+  ],
+};
+
+/** A conclusão que cada Tipo aceita, como o `LearningActivityTypes.allowsCompletion` da API. */
+const ALLOWED_COMPLETION: Partial<Record<ActivityView['type'], string>> = { dialogue: 'VIEWED' };
+
+const stage1Activities: ActivityView[] = [
+  meetAlex,
   choice(
     'greeting-choice',
     'Choose the greeting',
@@ -155,7 +179,7 @@ const stage1Activities = [
         justification: '"How are you?" asks how you feel: **I\'m fine, thanks!**',
       },
     ],
-    'Pick the best answer for each one.',
+    'Pick the best answer for each one, {name}.',
   ),
   choice('name-choice', 'Say your name, {name}', [
     {
@@ -289,7 +313,10 @@ async function gradeAttempt(request: Request, reveal: boolean): Promise<{ data: 
   };
 }
 
-/** Conclusão sem correção (VIEWED ou SKIPPED), sem XP; o `deviceId` é obrigatório. */
+/**
+ * Conclusão sem correção (VIEWED ou SKIPPED), sem XP; o `deviceId` é obrigatório.
+ * O Tipo decide a conclusão aceita; fora dela, `409 COMPLETION_NOT_ALLOWED`.
+ */
 async function complete(request: Request): Promise<{ data: CompletionResult }> {
   const body = (await request.json().catch(() => null)) as {
     attemptId?: unknown;
@@ -305,9 +332,9 @@ async function complete(request: Request): Promise<{ data: CompletionResult }> {
     throw new MockProblem(400, 'VALIDATION_FAILED');
   }
   const activityKey = body.activityKey;
-  if (!stage1Activities.some((activity) => activity.activityKey === activityKey)) {
-    throw new MockProblem(404, 'NOT_FOUND');
-  }
+  const activity = stage1Activities.find((entry) => entry.activityKey === activityKey);
+  if (!activity) throw new MockProblem(404, 'NOT_FOUND');
+  if (ALLOWED_COMPLETION[activity.type] !== body.outcome) throw new MockProblem(409, 'COMPLETION_NOT_ALLOWED');
   const receipt = receiptFor(deviceId, activityKey, body.attemptId, body.outcome, 0);
   return { data: { outcome: body.outcome, xpAwarded: 0, ...(receipt ? { receipt } : {}) } };
 }

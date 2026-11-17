@@ -10,6 +10,8 @@ export const motion = {
   activityRise: 12,
   /** Pulo do chip de XP: a escala parte daqui e volta a 1. */
   xpPopScale: 1.25,
+  /** Intervalo entre as falas do Diálogo (EXPERIENCE.md, Tipos de Atividade). */
+  dialogueLineMs: 650,
 } as const;
 
 /**

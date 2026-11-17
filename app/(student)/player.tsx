@@ -145,6 +145,7 @@ export default function Player() {
   }
 
   const current = activity;
+  const Activity = resolveActivity(current.type);
   return (
     <PlayerFrame
       stageNumber={stageNumber}
@@ -157,10 +158,11 @@ export default function Player() {
       sheet={shownSheet}
       onClose={leave}
       contentKey={current.activityKey}
+      bleed={Activity.bleed === true}
     >
       <ActivityTransition id={current.activityKey}>
         {/* O componente vem do registro: um Tipo sem componente cai em "Atividade em preparação". */}
-        {createElement(resolveActivity(current.type), {
+        {createElement(Activity, {
           key: current.activityKey,
           activity: current,
           versionId: stage.versionId,
