@@ -143,6 +143,15 @@ Expressão Útil (`useful-expression`, UX-DR40 a UX-DR42, 1.14). O trecho tocáv
 - `ExpressionCard`: o cartão de dicionário. Caixa `blue-lt` com borda `blue-md`, bloco azul com o ícone `book`, eyebrow "USEFUL EXPRESSION", termo em `title` (900), significado em 600 e exemplos em itálico 700 com marcador vermelho. Todo o texto vem cru e sai pelo `RenderedText` (passe `vars` e `pronoun`). Sem o botão "Ouvir" no Lançamento 1.
 - `ExpressionSheet`: `Modal` transparente com scrim `scrim` e a folha inferior (cantos de 28 no topo, coluna de até 440 dp) que sobe com mola; com "remover animações", aparece direto. Mostra o `ExpressionCard` e ENTENDI. Fecha com ENTENDI, toque no scrim e `onRequestClose` (voltar do Android; Esc no web). No player, quem a abre é o `ExpressionsProvider`, nunca com a folha de feedback aberta.
 
+### `MicButton`, `TextLink`, `NoticeSheet` e `SheetModal`
+
+Peças da Fala (1.15).
+
+- `MicButton` (`mic-button`, UX-DR44, UX-DR45, UX-DR134): círculo de 132 dp azul com sombra sólida de 8 em `blue-dk`, dentro dos halos de 226 (`blue-lt`) e 176 (`blue-md`), ícone `mic`. `listening`: vermelho (sombra `red-dk`) com dois anéis pulsantes, sem pulsar com "remover animações". `disabled`: cinza, sem afundar, com a legenda "O microfone não está disponível neste aparelho.". Legenda em eyebrow abaixo ("TOQUE PARA FALAR", "OUVINDO…"); `message` troca a legenda por um aviso em texto corrido. Rótulo do leitor: "Microfone: toque para falar" ("Microfone: toque para parar" ouvindo); sem `onPress` ou indisponível, é anunciado como desabilitado. Toque, clique ou teclado; nunca manter pressionado.
+- `TextLink`: link de texto azul, sem fundo nem sombra, área de toque de 48 dp, papel de botão. `caps` para o link em caixa alta com o peso de botão ("NÃO POSSO FALAR AGORA", o rodapé `variant: 'link'` do player). Nunca é a ação principal da tela.
+- `NoticeSheet`: aviso com duas ações empilhadas (primária e ghost), no casco da `ExpressionSheet`. Pede decisão: o scrim não fecha; o voltar do Android e o Esc fecham sem decidir. O foco vai para o texto ao abrir.
+- `SheetModal`: o casco comum (`Modal` transparente, scrim, folha inferior com mola, alça). Use-o para folha nova por cima da tela.
+
 ### `StatusBanner`
 
 Faixa de estado global, só a peça visual: quem mostra e esconde é a tela (a lógica de rede não é do kit). O texto e a ação vêm de quem usa; a ação opcional é um `Button` pequeno ghost (área de toque de 48 dp).

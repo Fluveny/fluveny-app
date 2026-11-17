@@ -84,4 +84,16 @@ describe('loja do Visitante (expo-sqlite)', () => {
     expect(await store.receipts()).toEqual([{ activityKey: 'a1', receipt: 'v1.r.x' }]);
     expect(await store.progress()).toEqual([{ activityKey: 'a1', outcome: 'completed', xp: 10 }]);
   });
+
+  it('aviso visto (1.15): nasce como não visto, fica visto numa loja nova e num banco antigo', async () => {
+    const store = createVisitorStore();
+    expect(await store.seen('speech-privacy')).toBe(false);
+    await store.markSeen('speech-privacy');
+    await store.markSeen('speech-privacy');
+    expect(await store.seen('speech-privacy')).toBe(true);
+    expect(await createVisitorStore().seen('speech-privacy')).toBe(true);
+    expect(await store.seen('outro')).toBe(false);
+    // O flag não é uma Variável do Aluno.
+    expect(await store.variables()).toEqual({});
+  });
 });

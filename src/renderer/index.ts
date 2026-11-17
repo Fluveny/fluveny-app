@@ -10,6 +10,7 @@ export {
   type RenderVars,
   type Segment,
 } from './render';
+export { SPOKEN_VARIABLES, tokenizeVariables } from './tokenize';
 export { toPronoun, toRenderContext, useRenderVars, type RenderContext } from './useRenderVars';
 export {
   EXPRESSION_HINT,

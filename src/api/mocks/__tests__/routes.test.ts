@@ -145,6 +145,13 @@ type ChoiceView = Extract<StageActivity, { type: 'choice' }>;
 const CHOICES = STAGE.activities.filter((activity): activity is ChoiceView => activity.type === 'choice');
 const DIALOGUE = STAGE.activities.find((activity) => activity.type === 'dialogue')!;
 const THREE_ITEMS = CHOICES[0]!;
+const SPEECH = STAGE.activities.find(
+  (activity): activity is Extract<StageActivity, { type: 'speech' }> => activity.type === 'speech',
+)!;
+
+/** Os itens da resposta esperada da Escolha. */
+const expectedItems = (expected: unknown) =>
+  (expected as { items?: { itemKey: string; optionKey: string }[] } | undefined)?.items;
 
 /** Uma Tentativa da Atividade de 3 itens, com a opção `pick(item)` em cada um. */
 function attempt(
@@ -203,7 +210,7 @@ describe('corretor do mock', () => {
       attempt((item) => item.options[0]!.optionKey),
     );
     expect(first.xpAwarded).toBe(0);
-    expect(first.expected?.items).toHaveLength(3);
+    expect(expectedItems(first.expected)).toHaveLength(3);
     expect(first.items.every((item) => item.justification !== undefined)).toBe(true);
     const secrets = secretFields();
     expect([...resultKeys(first)].filter((key) => secrets.has(key))).toEqual([]);
@@ -218,7 +225,7 @@ describe('corretor do mock', () => {
       '/api/v1/visitor/attempts/reveal',
       attempt((item) => item.options[0]!.optionKey),
     );
-    const right = new Map(revealed.expected!.items.map((item) => [item.itemKey, item.optionKey]));
+    const right = new Map(expectedItems(revealed.expected)!.map((item) => [item.itemKey, item.optionKey]));
     const correct = await send(
       '/api/v1/visitor/attempts',
       attempt((item) => right.get(item.itemKey)!),
@@ -397,5 +404,71 @@ describe('recibos do mock (1.12)', () => {
     await expect(complete(anonymous)).rejects.toMatchObject({ status: 400, code: 'VALIDATION_FAILED' });
     await expect(complete({ ...body, outcome: 'GRADED' })).rejects.toMatchObject({ status: 400 });
     await expect(complete({ ...body, activityKey: 'nope' })).rejects.toMatchObject({ status: 404 });
+  });
+
+  describe('Fala (1.15)', () => {
+    const speak = (transcript: unknown, ids: { attemptId?: string; deviceId?: string } = {}) => ({
+      attemptId: ids.attemptId ?? randomUUID(),
+      deviceId: ids.deviceId ?? DEVICE,
+      versionId: STAGE.versionId,
+      activityKey: SPEECH.activityKey,
+      type: 'speech',
+      answer: { type: 'speech', transcript },
+      studyTimeMs: 1000,
+    });
+
+    it('o Estágio fecha com a Fala, com {name} no alvo e sem as alternativas (segredo)', () => {
+      expect(STAGE.activities[STAGE.activities.length - 1]).toBe(SPEECH);
+      expect(SPEECH.target).toContain('{name}');
+      expect(Object.keys(SPEECH)).not.toContain('alternatives');
+    });
+
+    it('Acerto com o token no lugar do nome, em qualquer caixa e com a contração expandida; um item; recibo', async () => {
+      const right = await send('/api/v1/visitor/attempts', speak("hi alex i'm {name}"));
+      expect(right).toMatchObject({ outcome: 'GRADED', resultPct: 100, xpAwarded: 10 });
+      expect(right.items).toEqual([{ itemKey: SPEECH.activityKey, correct: true }]);
+      expect(right.expected).toEqual({ type: 'speech', transcript: SPEECH.target });
+      expect(right.receipt).toEqual(expect.any(String));
+      expect((await send('/api/v1/visitor/attempts', speak('Hello Alex my name is {name}'))).resultPct).toBe(100);
+      expect((await send('/api/v1/visitor/attempts', speak('alex hi I am'))).resultPct).toBe(100);
+    });
+
+    it('Erro com a transcrição curta: 0, sem XP; o reveal pede uma Tentativa e não dá XP', async () => {
+      await expect(send('/api/v1/visitor/attempts/reveal', speak('hi'))).rejects.toMatchObject({ status: 409 });
+      const wrong = await send('/api/v1/visitor/attempts', speak('hi'));
+      expect(wrong).toMatchObject({ resultPct: 0, xpAwarded: 0, items: [{ correct: false }] });
+      const revealed = await send('/api/v1/visitor/attempts/reveal', speak('hi'));
+      expect(revealed).toMatchObject({ xpAwarded: 0, expected: { transcript: SPEECH.target } });
+      expect(revealed.receipt).toBeUndefined();
+    });
+
+    it('transcrição em branco, longa demais ou de outro Tipo é 400 INVALID_ANSWER', async () => {
+      for (const transcript of ['   ', 'a'.repeat(501), 3]) {
+        await expect(send('/api/v1/visitor/attempts', speak(transcript))).rejects.toMatchObject({
+          status: 400,
+          code: 'INVALID_ANSWER',
+        });
+      }
+      await expect(
+        send('/api/v1/visitor/attempts', { ...speak('hi'), answer: { type: 'choice', items: [] } }),
+      ).rejects.toMatchObject({ code: 'INVALID_ANSWER' });
+    });
+
+    it('completions: a Fala aceita SKIPPED, sem XP e com recibo; VIEWED é 409', async () => {
+      const body = {
+        attemptId: randomUUID(),
+        deviceId: DEVICE,
+        versionId: STAGE.versionId,
+        activityKey: SPEECH.activityKey,
+        outcome: 'VIEWED',
+        studyTimeMs: 0,
+      };
+      await expect(complete(body)).rejects.toMatchObject({ status: 409, code: 'COMPLETION_NOT_ALLOWED' });
+      expect(await complete({ ...body, outcome: 'SKIPPED' })).toEqual({
+        outcome: 'SKIPPED',
+        xpAwarded: 0,
+        receipt: expect.any(String),
+      });
+    });
   });
 });

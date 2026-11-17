@@ -63,3 +63,99 @@ jest.mock('expo-network', () => {
     }),
   };
 });
+
+// expo-speech-recognition (1.15): o reconhecimento simulado. Por padrão há
+// reconhecimento, a permissão está concedida e não roda no aparelho. Nada é
+// ouvido até o teste dizer: `global.__speech.hear(texto)` guarda o que o
+// reconhecedor ouviu (sai como resultado final no `stop()`), e
+// `global.__speech.finish(texto)` simula o fim pelo silêncio (resultado final e
+// `end`). `global.__speech.set({...})` muda a disponibilidade e a permissão;
+// `global.__speech.reset()` volta ao padrão.
+jest.mock('expo-speech-recognition', () => {
+  const listeners = new Map();
+  const initial = () => ({
+    available: true,
+    onDevice: false,
+    permission: { granted: true, canAskAgain: true, status: 'granted', expires: 'never' },
+    request: null,
+    listening: false,
+    heard: null,
+    // `abort()` sem eventos na hora: o `end` atrasado vem por `global.__speech.emit('end')`.
+    lateAbort: false,
+    // `start()` lança (o microfone não abriu).
+    startThrows: false,
+  });
+  let state = initial();
+  const emit = (event, payload) => {
+    for (const listener of [...(listeners.get(event) ?? [])]) listener(payload);
+  };
+  const final = (transcript) =>
+    emit('result', { isFinal: true, results: [{ transcript, confidence: 1, segments: [] }] });
+  const end = () => {
+    state.listening = false;
+    state.heard = null;
+    emit('end', null);
+  };
+  const module = {
+    isRecognitionAvailable: jest.fn(() => state.available),
+    supportsOnDeviceRecognition: jest.fn(() => state.onDevice),
+    getPermissionsAsync: jest.fn(async () => state.permission),
+    requestPermissionsAsync: jest.fn(async () => {
+      if (state.request) state.permission = state.request;
+      return state.permission;
+    }),
+    start: jest.fn(() => {
+      if (state.startThrows) throw new Error('start falhou');
+      state.listening = true;
+      emit('start', null);
+    }),
+    stop: jest.fn(() => {
+      if (!state.listening) return;
+      if (state.heard) final(state.heard);
+      end();
+    }),
+    abort: jest.fn(() => {
+      if (!state.listening) return;
+      if (state.lateAbort) {
+        state.listening = false;
+        return;
+      }
+      emit('error', { error: 'aborted', message: 'aborted' });
+      end();
+    }),
+    addListener: jest.fn((event, listener) => {
+      if (!listeners.has(event)) listeners.set(event, new Set());
+      listeners.get(event).add(listener);
+      return { remove: () => listeners.get(event)?.delete(listener) };
+    }),
+  };
+  global.__speech = {
+    module,
+    set: (next) => {
+      state = { ...state, ...next };
+    },
+    get listening() {
+      return state.listening;
+    },
+    hear: (transcript) => {
+      state.heard = transcript;
+    },
+    finish: (transcript) => {
+      if (transcript) final(transcript);
+      end();
+    },
+    error: (error) => {
+      emit('error', { error, message: error });
+      end();
+    },
+    /** Um evento solto do reconhecedor (`speechstart`, `soundstart`, um `end` atrasado…). */
+    emit,
+    reset: () => {
+      state = initial();
+    },
+  };
+  return { ExpoSpeechRecognitionModule: module };
+});
+// Carrega a simulação já agora: o App só a requer ao abrir a Fala, e os testes
+// precisam do `global.__speech` antes disso.
+require('expo-speech-recognition');

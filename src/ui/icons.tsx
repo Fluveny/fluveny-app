@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import Svg, { Circle, Path, Polygon } from 'react-native-svg';
 
-export type IconName = 'check' | 'x' | 'star' | 'eye' | 'book';
+export type IconName = 'check' | 'x' | 'star' | 'eye' | 'book' | 'mic';
 
 type Props = {
   name: IconName;
@@ -69,6 +69,19 @@ export function Icon({ name, size, color, testID }: Props) {
               fill="none"
             />
             <Circle cx={12} cy={12} r={3.2} fill={color} />
+          </>
+        ) : null}
+        {name === 'mic' ? (
+          // Microfone: a cápsula, o arco do suporte e a haste.
+          <>
+            <Path d="M12 2.8a3.6 3.6 0 0 0-3.6 3.6v5.4a3.6 3.6 0 0 0 7.2 0V6.4A3.6 3.6 0 0 0 12 2.8z" fill={color} />
+            <Path
+              d="M5.6 11.2a6.4 6.4 0 0 0 12.8 0M12 17.6v3.6"
+              stroke={color}
+              strokeWidth={2.4}
+              strokeLinecap="round"
+              fill="none"
+            />
           </>
         ) : null}
         {name === 'book' ? (

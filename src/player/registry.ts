@@ -11,6 +11,7 @@ import { CardsActivity } from './types/CardsActivity';
 import { ChoiceActivity } from './types/ChoiceActivity';
 import { DialogueActivity } from './types/DialogueActivity';
 import { ExpressionActivity } from './types/ExpressionActivity';
+import { SpeechActivity } from './types/SpeechActivity';
 import { PendingActivity } from './PendingActivity';
 
 /** Uma Atividade da visão do aluno, como vem do `GET` do Estágio. */
@@ -30,6 +31,11 @@ export type FooterAction = {
   onPress: () => void;
   /** Falha da última ação (texto de `messageFor`), acima do botão. */
   message?: string;
+  /**
+   * `link`: a ação secundária como link de texto, sem botão primário no rodapé
+   * ("NÃO POSSO FALAR AGORA" da Fala, 1.15). Padrão: o botão primário.
+   */
+  variant?: 'primary' | 'link';
 };
 
 /** Um botão da folha de feedback. */
@@ -59,6 +65,8 @@ export type SheetSpec = {
   justifications?: ContentText[];
   /** Falha da última ação (texto de `messageFor`). */
   error?: string;
+  /** A transcrição da Fala, como o aluno disse: "A gente ouviu: “…”" (1.15). */
+  heard?: string;
   actions: SheetAction[];
 };
 
@@ -78,7 +86,8 @@ export type ActivityProps = {
   versionId: string;
   setFooter: (footer: FooterAction | null) => void;
   setSheet: (sheet: SheetSpec | null) => void;
-  advance: (result?: ActivityResult) => void;
+  /** Termina quando o player avançou ou desistiu (falha da conclusão: a tela fica). */
+  advance: (result?: ActivityResult) => void | Promise<void>;
 };
 
 /**
@@ -98,6 +107,7 @@ export const registry: { [T in ActivityType]: ActivityComponent | typeof PENDING
   choice: ChoiceActivity,
   dialogue: DialogueActivity,
   expression: ExpressionActivity,
+  speech: SpeechActivity,
 };
 
 /** O componente do Tipo, ou o cartão "Atividade em preparação". */

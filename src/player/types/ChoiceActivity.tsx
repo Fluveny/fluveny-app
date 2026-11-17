@@ -29,6 +29,11 @@ function plain(text: ContentText | undefined, { vars, pronoun }: RenderContext):
   }
 }
 
+/** Os itens da resposta esperada da Escolha (o `expected` de outro Tipo não tem). */
+function expectedItems(expected: Answer | undefined): { itemKey: string; optionKey: string }[] {
+  return expected && 'items' in expected && Array.isArray(expected.items) ? expected.items : [];
+}
+
 /** Põe um prefixo em todas as variantes do texto ("1. Good morning"). */
 function prefixed(prefix: string, text: ContentText): ContentText {
   if (typeof text === 'string') return `${prefix}${text}`;
@@ -66,7 +71,7 @@ export function ChoiceActivity({ activity, versionId, setFooter, setSheet, advan
   const expectedLines = useCallback(
     (expected: Answer): ContentText[] =>
       items.flatMap((item, i) => {
-        const optionKey = expected.items.find((entry) => entry.itemKey === item.itemKey)?.optionKey;
+        const optionKey = expectedItems(expected).find((entry) => entry.itemKey === item.itemKey)?.optionKey;
         const option = item.options.find((entry) => entry.optionKey === optionKey);
         if (!option?.text) return [];
         const letter = CHOICE_LETTERS[item.options.indexOf(option)] ?? '';
@@ -91,7 +96,7 @@ export function ChoiceActivity({ activity, versionId, setFooter, setSheet, advan
     const picked = chosen[item.itemKey] === optionKey;
     const graded = result?.items.find((entry) => entry.itemKey === item.itemKey);
     if (phase === 'revealed') {
-      const right = result?.expected?.items.find((entry) => entry.itemKey === item.itemKey)?.optionKey;
+      const right = expectedItems(result?.expected).find((entry) => entry.itemKey === item.itemKey)?.optionKey;
       if (optionKey === right) return 'right';
       return picked && graded && !graded.correct ? 'wrong' : 'neutral';
     }

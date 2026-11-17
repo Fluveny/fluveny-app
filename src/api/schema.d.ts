@@ -143,7 +143,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Conclui uma Atividade sem correção, sem XP. receipt só volta na primeira conclusão ou Tentativa do aparelho na Atividade. Cada Tipo aceita a sua conclusão: hoje os expositivos dialogue, cards e expression, com VIEWED; SKIPPED fica reservado a um Tipo futuro. Fora dela, 409 COMPLETION_NOT_ALLOWED. */
+        /** @description Conclui uma Atividade sem correção, sem XP: a vista de um Tipo expositivo ou a pulada de um Tipo avaliado que aceita pular (a speech, com SKIPPED). receipt só volta na primeira conclusão ou Tentativa do aparelho na Atividade. Cada Tipo aceita a sua conclusão: os expositivos dialogue, cards e expression, com VIEWED, e a speech pulada, com SKIPPED. Fora dela, 409 COMPLETION_NOT_ALLOWED. */
         post: operations["completeVisitorActivity"];
         delete?: never;
         options?: never;
@@ -157,17 +157,17 @@ export interface components {
     schemas: {
         Activity: {
             type: string;
-        } & (components["schemas"]["ChoiceActivity"] | components["schemas"]["DialogueActivity"] | components["schemas"]["CardsActivity"] | components["schemas"]["ExpressionActivity"]);
+        } & (components["schemas"]["ChoiceActivity"] | components["schemas"]["DialogueActivity"] | components["schemas"]["CardsActivity"] | components["schemas"]["ExpressionActivity"] | components["schemas"]["SpeechActivity"]);
         ActivityStudentView: {
             type: string;
-        } & (components["schemas"]["ChoiceActivityStudentView"] | components["schemas"]["DialogueActivityStudentView"] | components["schemas"]["CardsActivityStudentView"] | components["schemas"]["ExpressionActivityStudentView"]);
+        } & (components["schemas"]["ChoiceActivityStudentView"] | components["schemas"]["DialogueActivityStudentView"] | components["schemas"]["CardsActivityStudentView"] | components["schemas"]["ExpressionActivityStudentView"] | components["schemas"]["SpeechActivityStudentView"]);
         ActivityTypeSupport: {
             sinceAppVersion?: string;
             type: string;
         };
         Answer: {
             type: string;
-        } & components["schemas"]["ChoiceAnswer"];
+        } & (components["schemas"]["ChoiceAnswer"] | components["schemas"]["SpeechAnswer"]);
         ApiResponseAttemptResult: {
             data: components["schemas"]["AttemptResult"];
             message?: string;
@@ -407,6 +407,45 @@ export interface components {
             he: string;
             she: string;
             they: string;
+        };
+        SpeechActivity: {
+            activityKey: string;
+            /** @description Outras formas aceitas da frase-alvo. */
+            alternatives?: components["schemas"]["ContentText"][];
+            prompt: components["schemas"]["ContentText"];
+            /** @description A frase-alvo, exibida ao aluno. */
+            target: components["schemas"]["ContentText"];
+            title: components["schemas"]["ContentText"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "speech";
+            /** Format: int32 */
+            xp: number;
+        };
+        SpeechActivityStudentView: {
+            activityKey: string;
+            prompt: components["schemas"]["ContentText"];
+            /** @description A frase-alvo, exibida ao aluno. */
+            target: components["schemas"]["ContentText"];
+            title: components["schemas"]["ContentText"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "speech";
+            /** Format: int32 */
+            xp: number;
+        };
+        SpeechAnswer: {
+            /** @description A transcrição, com as Variáveis do Aluno trocadas pelos tokens ({name}). Em branco é 400 INVALID_ANSWER. */
+            transcript: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "speech";
         };
         StageContent: {
             activities: components["schemas"]["Activity"][];

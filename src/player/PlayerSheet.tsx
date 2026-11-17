@@ -1,12 +1,16 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
 import { RenderedText, useRenderVars } from '../renderer';
 import { FeedbackSheet, type FeedbackAction } from '../ui';
 import { color, typography } from '../ui/tokens';
 import type { SheetSpec } from './registry';
 
+/** "A gente ouviu: “hi alex i'm julia”" (EXPERIENCE.md, Voice and Tone). */
+export const heardLine = (transcript: string) => `A gente ouviu: “${transcript}”`;
+
 /**
- * A folha de feedback no lugar do rodapé. Justificativas e resposta esperada
+ * A folha de feedback no lugar do rodapé. Na Fala, mostra o que o aluno disse
+ * ("A gente ouviu"), como veio, sem renderizar. Justificativas e resposta esperada
  * vêm cruas do servidor e saem renderizadas com as Variáveis do Aluno. Sem
  * rede, a ação que chama o servidor vira "SEM CONEXÃO" desabilitada.
  */
@@ -41,6 +45,11 @@ export function PlayerSheet({
       error={sheet.error}
       actions={actions}
     >
+      {sheet.heard ? (
+        <Text style={styles.heard} testID="sheet-heard">
+          {heardLine(sheet.heard)}
+        </Text>
+      ) : null}
       {(sheet.justifications ?? []).map((text, i) => (
         <RenderedText
           key={i}
@@ -58,4 +67,5 @@ export function PlayerSheet({
 const styles = StyleSheet.create({
   expected: { ...typography.item, color: color.ink },
   justification: { ...typography.body, color: color.ink },
+  heard: { ...typography.bodyStrong, color: color.ink },
 });
