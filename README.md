@@ -77,6 +77,34 @@ O build web tem manifesto (`public/manifest.json`, ícones em `public/icons/`, m
    - capturas da boas-vindas, de uma Atividade, da folha de feedback e do App instalado.
 7. Ao terminar: `adb reverse --remove-all` e `mise run api:down`.
 
+### Homologação: Worker da Cloudflare (1.6)
+
+O App web de homologação e a API ficam na mesma origem, por um Worker da Cloudflare (`fluveny-homolog`, em `*.workers.dev`; AD-18). Custo zero, no plano free (NFR22).
+
+- **O que ele faz:** `wrangler.jsonc` serve o `dist/` com fallback de SPA (`not_found_handling: single-page-application`); só `/api/*` passa pelo código (`run_worker_first`). O [`worker/index.js`](worker/index.js) faz proxy de `/api/*` para a API do Render (`vars.API_ORIGIN`), com o mesmo método, caminho, query, corpo e cabeçalhos do aluno, sem seguir redirecionamento. Ele troca os `X-Fluveny-Proxy` e `X-Fluveny-Client-IP` que vierem do navegador pelos seus: o segredo de proxy e o `CF-Connecting-IP` que a borda do Cloudflare escreveu. A API lê o IP do aluno do `X-Fluveny-Client-IP`, porque o Render também fica atrás do Cloudflare, que troca o `CF-Connecting-IP` pelo IP do Worker na subrequisição. Sem o segredo no Worker, `/api/*` responde `503` problem+json, sem chamar a API; com a API fora do ar, `502`.
+- **Só o handler sai do módulo:** o runtime de Workers trata todo export nomeado como handler e não sobe com uma constante exportada. O teste do Worker (`worker/__tests__`) confere isso e a matriz da spec.
+- **Deploy:** a cada merge na `main`, o job "Deploy em homologação" do `ci.yml` (depois de `Segredos` e `Verificação`) gera o export web com `EXPO_PUBLIC_API_URL` = a origem do Worker e `EXPO_PUBLIC_SENTRY_ENVIRONMENT=homolog`, publica com `npx --yes wrangler@4.164.0 deploy --secrets-file`, que sobe o `PROXY_SECRET` na mesma versão do código (arquivo JSON temporário, modo 600, apagado no fim do passo), e confere o deploy: a página e `/api/v1/units` (200 com JSON) pela origem do Worker. Sem o secret `CLOUDFLARE_API_TOKEN`, o job avisa e não falha; com ele e faltando outro item do Environment, falha.
+- **Conferir a configuração:** o `mise run check` roda `npx --yes wrangler@4.164.0 deploy --dry-run` depois do export, sem credenciais. Para rodar local: `npx --yes wrangler@4.164.0 dev --var PROXY_SECRET:<qualquer valor>` (com um valor falso, `/api/v1/units` responde 403 da API, o que prova o proxy; `/api/v1/meta` responde 200).
+
+**Configuração, uma vez (quem tiver acesso de administrador):**
+
+1. **Conta:** crie a conta da Cloudflare do Fluveny (plano Free) e, em Manage Account → Members, convide um segundo administrador, para a conta não depender de uma pessoa só.
+2. **Subdomínio:** em Workers & Pages, escolha o subdomínio `*.workers.dev` da conta. A origem do Worker fica `https://fluveny-homolog.<subdomínio>.workers.dev`.
+3. **Token:** em My Profile → API Tokens → Create Token, use o modelo "Edit Cloudflare Workers", restrito a essa conta. Copie o Account ID (Workers & Pages, coluna da direita).
+4. **GitHub:** em Settings → Environments do `fluveny-app`, crie o `homolog` com:
+   - secrets `CLOUDFLARE_API_TOKEN` (o token do passo 3) e `FLUVENY_PROXY_SECRET` (o mesmo valor do Render, veja o README da API);
+   - variáveis `CLOUDFLARE_ACCOUNT_ID` e `FLUVENY_WEB_ORIGIN` (a origem do passo 2, sem barra no fim).
+5. **API:** no Render, `FLUVENY_WEB_ORIGINS` com a mesma origem do Worker. Mescle o PR da API antes do PR do Worker: com o Worker no ar e a API antiga, o limite do Visitante contaria todos os alunos no IP do Worker.
+6. **Conferir:** depois do primeiro deploy,
+
+   ```bash
+   curl -s -o /dev/null -w '%{http_code}\n' https://fluveny-homolog.<subdomínio>.workers.dev/              # 200 (index.html)
+   curl -s -o /dev/null -w '%{http_code}\n' https://fluveny-homolog.<subdomínio>.workers.dev/manifest.json # 200
+   curl -s -o /dev/null -w '%{http_code}\n' https://fluveny-homolog.<subdomínio>.workers.dev/api/v1/units # 200
+   ```
+
+   No celular, abra a origem do Worker e percorra o Estágio 1 sem erro de CORS nem 403. Limite por IP: ~300 `POST /api/v1/visitor/attempts` da máquina pelo Worker chegam ao 429, e o celular no 4G segue usando o App.
+
 ## Comandos
 
 ```bash
@@ -99,12 +127,12 @@ A formatação é a do Prettier (`.prettierrc.json`); o hook do lefthook formata
 
 Toda configuração vem do ambiente; nenhum segredo fica em arquivo. Para rodar local, copie `.env.example` para `.env.local` (ignorado pelo git). As variáveis `EXPO_PUBLIC_*` entram no bundle, então nunca ponha segredo nelas.
 
-| Variável                         | Uso                                                                                                                                                                                                                                       |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `EXPO_PUBLIC_API_URL`            | Base da API, sem barra no fim (por exemplo, `http://localhost:8080`). No emulador Android, `http://10.0.2.2:8080` (o host visto pelo emulador). Num aparelho físico, o IP da máquina na rede; HTTP sem TLS só funciona em build de debug. |
-| `EXPO_PUBLIC_SENTRY_DSN`         | Opcional. Sem ela, o Sentry fica desligado. Com ela, os erros vão sem PII (`sendDefaultPii: false` e o `beforeSend` remove usuário, IP, cookies, cabeçalhos de autenticação e corpo).                                                     |
-| `EXPO_PUBLIC_SENTRY_ENVIRONMENT` | Opcional. Nome do ambiente no Sentry.                                                                                                                                                                                                     |
-| `EXPO_PUBLIC_STORE_URL`          | Opcional. Para onde o botão ATUALIZAR leva no Android. Padrão: a página do pacote na Play.                                                                                                                                                |
+| Variável                         | Uso                                                                                                                                                                                                                                                                                                           |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EXPO_PUBLIC_API_URL`            | Base da API, sem barra no fim (por exemplo, `http://localhost:8080`). No emulador Android, `http://10.0.2.2:8080` (o host visto pelo emulador). Num aparelho físico, o IP da máquina na rede; HTTP sem TLS só funciona em build de debug. Em homologação, a CI usa a origem do Worker (`FLUVENY_WEB_ORIGIN`). |
+| `EXPO_PUBLIC_SENTRY_DSN`         | Opcional. Sem ela, o Sentry fica desligado. Com ela, os erros vão sem PII (`sendDefaultPii: false` e o `beforeSend` remove usuário, IP, cookies, cabeçalhos de autenticação e corpo).                                                                                                                         |
+| `EXPO_PUBLIC_SENTRY_ENVIRONMENT` | Opcional. Nome do ambiente no Sentry.                                                                                                                                                                                                                                                                         |
+| `EXPO_PUBLIC_STORE_URL`          | Opcional. Para onde o botão ATUALIZAR leva no Android. Padrão: a página do pacote na Play.                                                                                                                                                                                                                    |
 
 ## Estrutura
 

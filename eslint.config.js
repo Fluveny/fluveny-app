@@ -9,6 +9,7 @@ module.exports = defineConfig([
   {
     ignores: [
       'dist/*',
+      '.wrangler/*',
       'coverage/*',
       '.expo/*',
       'android/*',
@@ -25,6 +26,11 @@ module.exports = defineConfig([
   {
     files: ['**/__tests__/**', '**/*.test.*', 'scripts/**', 'eslint/**', '*.config.js', 'jest.setup.js'],
     languageOptions: { globals: { ...globals.jest, ...globals.node } },
+  },
+  {
+    // Worker da Cloudflare (homologação, 1.6): globais do runtime de Workers.
+    files: ['worker/**'],
+    languageOptions: { globals: { ...globals.serviceworker } },
   },
   {
     // Os tokens são a fonte das cores; as ilustrações (Alex) são arte chapada
