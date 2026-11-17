@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
-import { AccessibilityInfo, Animated, StyleSheet, Text } from 'react-native';
+import { AccessibilityInfo, Animated, Keyboard, ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import openapi from '../../api/openapi.json';
@@ -105,6 +105,27 @@ describe('PlayerFrame', () => {
     expect(action).toBeDisabled();
     await fireEvent.press(action);
     expect(onPress).not.toHaveBeenCalled();
+  });
+});
+
+describe('PlayerFrame com teclado', () => {
+  it('no nativo, conteúdo e rodapé ficam no KeyboardAvoidingView, e o teclado aberto rola até o fim', async () => {
+    const listeners: Record<string, () => void> = {};
+    jest.spyOn(Keyboard, 'addListener').mockImplementation(((event: string, handler: () => void) => {
+      listeners[event] = handler;
+      return { remove: jest.fn() };
+    }) as never);
+    const scrollToEnd = jest.spyOn(ScrollView.prototype, 'scrollToEnd').mockImplementation(() => {});
+    await render(frame());
+    const avoiding = screen.getByTestId('player-keyboard');
+    expect(within(avoiding).getByTestId('player-content')).toBeTruthy();
+    expect(within(avoiding).getByRole('button', { name: 'VERIFICAR' })).toBeTruthy();
+    expect(listeners.keyboardDidShow).toBeDefined();
+    await act(async () => {
+      listeners.keyboardDidShow!();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(scrollToEnd).toHaveBeenCalledWith({ animated: true });
   });
 });
 

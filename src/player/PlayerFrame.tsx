@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, type ComponentRef, type ReactNode } from 'react';
+import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { OFFLINE_TEXT } from '../network/text';
@@ -11,6 +11,9 @@ import type { FooterAction, SheetSpec } from './registry';
 export const CLOSE_LABEL = 'Sair';
 export const OFFLINE_LABEL = 'SEM CONEXÃO';
 export const PROGRESS_LABEL = 'Posição no Estágio';
+
+/** O teclado empurra o conteúdo e o rodapé só no nativo; no web, o navegador cuida. */
+const KEYBOARD_AVOIDING = Platform.OS !== 'web';
 
 /** Ícone ✕ do topo [ASSUMPTION: 22 dp, como no protótipo]. */
 const CLOSE_ICON = 22;
@@ -136,6 +139,10 @@ export type PlayerFrameProps = {
  * Moldura do player (EXPERIENCE.md, Moldura comum do player): topo fixo (✕,
  * barra de posição e chip de XP), linha de posição, conteúdo rolável e rodapé
  * fixo com a ação que a Atividade define.
+ *
+ * No nativo, conteúdo e rodapé sobem com o teclado, e a rolagem vai ao fim
+ * quando ele abre. [ASSUMPTION] O campo de texto de uma Atividade fica no fim do
+ * conteúdo (o nome do Diálogo); um Tipo com campo no meio precisa rolar até ele.
  */
 export function PlayerFrame({
   stageNumber,
@@ -151,6 +158,19 @@ export function PlayerFrame({
   bleed = false,
   children,
 }: PlayerFrameProps) {
+  const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
+  useEffect(() => {
+    if (!KEYBOARD_AVOIDING) return;
+    // No quadro seguinte: o KeyboardAvoidingView aplica o padding no próprio listener.
+    let frame: number | null = null;
+    const shown = Keyboard.addListener('keyboardDidShow', () => {
+      frame = requestAnimationFrame(() => scroll.current?.scrollToEnd({ animated: true }));
+    });
+    return () => {
+      shown.remove();
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
+  }, []);
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom', 'left', 'right']}>
       <PlayerTop onClose={onClose} online={online} progress={total > 0 ? position / total : 0} xp={xp} />
@@ -158,20 +178,26 @@ export function PlayerFrame({
         <Text style={[styles.position, styles.stage]}>{stageLine(stageNumber, stageTitle)}</Text>
         <Text style={styles.position}>{positionLine(position, total)}</Text>
       </View>
-      <ScrollView
-        key={contentKey}
-        testID="player-content"
-        style={styles.grow}
-        contentContainerStyle={[styles.content, bleed ? styles.bleed : null]}
-        keyboardShouldPersistTaps="handled"
-      >
-        {children}
-      </ScrollView>
-      {sheet ? (
-        <PlayerSheet sheet={sheet} online={online} offlineLabel={OFFLINE_LABEL} />
-      ) : (
-        <PlayerFooter footer={footer} online={online} />
-      )}
+      {/* No nativo (Android de ponta a ponta), o teclado não encolhe a janela: o
+          conteúdo e o rodapé sobem com ele, e a rolagem vai ao fim, onde ficam as
+          perguntas (o campo do nome do Diálogo). No web, nada muda. */}
+      <KeyboardAvoidingView style={styles.grow} behavior="padding" enabled={KEYBOARD_AVOIDING} testID="player-keyboard">
+        <ScrollView
+          key={contentKey}
+          ref={scroll}
+          testID="player-content"
+          style={styles.grow}
+          contentContainerStyle={[styles.content, bleed ? styles.bleed : null]}
+          keyboardShouldPersistTaps="handled"
+        >
+          {children}
+        </ScrollView>
+        {sheet ? (
+          <PlayerSheet sheet={sheet} online={online} offlineLabel={OFFLINE_LABEL} />
+        ) : (
+          <PlayerFooter footer={footer} online={online} />
+        )}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
