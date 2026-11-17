@@ -157,17 +157,17 @@ export interface components {
     schemas: {
         Activity: {
             type: string;
-        } & (components["schemas"]["ChoiceActivity"] | components["schemas"]["DialogueActivity"] | components["schemas"]["CardsActivity"] | components["schemas"]["ExpressionActivity"] | components["schemas"]["SpeechActivity"] | components["schemas"]["MatchActivity"]);
+        } & (components["schemas"]["ChoiceActivity"] | components["schemas"]["DialogueActivity"] | components["schemas"]["CardsActivity"] | components["schemas"]["ExpressionActivity"] | components["schemas"]["SpeechActivity"] | components["schemas"]["MatchActivity"] | components["schemas"]["GapsActivity"]);
         ActivityStudentView: {
             type: string;
-        } & (components["schemas"]["ChoiceActivityStudentView"] | components["schemas"]["DialogueActivityStudentView"] | components["schemas"]["CardsActivityStudentView"] | components["schemas"]["ExpressionActivityStudentView"] | components["schemas"]["SpeechActivityStudentView"] | components["schemas"]["MatchActivityStudentView"]);
+        } & (components["schemas"]["ChoiceActivityStudentView"] | components["schemas"]["DialogueActivityStudentView"] | components["schemas"]["CardsActivityStudentView"] | components["schemas"]["ExpressionActivityStudentView"] | components["schemas"]["SpeechActivityStudentView"] | components["schemas"]["MatchActivityStudentView"] | components["schemas"]["GapsActivityStudentView"]);
         ActivityTypeSupport: {
             sinceAppVersion?: string;
             type: string;
         };
         Answer: {
             type: string;
-        } & (components["schemas"]["ChoiceAnswer"] | components["schemas"]["SpeechAnswer"] | components["schemas"]["MatchAnswer"]);
+        } & (components["schemas"]["ChoiceAnswer"] | components["schemas"]["SpeechAnswer"] | components["schemas"]["MatchAnswer"] | components["schemas"]["GapsAnswer"]);
         ApiResponseAttemptResult: {
             data: components["schemas"]["AttemptResult"];
             message?: string;
@@ -386,6 +386,71 @@ export interface components {
              * @enum {string}
              */
             type: "expression";
+        };
+        GapsActivity: {
+            activityKey: string;
+            /** @description O banco de palavras, só no mode bank (ausente no typed), na ordem do conteúdo, com os distratores: o App embaralha. */
+            bank?: components["schemas"]["GapsWord"][];
+            /** @description Um item por lacuna, na ordem dos ___ nas linhas (linha a linha). */
+            items: components["schemas"]["GapsItem"][];
+            /** @description As linhas, na ordem de exibição. Cada ___ (três ou mais _) é uma lacuna. */
+            lines: components["schemas"]["ContentText"][];
+            /** @enum {string} */
+            mode: "bank" | "typed";
+            prompt?: components["schemas"]["ContentText"];
+            title: components["schemas"]["ContentText"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "gaps";
+            /** Format: int32 */
+            xp: number;
+        };
+        GapsActivityStudentView: {
+            activityKey: string;
+            /** @description O banco de palavras, só no mode bank (ausente no typed), na ordem do conteúdo, com os distratores: o App embaralha. */
+            bank?: components["schemas"]["GapsWord"][];
+            /** @description Um item por lacuna, na ordem dos ___ nas linhas (linha a linha). */
+            items: components["schemas"]["GapsItemStudentView"][];
+            /** @description As linhas, na ordem de exibição. Cada ___ (três ou mais _) é uma lacuna. */
+            lines: components["schemas"]["ContentText"][];
+            /** @enum {string} */
+            mode: "bank" | "typed";
+            prompt?: components["schemas"]["ContentText"];
+            title: components["schemas"]["ContentText"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "gaps";
+            /** Format: int32 */
+            xp: number;
+        };
+        GapsAnswer: {
+            items: components["schemas"]["GapsAnswerItem"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "gaps";
+        };
+        GapsAnswerItem: {
+            itemKey: string;
+            /** @description O valor da lacuna, com as Variáveis do Aluno trocadas pelos tokens ({name}). Em branco é 400 INVALID_ANSWER. */
+            value: string;
+        };
+        GapsItem: {
+            accepted: components["schemas"]["ContentText"][];
+            itemKey: string;
+            justification?: components["schemas"]["ContentText"];
+        };
+        GapsItemStudentView: {
+            itemKey: string;
+        };
+        GapsWord: {
+            text: components["schemas"]["ContentText"];
+            wordKey: string;
         };
         ItemResult: {
             correct: boolean;
