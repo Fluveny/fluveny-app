@@ -5,7 +5,7 @@ Peças visuais do App do Aluno (histórias 1.8 e 1.9). A fonte é o DESIGN.md e 
 Importe sempre do barrel:
 
 ```tsx
-import { Button, Card, ChoiceCard, ModeTag, SceneFrame, SpeechBubble, TextField } from '../src/ui';
+import { Button, Card, ChoiceCard, MatchCard, ModeTag, SceneFrame, SpeechBubble, TextField } from '../src/ui';
 ```
 
 Em desenvolvimento, a rota `/kit` mostra todas as peças e estados (`npx expo start --web` e abra `/kit`). No release, ela redireciona para `/`.
@@ -119,6 +119,19 @@ Alternativa A–D: o `Card` tocável com a letra num selo à esquerda e o texto 
 | `wrong` / `right` | Depois de Verificar: ✕ ou ✓, e "errado" ou "certo" no rótulo. |
 
 Depois de Verificar, **todas** as alternativas do grupo recebem `locked` (não só a certa e a errada), senão o aluno troca a resposta avaliada.
+
+### `MatchCard`
+
+Cartão ligável do Associar (Match the Speech Bubbles, UX-DR76): o `Card` tocável com um selo à esquerda e o texto em `item`. O selo leva o número do par (`pair`: 1, 2, 3…, na ordem das falas), em `blue-dk` sobre `blue-lt` com borda `blue-md`; a fala e a resposta do mesmo par mostram o mesmo número, então o par não depende só de cor. Sem par, o selo fica vazio (branco com borda `line`). O leitor ouve o texto, o outro lado do par e o estado: "Where are you from?, ligada a I am from Brazil., certo". A seleção é anunciada pelo `accessibilityState`.
+
+| `state`           | Quando usar                                                         |
+| ----------------- | ------------------------------------------------------------------- |
+| `neutral`         | Livre.                                                              |
+| `selected`        | Tocada, esperando o outro lado do par. Fundo `blue-lt`, borda azul. |
+| `paired`          | Ligada a outro cartão, antes de Verificar: branca, com o número.    |
+| `wrong` / `right` | Depois de Verificar: ✕ ou ✓, e "errado" ou "certo" no rótulo.       |
+
+Tudo por toque, sem arrastar (UX-DR128). Depois de Verificar, e no par certo mantido por TENTAR DE NOVO, o cartão recebe `locked`.
 
 ### `FeedbackSheet`
 

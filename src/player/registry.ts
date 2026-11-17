@@ -11,6 +11,7 @@ import { CardsActivity } from './types/CardsActivity';
 import { ChoiceActivity } from './types/ChoiceActivity';
 import { DialogueActivity } from './types/DialogueActivity';
 import { ExpressionActivity } from './types/ExpressionActivity';
+import { MatchActivity } from './types/MatchActivity';
 import { SpeechActivity } from './types/SpeechActivity';
 import { PendingActivity } from './PendingActivity';
 
@@ -107,6 +108,7 @@ export const registry: { [T in ActivityType]: ActivityComponent | typeof PENDING
   choice: ChoiceActivity,
   dialogue: DialogueActivity,
   expression: ExpressionActivity,
+  match: MatchActivity,
   speech: SpeechActivity,
 };
 

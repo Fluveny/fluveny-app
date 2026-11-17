@@ -31,7 +31,9 @@ function plain(text: ContentText | undefined, { vars, pronoun }: RenderContext):
 
 /** Os itens da resposta esperada da Escolha (o `expected` de outro Tipo não tem). */
 function expectedItems(expected: Answer | undefined): { itemKey: string; optionKey: string }[] {
-  return expected && 'items' in expected && Array.isArray(expected.items) ? expected.items : [];
+  return expected?.type === 'choice' && 'items' in expected && Array.isArray(expected.items)
+    ? (expected.items as { itemKey: string; optionKey: string }[])
+    : [];
 }
 
 /** Põe um prefixo em todas as variantes do texto ("1. Good morning"). */

@@ -13,6 +13,8 @@ import {
   ExpressionCard,
   ExpressionSheet,
   FeedbackSheet,
+  MATCH_STATES,
+  MatchCard,
   MicButton,
   MODE_TAGS,
   resultLine,
@@ -30,6 +32,7 @@ import {
   type ButtonVariant,
   type CardTone,
   type ChoiceState,
+  type MatchState,
   type StatusBannerTone,
   type WordChipState,
 } from '../src/ui';
@@ -48,6 +51,13 @@ const EXPRESSION = {
   examples: ["Sorry, I'm new here.", "I'm new here, so I don't know anyone yet."],
 };
 const CHOICE_STATES: ChoiceState[] = ['neutral', 'selected', 'wrong', 'right'];
+const MATCH_KIT_LABELS: Record<MatchState, string> = {
+  neutral: 'Cartão livre',
+  selected: 'Cartão selecionado',
+  paired: 'Cartão ligado',
+  right: 'Cartão certo, travado',
+  wrong: 'Cartão errado, travado',
+};
 const BANNERS: { tone: StatusBannerTone; text: string; action?: string }[] = [
   { tone: 'offline', text: 'Sem conexão. Assim que a rede voltar, você continua daqui.' },
   {
@@ -187,13 +197,30 @@ function KitCatalog() {
             <ChoiceCard
               key={state}
               index={i}
-              label={`Alternativa ${state}${state === 'wrong' || state === 'right' ? ', travada' : ''}`}
+              label={`Alternativa ${state}${state === 'wrong' || state === 'right' ? ', travado' : ''}`}
               state={state}
               locked={state === 'wrong' || state === 'right'}
               onPress={() => {}}
               testID={`choice-state-${state}`}
             />
           ))}
+        </Section>
+
+        <Section title="CARTÕES DO ASSOCIAR">
+          {MATCH_STATES.map((state) => {
+            const paired = state !== 'neutral' && state !== 'selected';
+            return (
+              <MatchCard
+                key={state}
+                label={MATCH_KIT_LABELS[state]}
+                state={state}
+                {...(paired ? { pair: 1, pairedWith: 'Nice to meet you too!' } : {})}
+                locked={state === 'wrong' || state === 'right'}
+                onPress={() => {}}
+                testID={`match-state-${state}`}
+              />
+            );
+          })}
         </Section>
 
         <Section title="FOLHAS DE FEEDBACK">
