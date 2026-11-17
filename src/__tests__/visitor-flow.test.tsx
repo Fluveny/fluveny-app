@@ -1,5 +1,5 @@
 // Matriz da 1.10 (boas-vindas e player do Visitante): uma linha por teste.
-import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
+import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
 import { useEffect } from 'react';
 import { AccessibilityInfo, BackHandler, StyleSheet, Text } from 'react-native';
 
@@ -21,13 +21,14 @@ import { mockRoutes, resetMockVisitorRecords } from '../api/mocks/routes';
 import { AppProviders, createQueryClient } from '../AppProviders';
 import * as sentry from '../observability/sentry';
 import { CONTINUE_LABEL, PendingActivity, PENDING_TITLE } from '../player/PendingActivity';
+import { NEXT_BLOCK_LABEL } from '../player/types/CardsActivity';
 import { ChoiceActivity } from '../player/types/ChoiceActivity';
 import { NAME_LABEL } from '../player/types/DialogueActivity';
 import { PENDING, registry, type ActivityProps, type ActivityRegistry } from '../player/registry';
 import { OFFLINE_TEXT } from '../network/text';
 import { CLOSE_LABEL, OFFLINE_LABEL } from '../player/PlayerFrame';
 import { CHECK_LABEL, CONTINUE_LABEL as CONTINUE_SHEET, RETRY_LABEL as RETRY_SHEET } from '../player/useEvaluation';
-import { FEEDBACK_TITLES } from '../ui';
+import { EXPRESSION_CLOSE_LABEL, FEEDBACK_TITLES } from '../ui';
 import { visitorStore } from '../visitor/store';
 import { clearVisitorCache } from '../visitor/useVisitor';
 
@@ -46,6 +47,7 @@ const completions: Record<string, unknown>[] = [];
 const MOCK_STAGE = mockRoutes['/api/v1/units/{unitKey}/stages/{stageKey}'].get(new Request('http://mock')).data;
 type StageActivity = (typeof MOCK_STAGE.activities)[number];
 type ChoiceView = Extract<StageActivity, { type: 'choice' }>;
+type CardsView = Extract<StageActivity, { type: 'cards' }>;
 /** Só as Escolhas do mock: os testes da 1.10 a 1.12 percorrem o Estágio sem o Diálogo. */
 const STAGE = {
   ...MOCK_STAGE,
@@ -610,7 +612,7 @@ describe('conclusão vista ou pulada (1.12)', () => {
 
 describe('Diálogo no player (1.13)', () => {
   const DIALOGUE = MOCK_STAGE.activities[0]!;
-  const NEXT = MOCK_STAGE.activities[1] as ChoiceView;
+  const NEXT = MOCK_STAGE.activities[1] as CardsView;
 
   beforeEach(() => {
     servedStage = MOCK_STAGE;
@@ -654,9 +656,13 @@ describe('Diálogo no player (1.13)', () => {
     expect(await visitorStore.progress()).toEqual([{ activityKey: DIALOGUE.activityKey, outcome: 'viewed', xp: 0 }]);
     // A próxima Atividade tem o recuo lateral de volta.
     expect(sidePadding()).not.toBe(0);
-    // A próxima Atividade mostra o nome do Visitante, em ouro.
-    expect(String(NEXT.prompt)).toContain('{name}');
-    expect(screen.getByTestId('student-var').props.children).toBe('Zoraide');
+    // A próxima Atividade (os Cartões, 1.14) mostra o nome do Visitante, em ouro, no 2º bloco.
+    expect(NEXT.type).toBe('cards');
+    expect(JSON.stringify(NEXT.blocks[1])).toContain('{name}');
+    await fireEvent.press(button(NEXT_BLOCK_LABEL));
+    const names = screen.getAllByTestId('student-var').map((node) => node.props.children);
+    expect(names.length).toBeGreaterThan(0);
+    expect(names.every((name) => name === 'Zoraide')).toBe(true);
 
     // Nome e país nunca vão para a API.
     const bodies = requestBodies();
@@ -665,5 +671,96 @@ describe('Diálogo no player (1.13)', () => {
       expect(body).not.toContain('Zoraide');
       expect(body).not.toContain('Canada');
     }
+  });
+});
+
+describe('Expressões Úteis no player (1.14)', () => {
+  beforeEach(() => {
+    servedStage = MOCK_STAGE;
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
+    jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  const choose = async (activity: StageActivity, item: number, letter: string) =>
+    fireEvent.press(screen.getByTestId(`choice-${activity.activityKey}-${item + 1}-${letter}`));
+
+  it('o Visitante vê os Cartões e a Expressão, abre a folha num trecho da Escolha e conclui tudo com recibo', async () => {
+    const [dialogue, cards, expression, first, second, third] = MOCK_STAGE.activities;
+    expect([cards!.type, expression!.type]).toEqual(['cards', 'expression']);
+    await startTrying(FULL);
+
+    // Diálogo.
+    await fireEvent.changeText(await screen.findByLabelText(NAME_LABEL), 'Júlia');
+    await fireEvent.press(button(CONTINUE_LABEL));
+    await fireEvent.press(await screen.findByTestId('dialogue-country-BR'));
+    await fireEvent.press(button(CONTINUE_LABEL));
+    await waitFor(() => expect(screen.queryByTestId('dialogue-ask-country')).toBeNull());
+    await fireEvent.press(button(CONTINUE_LABEL));
+
+    // Cartões: três blocos, depois CONTINUAR.
+    expect(await screen.findByText(`2 DE ${FULL}`)).toBeTruthy();
+    expect(screen.getByText('Bloco 1 de 3')).toBeTruthy();
+    await fireEvent.press(button(NEXT_BLOCK_LABEL));
+    await fireEvent.press(button(NEXT_BLOCK_LABEL));
+    expect(screen.getByText('Bloco 3 de 3')).toBeTruthy();
+    await fireEvent.press(button(CONTINUE_LABEL));
+
+    // Expressão destacada: o termo da frase e o cartão dele.
+    expect(await screen.findByText(`3 DE ${FULL}`)).toBeTruthy();
+    expect(screen.getByTestId('expression-im-new-here').props.accessibilityRole).toBe('button');
+    expect(screen.getByTestId('expression-activity-card-term')).toHaveTextContent("I'm new here", { exact: true });
+    await fireEvent.press(button(CONTINUE_LABEL));
+
+    // As duas primeiras Escolhas.
+    expect(await screen.findByText(`4 DE ${FULL}`)).toBeTruthy();
+    for (const [item, letter] of (['A', 'B', 'B'] as const).entries()) await choose(first!, item, letter);
+    await fireEvent.press(button(CHECK_LABEL));
+    await fireEvent.press(await screen.findByRole('button', { name: CONTINUE_SHEET }));
+    expect(await screen.findByText(`5 DE ${FULL}`)).toBeTruthy();
+    await choose(second!, 0, 'A');
+    await fireEvent.press(button(CHECK_LABEL));
+    await fireEvent.press(await screen.findByRole('button', { name: CONTINUE_SHEET }));
+
+    // Na última Escolha, o trecho abre a folha de dicionário; ENTENDI fecha e a resposta fica.
+    expect(await screen.findByText(`6 DE ${FULL}`)).toBeTruthy();
+    await choose(third!, 0, 'A');
+    await fireEvent.press(screen.getByTestId('expression-nice-to-meet-you'));
+    const sheet = screen.getByTestId('expression-sheet');
+    expect(within(sheet).getByRole('header', { name: 'Nice to meet you' })).toBeTruthy();
+    // O exemplo com {name} sai com o nome do Visitante.
+    expect(screen.getByText('Hi, Júlia! Nice to meet you.')).toBeTruthy();
+    await fireEvent.press(button(EXPRESSION_CLOSE_LABEL));
+    expect(screen.queryByTestId('expression-sheet')).toBeNull();
+    expect(screen.getByTestId(`choice-${third!.activityKey}-1-A`).props.accessibilityState).toMatchObject({
+      selected: true,
+    });
+
+    // Com a folha de feedback aberta, o trecho fica sem toque: nunca duas folhas.
+    await fireEvent.press(button(CHECK_LABEL));
+    expect(await screen.findByTestId('feedback-sheet')).toBeTruthy();
+    const chunk = screen.getByTestId('expression-nice-to-meet-you');
+    expect(chunk.props.accessibilityRole).toBeUndefined();
+    await fireEvent.press(chunk);
+    expect(screen.queryByTestId('expression-sheet')).toBeNull();
+    await fireEvent.press(button(CONTINUE_SHEET));
+    expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
+
+    // Os três expositivos passaram pela completions com VIEWED; todos têm recibo.
+    expect(completions.map((body) => [body.activityKey, body.outcome])).toEqual([
+      [dialogue!.activityKey, 'VIEWED'],
+      [cards!.activityKey, 'VIEWED'],
+      [expression!.activityKey, 'VIEWED'],
+    ]);
+    const receipts = await visitorStore.receipts();
+    expect(receipts.map((entry) => entry.activityKey).sort()).toEqual(
+      MOCK_STAGE.activities.map((activity) => activity.activityKey).sort(),
+    );
+    expect(await visitorStore.progress()).toEqual(
+      expect.arrayContaining([
+        { activityKey: cards!.activityKey, outcome: 'viewed', xp: 0 },
+        { activityKey: expression!.activityKey, outcome: 'viewed', xp: 0 },
+      ]),
+    );
   });
 });

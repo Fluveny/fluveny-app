@@ -143,7 +143,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Conclui uma Atividade sem correção, sem XP. receipt só volta na primeira conclusão ou Tentativa do aparelho na Atividade. Cada Tipo aceita a sua conclusão: hoje só o dialogue, com VIEWED; SKIPPED fica reservado a um Tipo futuro. Fora dela, 409 COMPLETION_NOT_ALLOWED. */
+        /** @description Conclui uma Atividade sem correção, sem XP. receipt só volta na primeira conclusão ou Tentativa do aparelho na Atividade. Cada Tipo aceita a sua conclusão: hoje os expositivos dialogue, cards e expression, com VIEWED; SKIPPED fica reservado a um Tipo futuro. Fora dela, 409 COMPLETION_NOT_ALLOWED. */
         post: operations["completeVisitorActivity"];
         delete?: never;
         options?: never;
@@ -157,10 +157,10 @@ export interface components {
     schemas: {
         Activity: {
             type: string;
-        } & (components["schemas"]["ChoiceActivity"] | components["schemas"]["DialogueActivity"]);
+        } & (components["schemas"]["ChoiceActivity"] | components["schemas"]["DialogueActivity"] | components["schemas"]["CardsActivity"] | components["schemas"]["ExpressionActivity"]);
         ActivityStudentView: {
             type: string;
-        } & (components["schemas"]["ChoiceActivityStudentView"] | components["schemas"]["DialogueActivityStudentView"]);
+        } & (components["schemas"]["ChoiceActivityStudentView"] | components["schemas"]["DialogueActivityStudentView"] | components["schemas"]["CardsActivityStudentView"] | components["schemas"]["ExpressionActivityStudentView"]);
         ActivityTypeSupport: {
             sinceAppVersion?: string;
             type: string;
@@ -225,6 +225,37 @@ export interface components {
             resultPct: number;
             /** Format: int32 */
             xpAwarded: number;
+        };
+        CardBlock: {
+            blockKey: string;
+            /** @description O ícone do bloco, um emoji. Texto puro, não é texto do conteúdo: não aceita placeholder nem marcação. */
+            emoji?: string;
+            items: components["schemas"]["CardItem"][];
+            title: components["schemas"]["ContentText"];
+        };
+        CardItem: {
+            itemKey: string;
+            text: components["schemas"]["ContentText"];
+        };
+        CardsActivity: {
+            activityKey: string;
+            blocks: components["schemas"]["CardBlock"][];
+            title: components["schemas"]["ContentText"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "cards";
+        };
+        CardsActivityStudentView: {
+            activityKey: string;
+            blocks: components["schemas"]["CardBlock"][];
+            title: components["schemas"]["ContentText"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "cards";
         };
         ChoiceActivity: {
             activityKey: string;
@@ -329,6 +360,32 @@ export interface components {
             /** @description O nome exibido de quem fala. */
             speaker: string;
             text: components["schemas"]["ContentText"];
+        };
+        ExpressionActivity: {
+            activityKey: string;
+            /** @description A frase, com os termos marcados como [[texto|expressionKey]]: ao menos um em cada variante. */
+            sentence: components["schemas"]["ContentText"];
+            /** @description O nome exibido de quem diz a frase. */
+            speaker: string;
+            title: components["schemas"]["ContentText"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "expression";
+        };
+        ExpressionActivityStudentView: {
+            activityKey: string;
+            /** @description A frase, com os termos marcados como [[texto|expressionKey]]: ao menos um em cada variante. */
+            sentence: components["schemas"]["ContentText"];
+            /** @description O nome exibido de quem diz a frase. */
+            speaker: string;
+            title: components["schemas"]["ContentText"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "expression";
         };
         ItemResult: {
             correct: boolean;

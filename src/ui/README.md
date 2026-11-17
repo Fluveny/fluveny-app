@@ -136,6 +136,13 @@ Folha de feedback (`feedback-sheet`, UX-DR35 e UX-DR63 a UX-DR68): branca, canto
 - Ao abrir e a cada tom, o título recebe o foco e o leitor anuncia título e Resultado (UX-DR135).
 - A folha não sabe de rede: a moldura troca por "SEM CONEXÃO" a ação que chama o servidor.
 
+### `ExpressionCard` e `ExpressionSheet`
+
+Expressão Útil (`useful-expression`, UX-DR40 a UX-DR42, 1.14). O trecho tocável em si não é do kit: é o `RenderedText` dentro de um `ExpressionsProvider` (`src/renderer`), em `blue` sobre `blue-lt` com sublinhado pontilhado, papel de botão e a dica "Abre o significado da expressão".
+
+- `ExpressionCard`: o cartão de dicionário. Caixa `blue-lt` com borda `blue-md`, bloco azul com o ícone `book`, eyebrow "USEFUL EXPRESSION", termo em `title` (900), significado em 600 e exemplos em itálico 700 com marcador vermelho. Todo o texto vem cru e sai pelo `RenderedText` (passe `vars` e `pronoun`). Sem o botão "Ouvir" no Lançamento 1.
+- `ExpressionSheet`: `Modal` transparente com scrim `scrim` e a folha inferior (cantos de 28 no topo, coluna de até 440 dp) que sobe com mola; com "remover animações", aparece direto. Mostra o `ExpressionCard` e ENTENDI. Fecha com ENTENDI, toque no scrim e `onRequestClose` (voltar do Android; Esc no web). No player, quem a abre é o `ExpressionsProvider`, nunca com a folha de feedback aberta.
+
 ### `StatusBanner`
 
 Faixa de estado global, só a peça visual: quem mostra e esconde é a tela (a lógica de rede não é do kit). O texto e a ação vêm de quem usa; a ação opcional é um `Button` pequeno ghost (área de toque de 48 dp).

@@ -8,6 +8,13 @@ export { Button, BUTTON_VARIANTS, type ButtonProps, type ButtonVariant } from '.
 export { Card, CARD_TONES, type CardProps, type CardTone } from './Card';
 export { CHOICE_LETTERS, ChoiceCard, choiceLetter, type ChoiceCardProps, type ChoiceState } from './ChoiceCard';
 export { Column } from './Column';
+export { EXPRESSION_EYEBROW, ExpressionCard, type ExpressionCardProps, type ExpressionEntry } from './ExpressionCard';
+export {
+  EXPRESSION_CLOSE_LABEL,
+  EXPRESSION_SCRIM_LABEL,
+  ExpressionSheet,
+  type ExpressionSheetProps,
+} from './ExpressionSheet';
 export {
   EXPECTED_LABEL,
   FEEDBACK_TITLES,

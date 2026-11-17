@@ -37,6 +37,9 @@ describe('rota /kit (catálogo do kit, Decisão 1)', () => {
     for (const state of ['neutral', 'selected', 'wrong', 'right'])
       expect(screen.getByTestId(`choice-state-${state}`)).toBeTruthy();
     for (const tone of ['offline', 'notice', 'quiet']) expect(screen.getByTestId(`status-banner-${tone}`)).toBeTruthy();
+    // Peças da 1.14.
+    expect(screen.getByTestId('kit-expression-card')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Abrir a folha' })).toBeTruthy();
   });
 
   it('no release (!__DEV__): redireciona para /', async () => {

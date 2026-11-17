@@ -18,6 +18,10 @@
 // Diálogo (1.13): o Estágio abre com um Diálogo que pergunta o nome e o país
 // (UX-DR122). Como a API, cada Tipo aceita a sua conclusão: o `dialogue`, só
 // `VIEWED`; o resto é `409 COMPLETION_NOT_ALLOWED`.
+//
+// Expressões Úteis (1.14): depois do Diálogo vêm os Cartões de expressões e a
+// Expressão Útil destacada, que também aceitam `VIEWED`. A Unidade traz as
+// Expressões Úteis que eles e a última Escolha usam (`[[rótulo|chave]]`).
 import type { components, paths } from '../schema';
 
 export const MOCK_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
@@ -71,8 +75,8 @@ export function problemBody(problem: MockProblem) {
 
 const VERSION_ID = 'sha256:0000000000000000000000000000000000000000000000000000000000000001';
 
-// Uma Unidade com um Estágio de um Diálogo e três Escolhas (o player percorre
-// 1 de 4 a 4 de 4), e a Unit 2 "em breve" (sem Estágios). A primeira Escolha
+// Uma Unidade com um Estágio de um Diálogo, os Cartões, a Expressão Útil e três
+// Escolhas (o player percorre 1 de 6 a 6 de 6), e a Unit 2 "em breve" (sem Estágios). A primeira Escolha
 // tem 3 itens (Resultado "n de 3 itens"); as outras, um só.
 const unit1 = { unitKey: 'unit-1', order: 1, title: 'Unit 1', comingSoon: false, versionId: VERSION_ID };
 const unit2 = {
@@ -86,7 +90,10 @@ const unit2 = {
 type ContentText = components['schemas']['ContentText'];
 type ChoiceView = components['schemas']['ChoiceActivityStudentView'];
 type DialogueView = components['schemas']['DialogueActivityStudentView'];
-type ActivityView = ChoiceView | DialogueView;
+type CardsView = components['schemas']['CardsActivityStudentView'];
+type ExpressionView = components['schemas']['ExpressionActivityStudentView'];
+type ActivityView = ChoiceView | DialogueView | CardsView | ExpressionView;
+type UsefulExpression = components['schemas']['UsefulExpressionStudentView'];
 type AttemptResult = components['schemas']['AttemptResult'];
 type CompletionResult = components['schemas']['CompletionResult'];
 
@@ -141,11 +148,83 @@ const meetAlex: DialogueView = {
   ],
 };
 
+/** Os Cartões de expressões (1.14): três blocos de cumprimentos, com os textos do protótipo (`s1-cards`). */
+const greetingCards: CardsView = {
+  activityKey: 'greetings-cards',
+  type: 'cards',
+  title: 'Greetings & Introductions',
+  blocks: [
+    {
+      blockKey: 'saying-hello',
+      emoji: '👋',
+      title: 'Saying hello',
+      items: [
+        { itemKey: 'hi', text: 'Hi! / Hello!' },
+        { itemKey: 'hey-there', text: 'Hey there!' },
+        { itemKey: 'good-morning', text: 'Good morning! / Morning!' },
+        { itemKey: 'good-evening', text: 'Good evening!' },
+      ],
+    },
+    {
+      blockKey: 'introducing-yourself',
+      emoji: '🙋',
+      title: 'Introducing yourself',
+      items: [
+        { itemKey: 'im-name', text: "Hi, I'm {name}." },
+        { itemKey: 'my-names', text: "Hey, my name's {name}." },
+      ],
+    },
+    {
+      blockKey: 'being-polite',
+      emoji: '🤝',
+      title: 'Being polite',
+      items: [
+        { itemKey: 'nice-to-meet-you', text: 'Nice to meet you.' },
+        { itemKey: 'pleasure', text: "It's a pleasure to meet you." },
+        { itemKey: 'how-are-you-doing', text: 'How are you doing?' },
+        { itemKey: 'hows-it-going', text: "How's it going?" },
+      ],
+    },
+  ],
+};
+
+/** A Expressão Útil destacada (1.14), com a frase do protótipo (`s1-new`). */
+const newHere: ExpressionView = {
+  activityKey: 'new-here-expression',
+  type: 'expression',
+  title: 'Alex is new here',
+  speaker: 'Alex',
+  sentence: "Hi, I'm Alex. [[I'm new here|im-new-here]]!",
+};
+
+/** As Expressões Úteis da Unidade que o Estágio usa. */
+const usefulExpressions: UsefulExpression[] = [
+  {
+    expressionKey: 'im-new-here',
+    term: "I'm new here",
+    meaning:
+      'Usado para dizer que você chegou há pouco a um lugar, grupo ou situação e ainda não conhece bem as pessoas.',
+    examples: ["Sorry, I'm new here.", "I'm new here, so I don't know anyone yet."],
+  },
+  {
+    expressionKey: 'nice-to-meet-you',
+    term: 'Nice to meet you',
+    meaning: 'Usado quando você conhece alguém pela primeira vez: "prazer em conhecer você".',
+    examples: ['Hi, {name}! Nice to meet you.', 'Nice to meet you too!'],
+  },
+];
+
 /** A conclusão que cada Tipo aceita, como o `LearningActivityTypes.allowsCompletion` da API. */
-const ALLOWED_COMPLETION: Partial<Record<ActivityView['type'], string>> = { dialogue: 'VIEWED' };
+const ALLOWED_COMPLETION: Partial<Record<ActivityView['type'], string>> = {
+  dialogue: 'VIEWED',
+  cards: 'VIEWED',
+  expression: 'VIEWED',
+};
 
 const stage1Activities: ActivityView[] = [
   meetAlex,
+  greetingCards,
+  newHere,
   choice(
     'greeting-choice',
     'Choose the greeting',
@@ -194,7 +273,7 @@ const stage1Activities: ActivityView[] = [
   ]),
   choice('nice-to-meet-you-choice', 'Nice to meet you', [
     {
-      question: 'Alex says "Nice to meet you!". What do you answer?',
+      question: 'Alex says "[[Nice to meet you|nice-to-meet-you]]!". What do you answer?',
       options: [
         ['nice-to-meet-you-too', 'Nice to meet you too!'],
         ['good-night', 'Good night!'],
@@ -351,14 +430,7 @@ export const mockRoutes: MockRoutes = {
       data: {
         ...unit1,
         stages: [{ stageKey: 'stage-1', title: 'Meet & Greet', activityCount: stage1Activities.length }],
-        usefulExpressions: [
-          {
-            expressionKey: 'nice-to-meet-you',
-            term: 'Nice to meet you',
-            meaning: 'Prazer em conhecer você',
-            examples: ['Hi, {name}! Nice to meet you.'],
-          },
-        ],
+        usefulExpressions,
       },
     }),
   },

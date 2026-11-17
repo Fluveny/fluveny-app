@@ -10,6 +10,8 @@ import {
   Button,
   Card,
   ChoiceCard,
+  ExpressionCard,
+  ExpressionSheet,
   FeedbackSheet,
   MODE_TAGS,
   resultLine,
@@ -35,6 +37,12 @@ const TONES: CardTone[] = ['neutral', 'selected', 'wrong', 'right', 'reward'];
 const CHIP_STATES: WordChipState[] = ['idle', 'placed', 'used', 'right', 'wrong'];
 const PROGRESS_STEPS = [0, 0.25, 0.5, 1];
 const CHOICES = ["I'm from Brazil.", 'I from Brazil.', 'I am Brazil.', 'I is from Brazil.'];
+const EXPRESSION = {
+  expressionKey: 'im-new-here',
+  term: "I'm new here",
+  meaning: 'Usado para dizer que você chegou há pouco a um lugar e ainda não conhece bem as pessoas.',
+  examples: ["Sorry, I'm new here.", "I'm new here, so I don't know anyone yet."],
+};
 const CHOICE_STATES: ChoiceState[] = ['neutral', 'selected', 'wrong', 'right'];
 const BANNERS: { tone: StatusBannerTone; text: string; action?: string }[] = [
   { tone: 'offline', text: 'Sem conexão. Assim que a rede voltar, você continua daqui.' },
@@ -65,6 +73,7 @@ function KitCatalog() {
   const [selected, setSelected] = useState<CardTone | null>(null);
   const [pick, setPick] = useState<number | null>(null);
   const [name, setName] = useState('');
+  const [dictionary, setDictionary] = useState(false);
   const progress = PROGRESS_STEPS[step % PROGRESS_STEPS.length] ?? 0;
 
   return (
@@ -207,6 +216,12 @@ function KitCatalog() {
             actions={[{ label: 'CONTINUAR', variant: 'primary' }]}
             testID="feedback-sheet-review"
           />
+        </Section>
+
+        <Section title="EXPRESSÃO ÚTIL">
+          <ExpressionCard expression={EXPRESSION} testID="kit-expression-card" />
+          <Button label="Abrir a folha" variant="ghost" small onPress={() => setDictionary(true)} />
+          <ExpressionSheet expression={dictionary ? EXPRESSION : null} onClose={() => setDictionary(false)} />
         </Section>
 
         <Section title="FAIXAS DE ESTADO">
