@@ -115,6 +115,8 @@ export type PlayerFrameProps = {
   onClose: () => void;
   /** Muda a cada Atividade: a rolagem volta ao topo. */
   contentKey: string;
+  /** Sem o recuo lateral do conteúdo (a cena do Diálogo, que tem o próprio recuo). */
+  bleed?: boolean;
   children: ReactNode;
 };
 
@@ -134,6 +136,7 @@ export function PlayerFrame({
   sheet = null,
   onClose,
   contentKey,
+  bleed = false,
   children,
 }: PlayerFrameProps) {
   return (
@@ -147,7 +150,7 @@ export function PlayerFrame({
         key={contentKey}
         testID="player-content"
         style={styles.grow}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, bleed ? styles.bleed : null]}
         keyboardShouldPersistTaps="handled"
       >
         {children}
@@ -189,6 +192,7 @@ const styles = StyleSheet.create({
   position: { ...typography.eyebrow, color: color.muted, textTransform: 'uppercase' },
   stage: { flexShrink: 1, color: color.blue },
   content: { flexGrow: 1, padding: spacing.screenX, gap: spacing[4] },
+  bleed: { paddingHorizontal: 0 },
   message: { ...typography.bodyStrong, color: color.red, paddingBottom: spacing[2] },
   footer: { paddingHorizontal: spacing.screenX, paddingTop: spacing[2], paddingBottom: spacing[4] },
 });

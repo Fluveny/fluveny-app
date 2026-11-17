@@ -24,10 +24,13 @@ jest.mock('../../observability/sentry', () => {
 
 const METRICS = { frame: { x: 0, y: 0, width: 360, height: 640 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 const STAGE = mockRoutes['/api/v1/units/{unitKey}/stages/{stageKey}'].get(new Request('http://mock')).data;
+type ChoiceView = Extract<ActivityView, { type: 'choice' }>;
+/** As Escolhas do Estágio do mock (o Diálogo abre o Estágio). */
+const CHOICES = STAGE.activities.filter((activity): activity is ChoiceView => activity.type === 'choice');
 /** A Escolha de 3 itens; as certas são A, B e B. */
-const THREE = STAGE.activities[0]!;
+const THREE = CHOICES[0]!;
 /** A Escolha de um item; a certa é A. */
-const SINGLE = STAGE.activities[1]!;
+const SINGLE = CHOICES[1]!;
 
 type Route = '/api/v1/visitor/attempts' | '/api/v1/visitor/attempts/reveal';
 
@@ -87,12 +90,12 @@ async function open(activity: ActivityView = THREE) {
   return { advance, setOnline, unmount: view.unmount };
 }
 
-const option = (activity: ActivityView, item: number, letter: string) =>
+const option = (activity: ChoiceView, item: number, letter: string) =>
   screen.getByTestId(`choice-${activity.items[item]!.itemKey}-${letter}`);
-const pick = async (activity: ActivityView, item: number, letter: string) =>
+const pick = async (activity: ChoiceView, item: number, letter: string) =>
   fireEvent.press(option(activity, item, letter));
 const button = (name: string) => screen.getByRole('button', { name });
-const label = (activity: ActivityView, item: number, letter: string) =>
+const label = (activity: ChoiceView, item: number, letter: string) =>
   String(option(activity, item, letter).props.accessibilityLabel);
 
 async function answerThree(letters: [string, string, string]) {

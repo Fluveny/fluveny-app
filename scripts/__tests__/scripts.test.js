@@ -114,7 +114,7 @@ describe('api: checkVectors()', () => {
   it('arquivo da API no sha diferente do lock: falha', async () => {
     global.fetch = upstream('{"vectors":[1]}');
     const failures = await api.checkVectors({ sha }, { lock, copy });
-    expect(failures).toEqual([expect.stringContaining('não são os do lock')]);
+    expect(failures).toEqual([expect.stringContaining('não é o do lock')]);
   });
 
   it('download dos vetores falha: falha citando o arquivo', async () => {
@@ -141,6 +141,59 @@ describe('api: checkVectors()', () => {
     const committed = readFileSync(api.VECTORS_COPY, 'utf8');
     global.fetch = upstream(committed);
     await expect(api.checkVectors(api.readLock())).resolves.toEqual([]);
+  });
+});
+
+describe('api: checkCountries()', () => {
+  const sha = 'b'.repeat(40);
+  const copy = '[{"code":"BR","name":"Brazil"}]\n';
+  const lock = {
+    repo: 'Fluveny/fluveny-api',
+    path: 'content/schema/countries.json',
+    sha,
+    sha256: api.sha256(copy),
+  };
+  const upstream = (body) => jest.fn().mockResolvedValue({ ok: true, text: async () => body });
+
+  const originalFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('cópia, lock e arquivo da API no sha do contrato: confere', async () => {
+    global.fetch = upstream(copy);
+    await expect(api.checkCountries({ sha }, { lock, copy })).resolves.toEqual([]);
+    expect(global.fetch.mock.calls[0][0]).toBe(
+      `https://raw.githubusercontent.com/Fluveny/fluveny-api/${sha}/content/schema/countries.json`,
+    );
+  });
+
+  it('cópia editada à mão: falha citando a cópia', async () => {
+    global.fetch = upstream(copy);
+    const failures = await api.checkCountries({ sha }, { lock, copy: copy + ' ' });
+    expect(failures).toEqual([expect.stringContaining('src/player/countries.json não bate')]);
+  });
+
+  it('lock noutro sha que o do contrato: falha', async () => {
+    global.fetch = upstream(copy);
+    const failures = await api.checkCountries({ sha: 'd'.repeat(40) }, { lock, copy });
+    expect(failures).toEqual([expect.stringContaining('sha do contrato')]);
+  });
+
+  it('lock com o path dos vetores: recusa', async () => {
+    global.fetch = upstream(copy);
+    const failures = await api.checkCountries(
+      { sha },
+      { lock: { ...lock, path: 'content/schema/render-vectors.json' }, copy },
+    );
+    expect(failures).toEqual([expect.stringContaining('countries.lock inválido')]);
+  });
+
+  it('os arquivos gravados pelo api:sync conferem com o lock do contrato', async () => {
+    const { readFileSync } = require('node:fs');
+    const committed = readFileSync(api.COUNTRIES_COPY, 'utf8');
+    global.fetch = upstream(committed);
+    await expect(api.checkCountries(api.readLock())).resolves.toEqual([]);
   });
 });
 

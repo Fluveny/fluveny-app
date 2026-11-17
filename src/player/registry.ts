@@ -8,6 +8,7 @@ import type { ContentText } from '../renderer';
 import type { ButtonVariant, FeedbackTone } from '../ui';
 import type { Outcome } from '../visitor/types';
 import { ChoiceActivity } from './types/ChoiceActivity';
+import { DialogueActivity } from './types/DialogueActivity';
 import { PendingActivity } from './PendingActivity';
 
 /** Uma Atividade da visão do aluno, como vem do `GET` do Estágio. */
@@ -78,7 +79,11 @@ export type ActivityProps = {
   advance: (result?: ActivityResult) => void;
 };
 
-export type ActivityComponent = ComponentType<ActivityProps>;
+/**
+ * O componente de um Tipo. `bleed`: o conteúdo ocupa a largura toda, sem o
+ * recuo lateral da moldura (a cena do Diálogo tem o próprio recuo).
+ */
+export type ActivityComponent = ComponentType<ActivityProps> & { bleed?: boolean };
 
 /** Tipo ainda sem componente no App. */
 export const PENDING = 'PENDING' as const;
@@ -88,6 +93,7 @@ export type ActivityRegistry = Record<string, ActivityComponent | typeof PENDING
 /** Todos os Tipos do contrato; o teste do registro confere contra o `openapi.json`. */
 export const registry: { [T in ActivityType]: ActivityComponent | typeof PENDING } & ActivityRegistry = {
   choice: ChoiceActivity,
+  dialogue: DialogueActivity,
 };
 
 /** O componente do Tipo, ou o cartão "Atividade em preparação". */

@@ -143,7 +143,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Conclui uma Atividade sem correção (VIEWED ou SKIPPED), sem XP. receipt só volta na primeira conclusão ou Tentativa do aparelho na Atividade. */
+        /** @description Conclui uma Atividade sem correção, sem XP. receipt só volta na primeira conclusão ou Tentativa do aparelho na Atividade. Cada Tipo aceita a sua conclusão: hoje só o dialogue, com VIEWED; SKIPPED fica reservado a um Tipo futuro. Fora dela, 409 COMPLETION_NOT_ALLOWED. */
         post: operations["completeVisitorActivity"];
         delete?: never;
         options?: never;
@@ -157,10 +157,10 @@ export interface components {
     schemas: {
         Activity: {
             type: string;
-        } & components["schemas"]["ChoiceActivity"];
+        } & (components["schemas"]["ChoiceActivity"] | components["schemas"]["DialogueActivity"]);
         ActivityStudentView: {
             type: string;
-        } & components["schemas"]["ChoiceActivityStudentView"];
+        } & (components["schemas"]["ChoiceActivityStudentView"] | components["schemas"]["DialogueActivityStudentView"]);
         ActivityTypeSupport: {
             sinceAppVersion?: string;
             type: string;
@@ -302,6 +302,34 @@ export interface components {
         };
         /** @description Texto do conteúdo: uma string ou as variantes {he, she, they}. */
         ContentText: string | components["schemas"]["PronounVariants"];
+        DialogueActivity: {
+            activityKey: string;
+            lines: components["schemas"]["DialogueLine"][];
+            title: components["schemas"]["ContentText"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "dialogue";
+        };
+        DialogueActivityStudentView: {
+            activityKey: string;
+            lines: components["schemas"]["DialogueLine"][];
+            title: components["schemas"]["ContentText"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "dialogue";
+        };
+        DialogueLine: {
+            /** @enum {string} */
+            ask?: "name" | "country";
+            lineKey: string;
+            /** @description O nome exibido de quem fala. */
+            speaker: string;
+            text: components["schemas"]["ContentText"];
+        };
         ItemResult: {
             correct: boolean;
             itemKey: string;

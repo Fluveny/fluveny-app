@@ -1,7 +1,7 @@
 // Matriz da 1.10 (boas-vindas e player do Visitante): uma linha por teste.
 import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
 import { useEffect } from 'react';
-import { BackHandler, Text } from 'react-native';
+import { AccessibilityInfo, BackHandler, StyleSheet, Text } from 'react-native';
 
 import { RootStack } from '../../app/_layout';
 import ComingSoon, { SOON_BACK, SOON_BODY, SOON_TITLE } from '../../app/(public)/em-breve';
@@ -22,6 +22,7 @@ import { AppProviders, createQueryClient } from '../AppProviders';
 import * as sentry from '../observability/sentry';
 import { CONTINUE_LABEL, PendingActivity, PENDING_TITLE } from '../player/PendingActivity';
 import { ChoiceActivity } from '../player/types/ChoiceActivity';
+import { NAME_LABEL } from '../player/types/DialogueActivity';
 import { PENDING, registry, type ActivityProps, type ActivityRegistry } from '../player/registry';
 import { OFFLINE_TEXT } from '../network/text';
 import { CLOSE_LABEL, OFFLINE_LABEL } from '../player/PlayerFrame';
@@ -41,8 +42,20 @@ const json = (body: unknown, status = 200) =>
 /** Os corpos mandados à rota `completions`. */
 const completions: Record<string, unknown>[] = [];
 
-const STAGE = mockRoutes['/api/v1/units/{unitKey}/stages/{stageKey}'].get(new Request('http://mock')).data;
+/** O Estágio do mock, que abre com o Diálogo (1.13). */
+const MOCK_STAGE = mockRoutes['/api/v1/units/{unitKey}/stages/{stageKey}'].get(new Request('http://mock')).data;
+type StageActivity = (typeof MOCK_STAGE.activities)[number];
+type ChoiceView = Extract<StageActivity, { type: 'choice' }>;
+/** Só as Escolhas do mock: os testes da 1.10 a 1.12 percorrem o Estágio sem o Diálogo. */
+const STAGE = {
+  ...MOCK_STAGE,
+  activities: MOCK_STAGE.activities.filter((activity): activity is ChoiceView => activity.type === 'choice'),
+};
 const TOTAL = STAGE.activities.length;
+/** Quantas Atividades o Estágio do mock tem, com o Diálogo. */
+const FULL = MOCK_STAGE.activities.length;
+/** O Estágio que a API responde por padrão (cada `describe` escolhe). */
+let servedStage: typeof MOCK_STAGE = STAGE;
 
 /** A API respondendo com os mocks; `fail` troca a resposta de uma rota. */
 function apiResponds(
@@ -67,9 +80,7 @@ function apiResponds(
     }
     if (url.endsWith('/api/v1/meta')) return json({ data: { minAppVersion, activityTypes: [] } });
     if (url.includes('/stages/')) {
-      return fail.stage
-        ? (fail.stage() as Response | Promise<Response>)
-        : json(mockRoutes['/api/v1/units/{unitKey}/stages/{stageKey}'].get(new Request(url)));
+      return fail.stage ? (fail.stage() as Response | Promise<Response>) : json({ data: servedStage });
     }
     if (url.endsWith('/api/v1/units/unit-1')) {
       return fail.unit
@@ -101,10 +112,10 @@ async function openApp(initialUrl = '/') {
 
 const button = (name: string) => screen.getByRole('button', { name });
 
-async function startTrying() {
+async function startTrying(total = TOTAL) {
   await openApp();
   await fireEvent.press(await screen.findByRole('button', { name: TRY_NOW }));
-  await screen.findByText(`1 DE ${TOTAL}`);
+  await screen.findByText(`1 DE ${total}`);
 }
 
 async function pressContinue() {
@@ -118,6 +129,7 @@ beforeEach(() => {
   global.__resetNetwork();
   resetMockVisitorRecords();
   completions.length = 0;
+  servedStage = STAGE;
   (sentry.captureError as jest.Mock).mockClear();
   apiResponds();
 });
@@ -133,17 +145,21 @@ function CompletingActivity({ activity, setFooter, advance }: ActivityProps) {
   return <Text>{activity.activityKey}</Text>;
 }
 
-/** Troca o componente do `choice` durante um teste. */
-async function withChoice(component: (props: ActivityProps) => React.ReactNode, run: () => Promise<void>) {
+/** Troca o componente de um Tipo durante um teste. */
+async function withType(type: string, component: (props: ActivityProps) => React.ReactNode, run: () => Promise<void>) {
   const types = registry as ActivityRegistry;
-  const previous = types.choice;
-  types.choice = component;
+  const previous = types[type];
+  types[type] = component;
   try {
     await run();
   } finally {
-    types.choice = previous!;
+    types[type] = previous!;
   }
 }
+
+/** Troca o componente do `choice` durante um teste. */
+const withChoice = (component: (props: ActivityProps) => React.ReactNode, run: () => Promise<void>) =>
+  withType('choice', component, run);
 
 describe('boas-vindas e player do Visitante (1.10)', () => {
   // Os testes da 1.10 navegam pelo cartão "em preparação": a Escolha volta a ser PENDING aqui.
@@ -182,10 +198,7 @@ describe('boas-vindas e player do Visitante (1.10)', () => {
   it('falha ao carregar: mostra messageFor(code) e TENTAR DE NOVO, que recarrega', async () => {
     let failing = true;
     apiResponds({
-      stage: () =>
-        failing
-          ? json({ code: 'INTERNAL_ERROR' }, 500)
-          : json(mockRoutes['/api/v1/units/{unitKey}/stages/{stageKey}'].get(new Request('http://mock'))),
+      stage: () => (failing ? json({ code: 'INTERNAL_ERROR' }, 500) : json({ data: STAGE })),
     });
     await openApp();
     await fireEvent.press(await screen.findByRole('button', { name: TRY_NOW }));
@@ -475,17 +488,28 @@ describe('conclusão vista ou pulada (1.12)', () => {
       return <Text>{activity.activityKey}</Text>;
     };
 
+  // O Diálogo do mock abre o Estágio e aceita VIEWED (1.13); o Tipo de teste toma o lugar dele.
+  beforeEach(() => {
+    servedStage = MOCK_STAGE;
+  });
+
   it.each(['skipped', 'viewed'] as const)('%s: completions → recibo → Progresso xp 0 → avança', async (outcome) => {
-    await withChoice(finishing(outcome), async () => {
-      await startTrying();
+    // Nenhum Tipo do mock aceita SKIPPED (reservado a um Tipo futuro): aqui a API o aceita.
+    if (outcome === 'skipped') {
+      apiResponds({
+        completion: () => json({ data: { outcome: 'SKIPPED', xpAwarded: 0, receipt: 'v1.test-skipped.unsigned' } }),
+      });
+    }
+    await withType('dialogue', finishing(outcome), async () => {
+      await startTrying(FULL);
       await fireEvent.press(button(SKIP_LABEL));
-      expect(await screen.findByText(`2 DE ${TOTAL}`)).toBeTruthy();
-      const key = STAGE.activities[0]!.activityKey;
+      expect(await screen.findByText(`2 DE ${FULL}`)).toBeTruthy();
+      const key = MOCK_STAGE.activities[0]!.activityKey;
       expect(completions).toEqual([
         {
           attemptId: expect.stringMatching(/^[0-9a-f-]{36}$/),
           deviceId: await visitorStore.deviceId(),
-          versionId: STAGE.versionId,
+          versionId: MOCK_STAGE.versionId,
           activityKey: key,
           outcome: outcome.toUpperCase(),
           studyTimeMs: expect.any(Number),
@@ -497,14 +521,25 @@ describe('conclusão vista ou pulada (1.12)', () => {
     });
   });
 
+  it('Tipo que não aceita a conclusão: 409 COMPLETION_NOT_ALLOWED, messageFor e a tela fica', async () => {
+    await withType('dialogue', finishing('skipped'), async () => {
+      await startTrying(FULL);
+      await fireEvent.press(button(SKIP_LABEL));
+      expect(await screen.findByText(messageFor('COMPLETION_NOT_ALLOWED'))).toBeTruthy();
+      expect(screen.getByText(`1 DE ${FULL}`)).toBeTruthy();
+      expect(await visitorStore.progress()).toEqual([]);
+      expect(await visitorStore.receipts()).toEqual([]);
+    });
+  });
+
   it('falha na completions: a tela fica com messageFor e a ação volta; repetir manda o mesmo attemptId', async () => {
     let failure: (() => Response) | null = () => json({ code: 'INTERNAL_ERROR' }, 500);
     apiResponds({ completion: () => failure?.() });
-    await withChoice(finishing('skipped'), async () => {
-      await startTrying();
+    await withType('dialogue', finishing('viewed'), async () => {
+      await startTrying(FULL);
       await fireEvent.press(button(SKIP_LABEL));
       expect(await screen.findByText(messageFor('INTERNAL_ERROR'))).toBeTruthy();
-      expect(screen.getByText(`1 DE ${TOTAL}`)).toBeTruthy();
+      expect(screen.getByText(`1 DE ${FULL}`)).toBeTruthy();
       expect(button(SKIP_LABEL)).toBeEnabled();
       expect(await visitorStore.progress()).toEqual([]);
 
@@ -517,11 +552,11 @@ describe('conclusão vista ou pulada (1.12)', () => {
 
       failure = null;
       await fireEvent.press(button(SKIP_LABEL));
-      expect(await screen.findByText(`2 DE ${TOTAL}`)).toBeTruthy();
+      expect(await screen.findByText(`2 DE ${FULL}`)).toBeTruthy();
       expect(new Set(completions.map((body) => body.attemptId)).size).toBe(1);
       expect(completions).toHaveLength(3);
       expect(await visitorStore.progress()).toEqual([
-        { activityKey: STAGE.activities[0]!.activityKey, outcome: 'skipped', xp: 0 },
+        { activityKey: MOCK_STAGE.activities[0]!.activityKey, outcome: 'viewed', xp: 0 },
       ]);
       expect(screen.queryByText(messageFor(NETWORK_ERROR))).toBeNull();
     });
@@ -536,15 +571,15 @@ describe('conclusão vista ou pulada (1.12)', () => {
         return undefined;
       },
     });
-    await withChoice(finishing('skipped'), async () => {
-      await startTrying();
+    await withType('dialogue', finishing('viewed'), async () => {
+      await startTrying(FULL);
       await fireEvent.press(button(SKIP_LABEL));
       await fireEvent.press(button(CLOSE_LABEL));
       expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
       await act(async () => release());
       await waitFor(async () =>
         expect(await visitorStore.receipts()).toEqual([
-          { activityKey: STAGE.activities[0]!.activityKey, receipt: expect.any(String) },
+          { activityKey: MOCK_STAGE.activities[0]!.activityKey, receipt: expect.any(String) },
         ]),
       );
       expect(await visitorStore.progress()).toEqual([]);
@@ -552,23 +587,83 @@ describe('conclusão vista ou pulada (1.12)', () => {
   });
 
   it('Estágio sem versionId: a conclusão não é enviada e a tela fica', async () => {
-    const { versionId: _versionId, ...withoutVersion } = STAGE;
+    const { versionId: _versionId, ...withoutVersion } = MOCK_STAGE;
     apiResponds({ stage: () => json({ data: withoutVersion }) });
-    await withChoice(finishing('skipped'), async () => {
-      await startTrying();
+    await withType('dialogue', finishing('viewed'), async () => {
+      await startTrying(FULL);
       await fireEvent.press(button(SKIP_LABEL));
-      expect(screen.getByText(`1 DE ${TOTAL}`)).toBeTruthy();
+      expect(screen.getByText(`1 DE ${FULL}`)).toBeTruthy();
       expect(completions).toEqual([]);
       expect(await visitorStore.progress()).toEqual([]);
     });
   });
 
   it('sem rede: a ação da conclusão vira "SEM CONEXÃO"', async () => {
-    await withChoice(finishing('skipped'), async () => {
-      await startTrying();
+    await withType('dialogue', finishing('viewed'), async () => {
+      await startTrying(FULL);
       await act(async () => global.__setNetwork({ isConnected: false, isInternetReachable: false }));
       expect(button(OFFLINE_LABEL)).toBeDisabled();
       expect(completions).toEqual([]);
     });
+  });
+});
+
+describe('Diálogo no player (1.13)', () => {
+  const DIALOGUE = MOCK_STAGE.activities[0]!;
+  const NEXT = MOCK_STAGE.activities[1] as ChoiceView;
+
+  beforeEach(() => {
+    servedStage = MOCK_STAGE;
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
+    jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  /** Os corpos de todas as requisições mandadas à API. */
+  function requestBodies(): string[] {
+    return (global.fetch as jest.Mock).mock.calls
+      .map(([, init]: [unknown, RequestInit | undefined]) => init?.body)
+      .filter((body): body is string => typeof body === 'string');
+  }
+
+  it('o Estágio abre com o Diálogo: nome e país, CONTINUAR conclui (VIEWED, recibo, xp 0) e a próxima mostra o nome', async () => {
+    expect(DIALOGUE.type).toBe('dialogue');
+    await startTrying(FULL);
+    expect(screen.getByTestId('dialogue-scene')).toBeTruthy();
+    expect(screen.queryByText(PENDING_TITLE)).toBeNull();
+    // O player repassa o `bleed` do Diálogo: o conteúdo sem recuo lateral.
+    const sidePadding = () =>
+      (
+        StyleSheet.flatten(screen.getByTestId('player-content').props.contentContainerStyle) as {
+          paddingHorizontal?: number;
+        }
+      ).paddingHorizontal;
+    expect(sidePadding()).toBe(0);
+
+    await fireEvent.changeText(await screen.findByLabelText(NAME_LABEL), 'Zoraide');
+    await fireEvent.press(button(CONTINUE_LABEL));
+    await fireEvent.press(await screen.findByTestId('dialogue-country-CA'));
+    await fireEvent.press(button(CONTINUE_LABEL));
+    await waitFor(() => expect(screen.queryByTestId('dialogue-ask-country')).toBeNull());
+    expect(await visitorStore.variables()).toMatchObject({ name: 'Zoraide', country: 'Canada' });
+
+    await fireEvent.press(button(CONTINUE_LABEL));
+    expect(await screen.findByText(`2 DE ${FULL}`)).toBeTruthy();
+    expect(completions).toEqual([expect.objectContaining({ activityKey: DIALOGUE.activityKey, outcome: 'VIEWED' })]);
+    expect(await visitorStore.receipts()).toEqual([{ activityKey: DIALOGUE.activityKey, receipt: expect.any(String) }]);
+    expect(await visitorStore.progress()).toEqual([{ activityKey: DIALOGUE.activityKey, outcome: 'viewed', xp: 0 }]);
+    // A próxima Atividade tem o recuo lateral de volta.
+    expect(sidePadding()).not.toBe(0);
+    // A próxima Atividade mostra o nome do Visitante, em ouro.
+    expect(String(NEXT.prompt)).toContain('{name}');
+    expect(screen.getByTestId('student-var').props.children).toBe('Zoraide');
+
+    // Nome e país nunca vão para a API.
+    const bodies = requestBodies();
+    expect(bodies.length).toBeGreaterThan(0);
+    for (const body of bodies) {
+      expect(body).not.toContain('Zoraide');
+      expect(body).not.toContain('Canada');
+    }
   });
 });
