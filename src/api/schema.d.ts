@@ -157,17 +157,17 @@ export interface components {
     schemas: {
         Activity: {
             type: string;
-        } & (components["schemas"]["ChoiceActivity"] | components["schemas"]["DialogueActivity"] | components["schemas"]["CardsActivity"] | components["schemas"]["ExpressionActivity"] | components["schemas"]["SpeechActivity"]);
+        } & (components["schemas"]["ChoiceActivity"] | components["schemas"]["DialogueActivity"] | components["schemas"]["CardsActivity"] | components["schemas"]["ExpressionActivity"] | components["schemas"]["SpeechActivity"] | components["schemas"]["MatchActivity"]);
         ActivityStudentView: {
             type: string;
-        } & (components["schemas"]["ChoiceActivityStudentView"] | components["schemas"]["DialogueActivityStudentView"] | components["schemas"]["CardsActivityStudentView"] | components["schemas"]["ExpressionActivityStudentView"] | components["schemas"]["SpeechActivityStudentView"]);
+        } & (components["schemas"]["ChoiceActivityStudentView"] | components["schemas"]["DialogueActivityStudentView"] | components["schemas"]["CardsActivityStudentView"] | components["schemas"]["ExpressionActivityStudentView"] | components["schemas"]["SpeechActivityStudentView"] | components["schemas"]["MatchActivityStudentView"]);
         ActivityTypeSupport: {
             sinceAppVersion?: string;
             type: string;
         };
         Answer: {
             type: string;
-        } & (components["schemas"]["ChoiceAnswer"] | components["schemas"]["SpeechAnswer"]);
+        } & (components["schemas"]["ChoiceAnswer"] | components["schemas"]["SpeechAnswer"] | components["schemas"]["MatchAnswer"]);
         ApiResponseAttemptResult: {
             data: components["schemas"]["AttemptResult"];
             message?: string;
@@ -391,6 +391,60 @@ export interface components {
             correct: boolean;
             itemKey: string;
             justification?: components["schemas"]["ContentText"];
+        };
+        MatchActivity: {
+            activityKey: string;
+            items: components["schemas"]["MatchItem"][];
+            prompt?: components["schemas"]["ContentText"];
+            responses: components["schemas"]["MatchResponse"][];
+            title: components["schemas"]["ContentText"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "match";
+            /** Format: int32 */
+            xp: number;
+        };
+        MatchActivityStudentView: {
+            activityKey: string;
+            items: components["schemas"]["MatchItemStudentView"][];
+            prompt?: components["schemas"]["ContentText"];
+            responses: components["schemas"]["MatchResponse"][];
+            title: components["schemas"]["ContentText"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "match";
+            /** Format: int32 */
+            xp: number;
+        };
+        MatchAnswer: {
+            items: components["schemas"]["MatchAnswerItem"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "match";
+        };
+        MatchAnswerItem: {
+            itemKey: string;
+            responseKey: string;
+        };
+        MatchItem: {
+            correctResponseKey: string;
+            itemKey: string;
+            justification?: components["schemas"]["ContentText"];
+            line: components["schemas"]["ContentText"];
+        };
+        MatchItemStudentView: {
+            itemKey: string;
+            line: components["schemas"]["ContentText"];
+        };
+        MatchResponse: {
+            responseKey: string;
+            text: components["schemas"]["ContentText"];
         };
         MediaContent: {
             /** @enum {string} */

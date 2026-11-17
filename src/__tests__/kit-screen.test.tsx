@@ -2,6 +2,7 @@ import { renderRouter, screen } from 'expo-router/testing-library';
 import { StyleSheet, Text, type TextStyle } from 'react-native';
 
 import KitScreen from '../../app/kit';
+import { MATCH_STATES } from '../ui/MatchCard';
 import { MODE_TAGS } from '../ui/ModeTag';
 import { size } from '../ui/tokens';
 import { touchHeight } from '../test-utils/kit';
@@ -40,6 +41,8 @@ describe('rota /kit (catálogo do kit, Decisão 1)', () => {
     // Peças da 1.14.
     expect(screen.getByTestId('kit-expression-card')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Abrir a folha' })).toBeTruthy();
+    // Peças da 1.16.
+    for (const state of MATCH_STATES) expect(screen.getByTestId(`match-state-${state}`)).toBeTruthy();
   });
 
   it('no release (!__DEV__): redireciona para /', async () => {

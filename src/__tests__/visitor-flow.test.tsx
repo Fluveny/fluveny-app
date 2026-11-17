@@ -43,12 +43,15 @@ const json = (body: unknown, status = 200) =>
 
 /** Os corpos mandados à rota `completions`. */
 const completions: Record<string, unknown>[] = [];
+/** Os corpos mandados à rota das Tentativas. */
+const attempts: Record<string, unknown>[] = [];
 
 /** O Estágio do mock, que abre com o Diálogo (1.13). */
 const MOCK_STAGE = mockRoutes['/api/v1/units/{unitKey}/stages/{stageKey}'].get(new Request('http://mock')).data;
 type StageActivity = (typeof MOCK_STAGE.activities)[number];
 type ChoiceView = Extract<StageActivity, { type: 'choice' }>;
 type CardsView = Extract<StageActivity, { type: 'cards' }>;
+type MatchView = Extract<StageActivity, { type: 'match' }>;
 /** Só as Escolhas do mock: os testes da 1.10 a 1.12 percorrem o Estágio sem o Diálogo. */
 const STAGE = {
   ...MOCK_STAGE,
@@ -70,6 +73,7 @@ function apiResponds(
   global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.endsWith('/api/v1/visitor/attempts')) {
+      attempts.push(JSON.parse(String(init?.body)));
       return mockResponse(mockRoutes['/api/v1/visitor/attempts'].post, new Request(url, init));
     }
     if (url.endsWith('/api/v1/visitor/attempts/reveal')) {
@@ -132,6 +136,7 @@ beforeEach(() => {
   global.__resetNetwork();
   resetMockVisitorRecords();
   completions.length = 0;
+  attempts.length = 0;
   servedStage = STAGE;
   (sentry.captureError as jest.Mock).mockClear();
   apiResponds();
@@ -688,8 +693,14 @@ describe('Expressões Úteis no player (1.14)', () => {
     fireEvent.press(screen.getByTestId(`choice-${activity.activityKey}-${item + 1}-${letter}`));
 
   it('o Visitante vê os Cartões e a Expressão, abre a folha num trecho da Escolha e conclui tudo com recibo', async () => {
-    const [dialogue, cards, expression, first, second, third] = MOCK_STAGE.activities;
-    expect([cards!.type, expression!.type]).toEqual(['cards', 'expression']);
+    const of = (type: StageActivity['type']) => MOCK_STAGE.activities.filter((activity) => activity.type === type);
+    const [dialogue] = of('dialogue');
+    const [cards] = of('cards');
+    const [expression] = of('expression');
+    const [first, second, third] = of('choice');
+    const [match] = of('match') as MatchView[];
+    const position = (activity: StageActivity | undefined) =>
+      `${MOCK_STAGE.activities.indexOf(activity!) + 1} DE ${FULL}`;
     await startTrying(FULL);
 
     // Diálogo.
@@ -701,7 +712,7 @@ describe('Expressões Úteis no player (1.14)', () => {
     await fireEvent.press(button(CONTINUE_LABEL));
 
     // Cartões: três blocos, depois CONTINUAR.
-    expect(await screen.findByText(`2 DE ${FULL}`)).toBeTruthy();
+    expect(await screen.findByText(position(cards))).toBeTruthy();
     expect(screen.getByText('Bloco 1 de 3')).toBeTruthy();
     await fireEvent.press(button(NEXT_BLOCK_LABEL));
     await fireEvent.press(button(NEXT_BLOCK_LABEL));
@@ -709,23 +720,23 @@ describe('Expressões Úteis no player (1.14)', () => {
     await fireEvent.press(button(CONTINUE_LABEL));
 
     // Expressão destacada: o termo da frase e o cartão dele.
-    expect(await screen.findByText(`3 DE ${FULL}`)).toBeTruthy();
+    expect(await screen.findByText(position(expression))).toBeTruthy();
     expect(screen.getByTestId('expression-im-new-here').props.accessibilityRole).toBe('button');
     expect(screen.getByTestId('expression-activity-card-term')).toHaveTextContent("I'm new here", { exact: true });
     await fireEvent.press(button(CONTINUE_LABEL));
 
     // As duas primeiras Escolhas.
-    expect(await screen.findByText(`4 DE ${FULL}`)).toBeTruthy();
+    expect(await screen.findByText(position(first))).toBeTruthy();
     for (const [item, letter] of (['A', 'B', 'B'] as const).entries()) await choose(first!, item, letter);
     await fireEvent.press(button(CHECK_LABEL));
     await fireEvent.press(await screen.findByRole('button', { name: CONTINUE_SHEET }));
-    expect(await screen.findByText(`5 DE ${FULL}`)).toBeTruthy();
+    expect(await screen.findByText(position(second))).toBeTruthy();
     await choose(second!, 0, 'A');
     await fireEvent.press(button(CHECK_LABEL));
     await fireEvent.press(await screen.findByRole('button', { name: CONTINUE_SHEET }));
 
     // Na última Escolha, o trecho abre a folha de dicionário; ENTENDI fecha e a resposta fica.
-    expect(await screen.findByText(`6 DE ${FULL}`)).toBeTruthy();
+    expect(await screen.findByText(position(third))).toBeTruthy();
     await choose(third!, 0, 'A');
     await fireEvent.press(screen.getByTestId('expression-nice-to-meet-you'));
     const sheet = screen.getByTestId('expression-sheet');
@@ -747,8 +758,27 @@ describe('Expressões Úteis no player (1.14)', () => {
     expect(screen.queryByTestId('expression-sheet')).toBeNull();
     await fireEvent.press(button(CONTINUE_SHEET));
 
+    // O Associar (1.16): só toque e toque; a resposta com {name} mostra o nome e a Tentativa só leva chaves.
+    expect(await screen.findByText(position(match))).toBeTruthy();
+    expect(screen.getByText("Hi Alex! I'm Júlia.")).toBeTruthy();
+    expect(screen.getByText('Uma das respostas sobra.')).toBeTruthy();
+    // O mock lista as respostas certas na ordem das falas, e o distrator por último.
+    for (const [i, item] of match!.items.entries()) {
+      await fireEvent.press(screen.getByTestId(`match-item-${item.itemKey}`));
+      await fireEvent.press(screen.getByTestId(`match-response-${match!.responses[i]!.responseKey}`));
+    }
+    await fireEvent.press(button(CHECK_LABEL));
+    expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
+    const sent = attempts.find((body) => body.activityKey === match!.activityKey)!;
+    expect(sent.answer).toEqual({
+      type: 'match',
+      items: match!.items.map((item, i) => ({ itemKey: item.itemKey, responseKey: match!.responses[i]!.responseKey })),
+    });
+    expect(JSON.stringify(sent)).not.toContain('Júlia');
+    await fireEvent.press(button(CONTINUE_SHEET));
+
     // A Fala (1.15) fecha o Estágio: o aviso de privacidade, e "Não posso falar agora" pula.
-    expect(await screen.findByText(`7 DE ${FULL}`)).toBeTruthy();
+    expect(await screen.findByText(position(of('speech')[0]))).toBeTruthy();
     expect(await screen.findByTestId('speech-privacy')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('speech-privacy-decline'));
     expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();

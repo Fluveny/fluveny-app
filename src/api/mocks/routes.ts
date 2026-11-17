@@ -22,6 +22,10 @@
 // Expressões Úteis (1.14): depois do Diálogo vêm os Cartões de expressões e a
 // Expressão Útil destacada, que também aceitam `VIEWED`. A Unidade traz as
 // Expressões Úteis que eles e a última Escolha usam (`[[rótulo|chave]]`).
+//
+// Associar (1.16): antes da Fala, um `match` de três pares com um distrator e
+// `{name}` numa resposta; o corretor segue o `Grader.match` da API. Sem
+// conclusão: o Associar só termina corrigido.
 import type { components, paths } from '../schema';
 
 export const MOCK_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
@@ -76,8 +80,9 @@ export function problemBody(problem: MockProblem) {
 const VERSION_ID = 'sha256:0000000000000000000000000000000000000000000000000000000000000001';
 
 // Uma Unidade com um Estágio de um Diálogo, os Cartões, a Expressão Útil, três
-// Escolhas e a Fala (o player percorre 1 de 7 a 7 de 7), e a Unit 2 "em breve" (sem Estágios). A primeira Escolha
-// tem 3 itens (Resultado "n de 3 itens"); as outras, um só.
+// Escolhas, o Associar e a Fala (o player percorre 1 de 8 a 8 de 8), e a Unit 2
+// "em breve" (sem Estágios). A primeira Escolha tem 3 itens (Resultado "n de 3
+// itens"); as outras, um só.
 const unit1 = { unitKey: 'unit-1', order: 1, title: 'Unit 1', comingSoon: false, versionId: VERSION_ID };
 const unit2 = {
   unitKey: 'unit-2',
@@ -93,7 +98,8 @@ type DialogueView = components['schemas']['DialogueActivityStudentView'];
 type CardsView = components['schemas']['CardsActivityStudentView'];
 type ExpressionView = components['schemas']['ExpressionActivityStudentView'];
 type SpeechView = components['schemas']['SpeechActivityStudentView'];
-type ActivityView = ChoiceView | DialogueView | CardsView | ExpressionView | SpeechView;
+type MatchView = components['schemas']['MatchActivityStudentView'];
+type ActivityView = ChoiceView | DialogueView | CardsView | ExpressionView | SpeechView | MatchView;
 type UsefulExpression = components['schemas']['UsefulExpressionStudentView'];
 type AttemptResult = components['schemas']['AttemptResult'];
 type CompletionResult = components['schemas']['CompletionResult'];
@@ -277,6 +283,75 @@ function speechMatches(transcript: string, forms: string[]): boolean {
   });
 }
 
+/** Um par do Associar no mock: a fala, a resposta certa e a justificativa (que pode faltar). */
+type MockPair = { itemKey: string; line: ContentText; correct: string; justification?: ContentText };
+
+/** Gabarito do Associar no mock, privado a este módulo: as respostas conhecidas e o par certo de cada fala. */
+const matchKey = new Map<
+  string,
+  { xp: number; responses: Set<string>; items: Map<string, { correct: string; justification?: ContentText }> }
+>();
+
+function match(
+  activityKey: string,
+  title: string,
+  prompt: string,
+  pairs: MockPair[],
+  responses: [string, ContentText][],
+): MatchView {
+  const xp = 9;
+  matchKey.set(activityKey, {
+    xp,
+    responses: new Set(responses.map(([responseKey]) => responseKey)),
+    items: new Map(
+      pairs.map((pair) => [
+        pair.itemKey,
+        {
+          correct: pair.correct,
+          ...(pair.justification === undefined ? {} : { justification: pair.justification }),
+        },
+      ]),
+    ),
+  });
+  return {
+    activityKey,
+    type: 'match',
+    title,
+    prompt,
+    xp,
+    items: pairs.map((pair) => ({ itemKey: pair.itemKey, line: pair.line })),
+    responses: responses.map(([responseKey, text]) => ({ responseKey, text })),
+  };
+}
+
+/** O Associar (1.16), com as falas do `s1-speech-bubbles` da API: três pares e um distrator. */
+const speechBubbles = match(
+  'speech-bubbles-match',
+  'Match the Speech Bubbles',
+  'Ligue cada fala do Alex à sua resposta.',
+  [
+    {
+      itemKey: 'speech-bubbles-hi',
+      line: "Hi! I'm Alex. What's your name?",
+      correct: 'hi-alex',
+      justification: 'Respondemos ao **Hi** com o nosso nome.',
+    },
+    { itemKey: 'speech-bubbles-nice', line: '[[Nice to meet you|nice-to-meet-you]]!', correct: 'nice-too' },
+    {
+      itemKey: 'speech-bubbles-from',
+      line: 'Where are you from?',
+      correct: 'from-country',
+      justification: 'Para dizer de onde você é, use **I am from**.',
+    },
+  ],
+  [
+    ['hi-alex', "Hi Alex! I'm {name}."],
+    ['nice-too', '**Nice to meet you** too!'],
+    ['from-country', 'I am from {country}.'],
+    ['goodbye', 'Goodbye!'],
+  ],
+);
+
 /** A Fala (1.15) que fecha o Estágio, com o alvo da API (`s1-your-turn`). */
 const yourTurn = speech('your-turn-speech', "It's your turn", 'Se apresente para o Alex.', "Hi Alex, I'm {name}.", [
   'Hello Alex, my name is {name}.',
@@ -343,6 +418,7 @@ const stage1Activities: ActivityView[] = [
       justification: 'Answer with **Nice to meet you too!**',
     },
   ]),
+  speechBubbles,
   yourTurn,
 ];
 
@@ -410,6 +486,8 @@ async function gradeAttempt(request: Request, reveal: boolean): Promise<{ data: 
   const deviceId = deviceIdOf(body.deviceId);
   const spoken = speechKey.get(body.activityKey);
   if (spoken) return gradeSpeech(body, deviceId, spoken, reveal);
+  const pairs = matchKey.get(body.activityKey);
+  if (pairs) return gradeMatch(body, deviceId, pairs, reveal);
   if (!key) throw new MockProblem(404, 'NOT_FOUND');
   const answers = body.answer?.items;
   if (body.type !== 'choice' || body.answer?.type !== 'choice' || !Array.isArray(answers)) {
@@ -425,35 +503,91 @@ async function gradeAttempt(request: Request, reveal: boolean): Promise<{ data: 
   }
   if (chosen.size !== key.items.size) throw new MockProblem(400, 'INVALID_ANSWER');
 
-  const total = key.items.size;
-  const items = [...key.items].map(([itemKey, { correct }]) => ({ itemKey, correct: chosen.get(itemKey) === correct }));
+  const items = [...key.items].map(([itemKey, { correct, justification }]) => ({
+    itemKey,
+    correct: chosen.get(itemKey) === correct,
+    justification,
+  }));
+  const expected = {
+    type: 'choice' as const,
+    items: [...key.items].map(([itemKey, { correct }]) => ({ itemKey, optionKey: correct })),
+  };
+  return gradedResult(body, deviceId, reveal, key.xp, items, expected);
+}
+
+/** O Resultado de uma correção por itens (Escolha e Associar), com as regras de recibo e reveal da API. */
+function gradedResult(
+  body: { attemptId?: unknown; activityKey?: unknown },
+  deviceId: string | undefined,
+  reveal: boolean,
+  xp: number,
+  items: { itemKey: string; correct: boolean; justification?: ContentText }[],
+  expected: AttemptResult['expected'],
+): { data: AttemptResult } {
+  const activityKey = body.activityKey as string;
+  const total = items.length;
   const right = items.filter((item) => item.correct).length;
   const resultPct = right === total ? 100 : Math.min(99, Math.round((100 * right) / total));
   const open = reveal || resultPct === 100;
   // O reveal exige uma Tentativa do aparelho na Atividade e não gera recibo.
-  if (reveal && (!deviceId || !firstRecords.has(`${deviceId}|${body.activityKey}`))) {
+  if (reveal && (!deviceId || !firstRecords.has(`${deviceId}|${activityKey}`))) {
     throw new MockProblem(409, 'ATTEMPT_REQUIRED');
   }
-  const receipt = reveal ? undefined : receiptFor(deviceId, body.activityKey, body.attemptId, 'GRADED', resultPct);
+  const receipt = reveal ? undefined : receiptFor(deviceId, activityKey, body.attemptId, 'GRADED', resultPct);
   return {
     data: {
       ...(receipt ? { receipt } : {}),
       outcome: 'GRADED',
       resultPct,
-      xpAwarded: reveal ? 0 : Math.round((key.xp * resultPct) / 100),
-      items: items.map((item) =>
-        open ? { ...item, justification: key.items.get(item.itemKey)!.justification } : item,
+      xpAwarded: reveal ? 0 : Math.round((xp * resultPct) / 100),
+      items: items.map(({ justification, ...item }) =>
+        open && justification !== undefined ? { ...item, justification } : item,
       ),
-      ...(open
-        ? {
-            expected: {
-              type: 'choice' as const,
-              items: [...key.items].map(([itemKey, { correct }]) => ({ itemKey, optionKey: correct })),
-            },
-          }
-        : {}),
+      ...(open ? { expected } : {}),
     },
   };
+}
+
+/**
+ * O Associar no corretor do mock, como o `Grader.match` da API: cada fala ligada
+ * a uma resposta da Atividade, sem repetir fala nem resposta, e todas as falas
+ * cobertas; fora disso, `400 INVALID_ANSWER`. O `expected` são os pares certos,
+ * na ordem das falas.
+ */
+function gradeMatch(
+  body: { attemptId?: unknown; activityKey?: unknown; type?: unknown; answer?: { type?: unknown; items?: unknown } },
+  deviceId: string | undefined,
+  key: { xp: number; responses: Set<string>; items: Map<string, { correct: string; justification?: ContentText }> },
+  reveal: boolean,
+): { data: AttemptResult } {
+  const answers = body.answer?.items;
+  if (body.type !== 'match' || body.answer?.type !== 'match' || !Array.isArray(answers)) {
+    throw new MockProblem(400, 'INVALID_ANSWER');
+  }
+  const chosen = new Map<string, string>();
+  const used = new Set<string>();
+  for (const item of answers as { itemKey?: unknown; responseKey?: unknown }[]) {
+    if (typeof item?.itemKey !== 'string' || typeof item.responseKey !== 'string') {
+      throw new MockProblem(400, 'INVALID_ANSWER');
+    }
+    if (!key.items.has(item.itemKey) || chosen.has(item.itemKey)) throw new MockProblem(400, 'INVALID_ANSWER');
+    if (!key.responses.has(item.responseKey) || used.has(item.responseKey)) {
+      throw new MockProblem(400, 'INVALID_ANSWER');
+    }
+    chosen.set(item.itemKey, item.responseKey);
+    used.add(item.responseKey);
+  }
+  if (chosen.size !== key.items.size) throw new MockProblem(400, 'INVALID_ANSWER');
+  const items = [...key.items].map(([itemKey, { correct, justification }]) => ({
+    itemKey,
+    correct: chosen.get(itemKey) === correct,
+    ...(justification === undefined ? {} : { justification }),
+  }));
+  const expected = {
+    type: 'match' as const,
+    items: [...key.items].map(([itemKey, { correct }]) => ({ itemKey, responseKey: correct })),
+  };
+  return gradedResult(body, deviceId, reveal, key.xp, items, expected);
 }
 
 /**

@@ -28,6 +28,7 @@ export {
 } from './FeedbackSheet';
 export { Icon, type IconName } from './icons';
 export { Logo } from './Logo';
+export { MATCH_LINKED, MATCH_STATES, MatchCard, type MatchCardProps, type MatchState } from './MatchCard';
 export {
   MIC_IDLE_CAPTION,
   MIC_LABEL,

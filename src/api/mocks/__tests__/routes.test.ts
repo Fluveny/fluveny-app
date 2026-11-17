@@ -471,4 +471,96 @@ describe('recibos do mock (1.12)', () => {
       });
     });
   });
+
+  describe('Associar (1.16)', () => {
+    const MATCH = STAGE.activities.find(
+      (activity): activity is Extract<StageActivity, { type: 'match' }> => activity.type === 'match',
+    )!;
+    /** As respostas certas, na ordem das falas (o mock lista o distrator por último). */
+    const RIGHT = MATCH.items.map((item, i) => ({
+      itemKey: item.itemKey,
+      responseKey: MATCH.responses[i]!.responseKey,
+    }));
+    const pairUp = (items: unknown, ids: { attemptId?: string } = {}) => ({
+      attemptId: ids.attemptId ?? randomUUID(),
+      deviceId: DEVICE,
+      versionId: STAGE.versionId,
+      activityKey: MATCH.activityKey,
+      type: 'match',
+      answer: { type: 'match', items },
+      studyTimeMs: 1000,
+    });
+
+    it('o Estágio tem um Associar antes da Fala, com um distrator, {name} numa resposta e sem gabarito', () => {
+      expect(STAGE.activities.indexOf(MATCH)).toBe(STAGE.activities.indexOf(SPEECH) - 1);
+      expect(MATCH.responses.length - MATCH.items.length).toBe(1);
+      expect(MATCH.responses.some((response) => String(response.text).includes('{name}'))).toBe(true);
+      expect(Object.keys(MATCH.items[0]!).sort()).toEqual(['itemKey', 'line']);
+    });
+
+    it('Acerto: 100, xp 9, um item por fala, expected com os pares e recibo', async () => {
+      const right = await send('/api/v1/visitor/attempts', pairUp(RIGHT));
+      expect(right).toMatchObject({ outcome: 'GRADED', resultPct: 100, xpAwarded: 9 });
+      expect(right.items.map((item) => item.itemKey)).toEqual(MATCH.items.map((item) => item.itemKey));
+      expect(right.expected).toEqual({ type: 'match', items: RIGHT });
+      // Justificativas no Acerto: as de `hi` e `from`; a de `nice` não existe no conteúdo.
+      const justified = (result: { items: { itemKey: string; justification?: unknown }[] }) =>
+        result.items.filter((item) => item.justification !== undefined).map((item) => item.itemKey);
+      expect(justified(right)).toEqual(['speech-bubbles-hi', 'speech-bubbles-from']);
+      expect(right.items.find((item) => item.itemKey === 'speech-bubbles-nice')).not.toHaveProperty('justification');
+      expect(right.receipt).toEqual(expect.any(String));
+      expect([...resultKeys(right)].filter((key) => secretFields().has(key))).toEqual([]);
+    });
+
+    it('Erro (2 de 3, distrator no lugar): 67, xp 6, sem gabarito; o reveal devolve os pares sem XP', async () => {
+      const partial = RIGHT.map((pair, i) => (i === 0 ? { ...pair, responseKey: 'goodbye' } : pair));
+      const wrong = await send('/api/v1/visitor/attempts', pairUp(partial));
+      expect(wrong).toMatchObject({ resultPct: 67, xpAwarded: 6 });
+      expect(wrong.items.map((item) => item.correct)).toEqual([false, true, true]);
+      expect(wrong.expected).toBeUndefined();
+      expect(wrong.items.some((item) => 'justification' in item)).toBe(false);
+      const revealed = await send('/api/v1/visitor/attempts/reveal', pairUp(partial));
+      expect(revealed).toMatchObject({ xpAwarded: 0, expected: { type: 'match', items: RIGHT } });
+      expect(revealed.items.filter((item) => item.justification !== undefined).map((item) => item.itemKey)).toEqual([
+        'speech-bubbles-hi',
+        'speech-bubbles-from',
+      ]);
+      expect(revealed.items.find((item) => item.itemKey === 'speech-bubbles-nice')).not.toHaveProperty('justification');
+      expect(revealed.receipt).toBeUndefined();
+    });
+
+    it.each([
+      ['fala faltando', RIGHT.slice(1)],
+      ['fala repetida', [...RIGHT, RIGHT[0]]],
+      ['resposta repetida', RIGHT.map((pair) => ({ ...pair, responseKey: RIGHT[0]!.responseKey }))],
+      ['resposta desconhecida', RIGHT.map((pair, i) => (i === 0 ? { ...pair, responseKey: 'nope' } : pair))],
+      ['fala desconhecida', RIGHT.map((pair, i) => (i === 0 ? { ...pair, itemKey: 'nope' } : pair))],
+      ['sem lista', undefined],
+    ])('%s é 400 INVALID_ANSWER', async (_case, items) => {
+      await expect(send('/api/v1/visitor/attempts', pairUp(items))).rejects.toMatchObject({
+        status: 400,
+        code: 'INVALID_ANSWER',
+      });
+    });
+
+    it('resposta de outro Tipo é 400; o Associar não aceita conclusão', async () => {
+      await expect(
+        send('/api/v1/visitor/attempts', { ...pairUp(RIGHT), answer: { type: 'choice', items: [] } }),
+      ).rejects.toMatchObject({ code: 'INVALID_ANSWER' });
+      const body = {
+        attemptId: randomUUID(),
+        deviceId: DEVICE,
+        versionId: STAGE.versionId,
+        activityKey: MATCH.activityKey,
+        outcome: 'VIEWED',
+        studyTimeMs: 0,
+      };
+      for (const outcome of ['VIEWED', 'SKIPPED']) {
+        await expect(complete({ ...body, outcome })).rejects.toMatchObject({
+          status: 409,
+          code: 'COMPLETION_NOT_ALLOWED',
+        });
+      }
+    });
+  });
 });
