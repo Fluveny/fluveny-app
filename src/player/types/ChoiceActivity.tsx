@@ -2,7 +2,14 @@ import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { captureError } from '../../observability/sentry';
-import { RenderedText, renderLabel, useRenderVars, type ContentText, type RenderContext } from '../../renderer';
+import {
+  ExpressionsInert,
+  RenderedText,
+  renderLabel,
+  useRenderVars,
+  type ContentText,
+  type RenderContext,
+} from '../../renderer';
 import { ChoiceCard, CHOICE_LETTERS, ModeTag, type ChoiceState } from '../../ui';
 import { color, spacing, typography } from '../../ui/tokens';
 import type { ActivityProps, ActivityView } from '../registry';
@@ -118,7 +125,12 @@ export function ChoiceActivity({ activity, versionId, setFooter, setSheet, advan
                 key={option.optionKey}
                 index={index}
                 label={plain(option.text, context)}
-                text={<RenderedText text={option.text} vars={context.vars} pronoun={context.pronoun} />}
+                text={
+                  // O toque no trecho de Expressão Útil escolhe a alternativa, não abre a folha.
+                  <ExpressionsInert>
+                    <RenderedText text={option.text} vars={context.vars} pronoun={context.pronoun} />
+                  </ExpressionsInert>
+                }
                 state={stateOf(item, option.optionKey)}
                 locked={locked || kept.has(item.itemKey)}
                 onPress={() => setChosen((previous) => ({ ...previous, [item.itemKey]: option.optionKey }))}

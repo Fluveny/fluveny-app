@@ -9,7 +9,9 @@ import { messageFor, NETWORK_ERROR } from '../../api/errors';
 import { mockResponse } from '../../api/mocks/handlers';
 import { mockRoutes, resetMockVisitorRecords } from '../../api/mocks/routes';
 import * as sentry from '../../observability/sentry';
+import { ExpressionsProvider } from '../../renderer';
 import { EXPECTED_LABEL, FEEDBACK_TITLES, WRONG_MESSAGE } from '../../ui';
+import { color } from '../../ui/tokens';
 import { visitorStore } from '../../visitor/store';
 import { clearVisitorCache } from '../../visitor/useVisitor';
 import { OFFLINE_LABEL, PlayerFrame } from '../PlayerFrame';
@@ -151,6 +153,37 @@ describe('Escolha (Vocab Mode)', () => {
     expect(screen.queryByText(/\*\*/)).toBeNull();
     const strong = screen.getByText('Nice to meet you');
     expect(StyleSheet.flatten(strong.props.style)).toEqual(expect.objectContaining({ fontWeight: '800' }));
+  });
+
+  it('Expressão Útil no texto da alternativa: destacada, sem toque; o toque escolhe a alternativa (1.14)', async () => {
+    const first = THREE.items[0]!;
+    const withTerm: ChoiceView = {
+      ...THREE,
+      items: [
+        {
+          ...first,
+          options: [
+            { ...first.options[0]!, text: '[[Nice to meet you|nice-to-meet-you]] too!' },
+            ...first.options.slice(1),
+          ],
+        },
+      ],
+    };
+    const expressions = [
+      { expressionKey: 'nice-to-meet-you', term: 'Nice to meet you', meaning: 'Prazer.', examples: [] },
+    ];
+    await render(
+      <ExpressionsProvider expressions={expressions}>
+        <Harness activity={withTerm} advance={jest.fn()} online />
+      </ExpressionsProvider>,
+    );
+    const chunk = screen.getByTestId('expression-nice-to-meet-you');
+    expect(StyleSheet.flatten(chunk.props.style)).toEqual(expect.objectContaining({ color: color.blue }));
+    expect(chunk.props.accessibilityRole).toBeUndefined();
+    expect(chunk.props.onPress).toBeUndefined();
+    await fireEvent.press(chunk);
+    expect(option(withTerm, 0, 'A').props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.queryByTestId('expression-sheet')).toBeNull();
   });
 
   it('Acerto na primeira (3/3): folha turquesa, Alex, "+10", justificativas; CONTINUAR grava xp 10', async () => {

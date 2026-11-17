@@ -354,6 +354,36 @@ describe('recibos do mock (1.12)', () => {
     expect(asks).toEqual(expect.arrayContaining(['name', 'country']));
   });
 
+  it('Expressões Úteis (1.14): os Cartões e a Expressão vêm depois do Diálogo e aceitam VIEWED, com recibo', async () => {
+    expect(STAGE.activities.slice(0, 3).map((activity) => activity.type)).toEqual(['dialogue', 'cards', 'expression']);
+    for (const activity of STAGE.activities.filter((entry) => entry.type === 'cards' || entry.type === 'expression')) {
+      const body = {
+        attemptId: randomUUID(),
+        deviceId: DEVICE,
+        versionId: STAGE.versionId,
+        activityKey: activity.activityKey,
+        outcome: 'VIEWED',
+        studyTimeMs: 0,
+      };
+      await expect(complete({ ...body, outcome: 'SKIPPED' })).rejects.toMatchObject({
+        status: 409,
+        code: 'COMPLETION_NOT_ALLOWED',
+      });
+      expect(await complete(body)).toEqual({ outcome: 'VIEWED', xpAwarded: 0, receipt: expect.any(String) });
+    }
+  });
+
+  it('Expressões Úteis (1.14): toda chave [[…|chave]] do Estágio está nas usefulExpressions da Unidade', () => {
+    const unit = mockRoutes['/api/v1/units/{unitKey}'].get(new Request('http://mock')).data;
+    const known = new Set(unit.usefulExpressions.map((entry) => entry.expressionKey));
+    const used = [...JSON.stringify(STAGE.activities).matchAll(/\[\[[^|\]]+\|([^\]]+)\]\]/g)].map((m) => m[1]);
+    expect(used.length).toBeGreaterThanOrEqual(2);
+    expect(used.filter((key) => !known.has(key!))).toEqual([]);
+    // Uma Atividade que não é a Expressão destacada também tem trecho (a folha abre nela).
+    const others = STAGE.activities.filter((activity) => activity.type !== 'expression');
+    expect(JSON.stringify(others)).toMatch(/\[\[[^\]]+\|[^\]]+\]\]/);
+  });
+
   it('completions inválida: sem deviceId ou outcome fora de VIEWED/SKIPPED é 400; Atividade desconhecida, 404', async () => {
     const body = {
       attemptId: randomUUID(),

@@ -12,7 +12,7 @@ import { needsCompletion, useCompletion } from '../../src/player/completion';
 import { PlayerFooter, PlayerFrame, PlayerTop } from '../../src/player/PlayerFrame';
 import { resolveActivity, type ActivityResult, type FooterAction, type SheetSpec } from '../../src/player/registry';
 import { useStage } from '../../src/player/useStage';
-import { renderPlain, toRenderContext } from '../../src/renderer';
+import { ExpressionsProvider, renderPlain, toRenderContext } from '../../src/renderer';
 import { color, spacing, typography } from '../../src/ui/tokens';
 import { useVisitor } from '../../src/visitor/useVisitor';
 
@@ -37,12 +37,17 @@ function useLeave() {
  * Atividade vista ou pulada (`viewed`/`skipped`) passa pela rota `completions`
  * antes de avançar (1.12): o recibo é guardado, depois o Progresso com xp 0.
  * Sem rede ou com erro, a tela fica com `messageFor(code)` e a ação volta.
+ *
+ * Expressões Úteis (1.14): o `ExpressionsProvider` em volta da moldura torna
+ * tocáveis os trechos `[[rótulo|chave]]` das Atividades. A folha de dicionário
+ * fecha com o voltar do Android (o `Modal` o recebe antes do player) e com Esc
+ * no web; o voltar do navegador ainda sai do player (UX-DR130, adiado).
  */
 export default function Player() {
   const leave = useLeave();
   const online = useOnline();
   const visitor = useVisitor();
-  const { stage, stageNumber, error, missingStage, loading, fetching, retry } = useStage();
+  const { stage, usefulExpressions, stageNumber, error, missingStage, loading, fetching, retry } = useStage();
   const [index, setIndex] = useState(0);
   const [footer, setFooter] = useState<FooterAction | null>(null);
   const [sheet, setSheet] = useState<SheetSpec | null>(null);
@@ -146,32 +151,35 @@ export default function Player() {
 
   const current = activity;
   const Activity = resolveActivity(current.type);
+  // Os trechos de Expressão Útil abrem a folha de dicionário; com a de feedback aberta, não (UX-DR129).
   return (
-    <PlayerFrame
-      stageNumber={stageNumber}
-      stageTitle={stageTitle}
-      position={position + 1}
-      total={total}
-      xp={visitor.xp}
-      online={online}
-      footer={shownFooter}
-      sheet={shownSheet}
-      onClose={leave}
-      contentKey={current.activityKey}
-      bleed={Activity.bleed === true}
-    >
-      <ActivityTransition id={current.activityKey}>
-        {/* O componente vem do registro: um Tipo sem componente cai em "Atividade em preparação". */}
-        {createElement(Activity, {
-          key: current.activityKey,
-          activity: current,
-          versionId: stage.versionId,
-          setFooter,
-          setSheet,
-          advance: onAdvance,
-        })}
-      </ActivityTransition>
-    </PlayerFrame>
+    <ExpressionsProvider expressions={usefulExpressions} disabled={shownSheet !== null}>
+      <PlayerFrame
+        stageNumber={stageNumber}
+        stageTitle={stageTitle}
+        position={position + 1}
+        total={total}
+        xp={visitor.xp}
+        online={online}
+        footer={shownFooter}
+        sheet={shownSheet}
+        onClose={leave}
+        contentKey={current.activityKey}
+        bleed={Activity.bleed === true}
+      >
+        <ActivityTransition id={current.activityKey}>
+          {/* O componente vem do registro: um Tipo sem componente cai em "Atividade em preparação". */}
+          {createElement(Activity, {
+            key: current.activityKey,
+            activity: current,
+            versionId: stage.versionId,
+            setFooter,
+            setSheet,
+            advance: onAdvance,
+          })}
+        </ActivityTransition>
+      </PlayerFrame>
+    </ExpressionsProvider>
   );
 }
 

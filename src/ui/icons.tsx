@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import Svg, { Circle, Path, Polygon } from 'react-native-svg';
 
-export type IconName = 'check' | 'x' | 'star' | 'eye';
+export type IconName = 'check' | 'x' | 'star' | 'eye' | 'book';
 
 type Props = {
   name: IconName;
@@ -70,6 +70,17 @@ export function Icon({ name, size, color, testID }: Props) {
             />
             <Circle cx={12} cy={12} r={3.2} fill={color} />
           </>
+        ) : null}
+        {name === 'book' ? (
+          // Livro aberto: duas páginas que se encontram na lombada.
+          <Path
+            d="M12 6.4C10 5 7.2 4.6 3.6 5v13c3.6-.4 6.4 0 8.4 1.4 2-1.4 4.8-1.8 8.4-1.4V5c-3.6-.4-6.4 0-8.4 1.4zM12 6.4v13"
+            stroke={color}
+            strokeWidth={2.4}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            fill="none"
+          />
         ) : null}
         {name === 'star' ? (
           <Polygon points={STAR} fill={color} stroke={color} strokeWidth={1.4} strokeLinejoin="round" />

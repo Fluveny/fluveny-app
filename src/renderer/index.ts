@@ -11,3 +11,11 @@ export {
   type Segment,
 } from './render';
 export { toPronoun, toRenderContext, useRenderVars, type RenderContext } from './useRenderVars';
+export {
+  EXPRESSION_HINT,
+  ExpressionContext,
+  useExpressions,
+  type ExpressionTaps,
+  type UsefulExpression,
+} from './expressions';
+export { ExpressionsInert, ExpressionsProvider, type ExpressionsProviderProps } from './ExpressionsProvider';

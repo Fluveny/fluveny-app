@@ -7,8 +7,10 @@ import type { GetData } from '../api/client';
 import type { ContentText } from '../renderer';
 import type { ButtonVariant, FeedbackTone } from '../ui';
 import type { Outcome } from '../visitor/types';
+import { CardsActivity } from './types/CardsActivity';
 import { ChoiceActivity } from './types/ChoiceActivity';
 import { DialogueActivity } from './types/DialogueActivity';
+import { ExpressionActivity } from './types/ExpressionActivity';
 import { PendingActivity } from './PendingActivity';
 
 /** Uma Atividade da visão do aluno, como vem do `GET` do Estágio. */
@@ -92,8 +94,10 @@ export type ActivityRegistry = Record<string, ActivityComponent | typeof PENDING
 
 /** Todos os Tipos do contrato; o teste do registro confere contra o `openapi.json`. */
 export const registry: { [T in ActivityType]: ActivityComponent | typeof PENDING } & ActivityRegistry = {
+  cards: CardsActivity,
   choice: ChoiceActivity,
   dialogue: DialogueActivity,
+  expression: ExpressionActivity,
 };
 
 /** O componente do Tipo, ou o cartão "Atividade em preparação". */
