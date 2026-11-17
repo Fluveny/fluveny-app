@@ -23,7 +23,7 @@ description = "Derruba a API e o Mongo locais e apaga o banco"
 run = "FLUVENY_API_IMAGE=unused docker compose -f docker-compose.local.yml down -v"
 
 [tasks.check]
-description = "Os mesmos passos da CI: tipos, lint, formatação, testes, contrato e build web"
+description = "Os mesmos passos da CI: tipos, lint, formatação, testes, contrato, build web e orçamento da primeira tela"
 run = [
   "npm ci",
   "npm run api:tools",
@@ -34,6 +34,7 @@ run = [
   "npx jest --ci",
   "npm run api:check",
   "npx expo export -p web",
+  "npm run bundle:budget",
 ]
 
 [tasks.format]

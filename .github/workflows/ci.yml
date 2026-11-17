@@ -60,7 +60,7 @@ jobs:
       # A mesma tarefa que o dev roda (NFR13): npm ci, gerador de tipos da API,
       # tipos das rotas, tsc, eslint, prettier --check, jest, contrato da API
       # (api:check: cópia = arquivo da API no sha do lock, sha na main, tipos)
-      # e build web. Os passos ficam no mise.toml.
+      # build web e orçamento da primeira tela (bundle:budget, 500 KB com gzip). Os passos ficam no mise.toml.
       - name: mise run check
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

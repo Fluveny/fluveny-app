@@ -1,8 +1,12 @@
 import * as Sentry from '@sentry/react-native';
 
-import { initSentry, scrubBreadcrumb, scrubEvent } from '../sentry';
+import { initSentry, loadSentry, scrubBreadcrumb, scrubEvent, wrapRoot } from '../sentry';
 
-jest.mock('@sentry/react-native', () => ({ init: jest.fn(), captureException: jest.fn(), wrap: (c: unknown) => c }));
+jest.mock('@sentry/react-native', () => ({
+  init: jest.fn(),
+  captureException: jest.fn(),
+  wrap: jest.fn((c: unknown) => c),
+}));
 
 const init = Sentry.init as jest.Mock;
 
@@ -137,5 +141,16 @@ describe('Loop 1: query, cabeçalhos de IP, breadcrumbs e environment', () => {
     } finally {
       delete process.env.EXPO_PUBLIC_SENTRY_ENVIRONMENT;
     }
+  });
+});
+
+describe('wrapRoot e loadSentry no nativo', () => {
+  it('com o Sentry ligado, embrulha a raiz com o Sentry.wrap; loadSentry não faz nada', async () => {
+    const wrap = Sentry.wrap as jest.Mock;
+    initSentry('https://chave@o0.ingest.sentry.io/0');
+    const Root = () => null;
+    wrapRoot(Root);
+    expect(wrap).toHaveBeenCalledWith(Root);
+    await expect(loadSentry()).resolves.toBeUndefined();
   });
 });

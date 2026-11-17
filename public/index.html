@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- Gerado por `npx expo customize public/index.html` e ajustado na 1.22. O `lang` é fixo: o %LANG_ISO_CODE% do Expo vira "en". -->
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>%WEB_TITLE%</title>
+    <!-- App instalável na tela inicial (1.22): manifesto sem service worker (FR-10, sem modo offline). -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#155DFC" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Fluveny" />
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      /* These styles make the body full-height */
+      html,
+      body {
+        height: 100%;
+      }
+      /* These styles disable body scrolling if you are using <ScrollView> */
+      body {
+        overflow: hidden;
+      }
+      /* These styles make the root element full-height */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Export em `output: single` (SPA): sem JavaScript, o App não abre. -->
+    <noscript>Ative o JavaScript para usar o Fluveny.</noscript>
+    <!-- A raiz do App. -->
+    <div id="root"></div>
+  </body>
+</html>
