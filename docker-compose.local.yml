@@ -30,6 +30,8 @@ services:
       SPRING_PROFILES_ACTIVE: local
       SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/fluveny?replicaSet=rs0
       LOCAL_SEED_PASSWORD: ${LOCAL_SEED_PASSWORD:-}
+      # Origens do App web liberadas pela CORS da API (1.22), separadas por vírgula.
+      FLUVENY_WEB_ORIGINS: ${FLUVENY_WEB_ORIGINS:-http://localhost:8081}
     ports:
       # Só no loopback: o /local/reset é público e não pode ficar exposto na rede.
       - '127.0.0.1:8080:8080'

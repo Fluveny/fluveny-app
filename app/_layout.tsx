@@ -8,13 +8,14 @@ import { useMeta, useVersionStatus } from '../src/api/meta';
 import { API_MOCK, startApiMocks } from '../src/api/mocks';
 import { AppProviders, createQueryClient } from '../src/AppProviders';
 import { ColdStartScreen, isNoResponse } from '../src/ColdStartScreen';
-import { captureError, initSentry, Sentry } from '../src/observability/sentry';
+import { captureError, initSentry, wrapRoot } from '../src/observability/sentry';
 import { clearReloadMark } from './atualize';
 import { Column } from '../src/ui/Column';
 import { FONTS } from '../src/ui/fonts';
 import { color } from '../src/ui/tokens';
 
-const sentryOn = initSentry();
+// No web, o initSentry agenda o SDK para depois do primeiro render (1.22).
+initSentry();
 SplashScreen.preventAutoHideAsync().catch(() => {});
 // Com EXPO_PUBLIC_API_MOCK=1, o MSW sobe antes do primeiro render (MockGate):
 // o /meta do SplashGate já sai para o mock.
@@ -132,4 +133,5 @@ export function RootLayout() {
   );
 }
 
-export default sentryOn ? Sentry.wrap(RootLayout) : RootLayout;
+// O `Sentry.wrap` só no nativo; no web, o componente segue como está.
+export default wrapRoot(RootLayout);

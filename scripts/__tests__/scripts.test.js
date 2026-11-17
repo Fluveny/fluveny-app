@@ -1,4 +1,5 @@
 const api = require('../lib/api.cjs');
+const budget = require('../lib/budget.cjs');
 const { frontmatter } = require('../lib/design.cjs');
 
 describe('design-sync: frontmatter()', () => {
@@ -211,5 +212,70 @@ describe('api: apiImage()', () => {
     const message = api.missingImageMessage('ghcr.io/fluveny/fluveny-api:sha-x');
     expect(message).toContain('npm run api:sync');
     expect(message).not.toContain('docker login');
+  });
+});
+
+describe('bundle-budget (1.22)', () => {
+  const html =
+    '<html><head><link rel="manifest" href="/manifest.json"/></head><body>' +
+    '<script src="/_expo/static/js/web/__expo-metro-runtime-aa.js" defer></script>' +
+    '<script defer src="/_expo/static/js/web/entry-bb.js"></script></body></html>';
+
+  it('scriptsOf: os src dos <script>, sem a barra inicial', () => {
+    expect(budget.scriptsOf(html)).toEqual([
+      '_expo/static/js/web/__expo-metro-runtime-aa.js',
+      '_expo/static/js/web/entry-bb.js',
+    ]);
+  });
+
+  it('asyncChunksOf: os chunks do mapa de import() do bundle, sem repetir', () => {
+    const entry =
+      'x={paths:{"760":"/_expo/static/js/web/em-breve-c1.js","761":"/_expo/static/js/web/index-cb.js"}};' +
+      'y={paths:{"761":"/_expo/static/js/web/index-cb.js"}}';
+    expect(budget.asyncChunksOf(entry)).toEqual(['em-breve-c1.js', 'index-cb.js']);
+  });
+
+  it('routeChunks: o chunk do layout raiz e o das boas-vindas', () => {
+    const files = ['_layout-e6.js', 'index-cb.js', 'player-76.js', 'kit-25.js', 'entry-bb.js'];
+    expect(budget.routeChunks(files)).toEqual(['_expo/static/js/web/_layout-e6.js', '_expo/static/js/web/index-cb.js']);
+  });
+
+  it('routeChunks: rota sem chunk ou com mais de um falha, em vez de medir errado', () => {
+    expect(() => budget.routeChunks(['index-cb.js'])).toThrow('Rota "_layout": 0 chunks');
+    expect(() => budget.routeChunks(['_layout-e6.js', '_layout-f7.js', 'index-cb.js'])).toThrow(
+      'Rota "_layout": 2 chunks',
+    );
+  });
+
+  it('dentro do limite: passa e imprime cada arquivo e o total', () => {
+    const contents = { 'a.js': 'x'.repeat(10), 'b.js': 'y'.repeat(10) };
+    const result = budget.measure(['a.js', 'b.js', 'a.js'], (path) => contents[path]);
+    expect(result.files.map((file) => file.path)).toEqual(['a.js', 'b.js']);
+    expect(result.total).toBe(budget.gzipSize(contents['a.js']) + budget.gzipSize(contents['b.js']));
+    expect(result.ok).toBe(true);
+    const text = budget.report(result);
+    expect(text).toMatch(/dentro do limite/);
+    expect(text).toMatch(/a\.js/);
+    expect(text).toMatch(/total da primeira tela \(limite 500\.0 KB, gzip\)/);
+  });
+
+  it('acima do limite: não passa e lista os arquivos', () => {
+    const { randomBytes } = require('node:crypto');
+    const big = randomBytes(2000);
+    const result = budget.measure(['grande.js'], () => big, 1000);
+    expect(result.ok).toBe(false);
+    expect(budget.report(result)).toMatch(/ESTOUROU[\s\S]*grande\.js/);
+  });
+
+  it('pwaProblems: o index.html liga o manifesto e o manifest.json está no dist', () => {
+    expect(budget.pwaProblems(html, true)).toEqual([]);
+    expect(budget.pwaProblems('<html><head></head></html>', true)).toEqual([
+      expect.stringContaining('<link rel="manifest"'),
+    ]);
+    expect(budget.pwaProblems(html, false)).toEqual([expect.stringContaining('manifest.json fora do dist')]);
+  });
+
+  it('o limite é 500 KB', () => {
+    expect(budget.LIMIT).toBe(500000);
   });
 });

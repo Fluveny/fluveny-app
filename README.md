@@ -23,7 +23,7 @@ npx expo start --web         # web em http://localhost:8081
 - O `mise run api` sobe, com o `docker-compose.local.yml`, a imagem da API no sha do lock do contrato (`ghcr.io/fluveny/fluveny-api:sha-<sha do lock>`, no perfil `local`) e um `mongo:8` em replica set de um nó. App e API ficam sempre no mesmo contrato. Se a imagem não existir, a tarefa diz o que fazer: `npm run api:sync` (lock anterior ao perfil `local` da API) ou `docker login ghcr.io` (enquanto a imagem for privada no GHCR; use um token do GitHub com `read:packages`).
 - Senha dos usuários que os carregadores da API criam: `LOCAL_SEED_PASSWORD=... mise run api`. O compose lê a variável do terminal, não do `.env.local` do Expo.
 - O banco persiste entre um `up` e outro; `mise run api:down` derruba tudo e apaga o banco. Para recarregar os dados com a API no ar: `curl -X POST localhost:8080/local/reset`.
-- No web, o `/meta` contra a API real falha por CORS até a história 4.2, e o App segue sem checar a versão.
+- A API local libera a CORS para `http://localhost:8081` (1.22). Para outra origem: `FLUVENY_WEB_ORIGINS=http://localhost:8081,http://localhost:8082 mise run api` (separadas por vírgula). Num celular, use `localhost` pelo `adb reverse` (abaixo), não o IP da máquina: fora de contexto seguro (HTTPS ou `localhost`), o `crypto.randomUUID` e o microfone não funcionam e o App quebra.
 
 ### Sem a API (mock)
 
@@ -55,10 +55,32 @@ npx eas-cli build --profile development -p android --local    # só se precisar 
 - O build `--local` usa o perfil `development` do `eas.json` e deixa o `.apk` na pasta do projeto; não gasta a cota do EAS, mas pede `npx eas-cli login` com uma conta que tenha acesso à org `fluveny` do Expo (o projeto é dela).
 - No emulador, a API fica em `http://10.0.2.2:8080`; num aparelho, no IP da sua máquina na rede.
 
+### Web instalável e prova no aparelho (1.22)
+
+O build web tem manifesto (`public/manifest.json`, ícones em `public/icons/`, meta tags em `public/index.html`) e pode ir para a tela inicial. Não há service worker de cache, porque não há modo offline (FR-10); o `mockServiceWorker.js` só é registrado com o mock ligado.
+
+- **Orçamento:** a primeira tela (scripts do `index.html` mais os chunks do layout raiz e das boas-vindas) cabe em 500 KB com gzip (NFR11). O `mise run check` roda `npm run bundle:budget` depois do export e falha acima disso, com o peso de cada arquivo.
+- **Sentry no web:** o SDK sai da primeira tela. O `initSentry` do `src/observability/sentry.web.ts` agenda o `import()` para depois do primeiro render, fora do React (`requestIdleCallback` ou `setTimeout` 0). Os erros de antes (os do `captureError` e os não tratados da janela) esperam numa fila de até 20. Sem DSN, nada é carregado; se o carregamento falhar, a fila é descartada.
+- **Conferir no desktop:** `npx expo export -p web && npx serve -s dist -l 8081`, abra `http://localhost:8081` no Chrome com a emulação de celular. Em DevTools › Application › Manifest, o manifesto aparece sem erros e instalável; na aba Network, o chunk do Sentry não está entre os scripts da primeira tela (sem DSN, ele nunca baixa; com DSN, baixa depois do primeiro render).
+
+**Roteiro do teste num Android de entrada.** O celular acessa o App e a API por `localhost`, via `adb reverse`, porque o `crypto.randomUUID` e o microfone só funcionam em contexto seguro (HTTPS ou `localhost`); pelo IP da máquina, o App quebra.
+
+1. Num terminal, suba a API: `mise run api`.
+2. Com `EXPO_PUBLIC_API_URL=http://localhost:8080` no `.env.local` e sem `EXPO_PUBLIC_API_MOCK`, gere o export de produção e sirva: `npx expo export -p web && npx serve -s dist -l 8081`.
+3. Ligue a depuração USB no celular, conecte o cabo e rode `adb reverse tcp:8081 tcp:8081 && adb reverse tcp:8080 tcp:8080`.
+4. No Chrome do celular, abra `http://localhost:8081`. No Chrome do desktop, abra `chrome://inspect`, clique em **inspect** na aba do celular e, em Network, escolha o perfil **Fast 4G** (desligue o cache).
+5. Recarregue e percorra o Estágio inteiro, da boas-vindas à última Atividade. Teste também: instalar na tela inicial (menu › Adicionar à tela inicial) e abrir pelo ícone; o botão voltar do Android; e a animação com "Remover animações" ligado nas opções de acessibilidade.
+6. Registre na seção "Prova no aparelho" da spec da 1.22 (`_bmad-output/implementation-artifacts/spec-1-22-app-web-instalavel-e-leve.md`):
+   - aparelho (modelo, Android, RAM) e versão do Chrome (`chrome://version`);
+   - tempo da próxima Atividade: do toque em CONTINUAR até a próxima aparecer (Performance do DevTools remoto ou cronômetro, três medidas);
+   - problemas encontrados, com o passo onde apareceram;
+   - capturas da boas-vindas, de uma Atividade, da folha de feedback e do App instalado.
+7. Ao terminar: `adb reverse --remove-all` e `mise run api:down`.
+
 ## Comandos
 
 ```bash
-mise run check             # o mesmo que a CI: npm ci, tipos, lint, prettier, testes, contrato e build web
+mise run check             # o mesmo que a CI: npm ci, tipos, lint, prettier, testes, contrato, build web e orçamento
 mise run format            # prettier --write
 npx expo start --web       # web em http://localhost:8081
 npx expo run:android       # build de desenvolvimento local (Android SDK com NDK e JDK 17)
@@ -68,6 +90,7 @@ npx jest                   # testes (jest-expo e Testing Library)
 npm run api:tools          # gerador de tipos do contrato (uma vez)
 npm run api:check          # contrato da API: cópia, lock, tipos e vetores de renderização
 npx expo export -p web     # build web em dist/ (output single, SPA)
+npm run bundle:budget      # orçamento da primeira tela no dist/ (500 KB com gzip)
 ```
 
 A formatação é a do Prettier (`.prettierrc.json`); o hook do lefthook formata os arquivos staged a cada commit, e a CI roda `prettier --check`.
