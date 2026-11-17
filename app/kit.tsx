@@ -14,6 +14,8 @@ import {
   ExpressionSheet,
   FeedbackSheet,
   MATCH_STATES,
+  GAP_STATES,
+  GapSlot,
   MatchCard,
   MicButton,
   MODE_TAGS,
@@ -221,6 +223,37 @@ function KitCatalog() {
               />
             );
           })}
+        </Section>
+
+        <Section title="LACUNAS">
+          <View style={styles.wrap}>
+            {GAP_STATES.map((state, i) => (
+              <GapSlot
+                key={state}
+                kind="bank"
+                index={i + 1}
+                state={state}
+                value={state === 'empty' ? null : 'meet'}
+                locked={state === 'right' || state === 'wrong'}
+                onPress={() => {}}
+                testID={`gap-bank-${state}`}
+              />
+            ))}
+          </View>
+          <View style={styles.wrap}>
+            {GAP_STATES.map((state, i) => (
+              <GapSlot
+                key={state}
+                kind="typed"
+                index={i + 1}
+                state={state}
+                value={state === 'empty' ? '' : 'meet'}
+                locked={state === 'right' || state === 'wrong'}
+                onChangeText={() => {}}
+                testID={`gap-typed-${state}`}
+              />
+            ))}
+          </View>
         </Section>
 
         <Section title="FOLHAS DE FEEDBACK">

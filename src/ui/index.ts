@@ -26,6 +26,15 @@ export {
   type FeedbackSheetProps,
   type FeedbackTone,
 } from './FeedbackSheet';
+export {
+  GAP_FIELD_WIDTH,
+  GAP_MIN_WIDTH,
+  GAP_STATES,
+  GapSlot,
+  gapLabel,
+  type GapSlotProps,
+  type GapState,
+} from './GapSlot';
 export { Icon, type IconName } from './icons';
 export { Logo } from './Logo';
 export { MATCH_LINKED, MATCH_STATES, MatchCard, type MatchCardProps, type MatchState } from './MatchCard';

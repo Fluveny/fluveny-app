@@ -777,6 +777,35 @@ describe('Expressões Úteis no player (1.14)', () => {
     expect(JSON.stringify(sent)).not.toContain('Júlia');
     await fireEvent.press(button(CONTINUE_SHEET));
 
+    // As Lacunas (1.17), só com toque e teclado. Banco: cada palavra vai à primeira lacuna vazia.
+    const [bankGaps, typedGaps] = of('gaps') as Extract<StageActivity, { type: 'gaps' }>[];
+    expect(await screen.findByText(position(bankGaps))).toBeTruthy();
+    expect(screen.getByLabelText('FILL IN THE GAPS')).toBeTruthy();
+    expect(button(CHECK_LABEL)).toBeDisabled();
+    await fireEvent.press(screen.getByTestId('gap-fill-word-am'));
+    await fireEvent.press(screen.getByTestId('gap-fill-word-meet'));
+    expect(screen.getByTestId('gap-fill-gap-0').props.accessibilityLabel).toBe('Lacuna 1: am');
+    await fireEvent.press(button(CHECK_LABEL));
+    expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
+    await fireEvent.press(button(CONTINUE_SHEET));
+
+    // Digitadas: o nome do Visitante vira {name} antes de sair do aparelho.
+    expect(await screen.findByText(position(typedGaps))).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('gap-fill-gap-0'), 'i am');
+    await fireEvent.changeText(screen.getByTestId('gap-fill-gap-1'), 'julia');
+    await fireEvent.press(button(CHECK_LABEL));
+    expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
+    const typed = attempts.find((body) => body.activityKey === typedGaps!.activityKey)!;
+    expect(typed.answer).toEqual({
+      type: 'gaps',
+      items: [
+        { itemKey: typedGaps!.items[0]!.itemKey, value: 'i am' },
+        { itemKey: typedGaps!.items[1]!.itemKey, value: '{name}' },
+      ],
+    });
+    expect(JSON.stringify(typed).toLowerCase()).not.toContain('julia');
+    await fireEvent.press(button(CONTINUE_SHEET));
+
     // A Fala (1.15) fecha o Estágio: o aviso de privacidade, e "Não posso falar agora" pula.
     expect(await screen.findByText(position(of('speech')[0]))).toBeTruthy();
     expect(await screen.findByTestId('speech-privacy')).toBeTruthy();

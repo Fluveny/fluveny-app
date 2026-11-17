@@ -1,5 +1,15 @@
-import { useEffect, useRef, type ComponentRef, type ReactNode } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { createContext, useCallback, useContext, useEffect, useRef, type ComponentRef, type ReactNode } from 'react';
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type KeyboardEvent,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { OFFLINE_TEXT } from '../network/text';
@@ -14,6 +24,37 @@ export const PROGRESS_LABEL = 'Posição no Estágio';
 
 /** O teclado empurra o conteúdo e o rodapé só no nativo; no web, o navegador cuida. */
 const KEYBOARD_AVOIDING = Platform.OS !== 'web';
+
+/** Folga entre o campo focado e a borda da área visível (o teclado ou o topo). */
+const REVEAL_MARGIN = spacing[4];
+
+/** Um nó que sabe a própria posição na janela (o `TextInput`, a `ScrollView`). */
+type Measurable = {
+  measureInWindow?: (callback: (x: number, y: number, width: number, height: number) => void) => void;
+};
+
+/**
+ * Leva um campo para a área visível acima do teclado (UX-DR131). O campo chama
+ * no `onFocus`; com o teclado fechado, nada acontece, e a moldura cuida quando
+ * ele abre. Fora do player, não faz nada.
+ */
+export type RevealField = (field: Measurable | null | undefined) => void;
+
+const RevealFieldContext = createContext<RevealField>(() => {});
+
+/** O `RevealField` da moldura do player. */
+export const useRevealField = () => useContext(RevealFieldContext);
+
+/**
+ * Quanto rolar para o campo (`field`, na janela) caber na área visível
+ * (`top`..`bottom`), com a folga: positivo desce, negativo sobe, 0 já cabe.
+ */
+export function revealDelta(field: { y: number; height: number }, top: number, bottom: number): number {
+  const below = field.y + field.height - (bottom - REVEAL_MARGIN);
+  if (below > 0) return Math.min(below, field.y - (top + REVEAL_MARGIN));
+  const above = field.y - (top + REVEAL_MARGIN);
+  return above < 0 ? above : 0;
+}
 
 /** Ícone ✕ do topo [ASSUMPTION: 22 dp, como no protótipo]. */
 const CLOSE_ICON = 22;
@@ -140,9 +181,10 @@ export type PlayerFrameProps = {
  * barra de posição e chip de XP), linha de posição, conteúdo rolável e rodapé
  * fixo com a ação que a Atividade define.
  *
- * No nativo, conteúdo e rodapé sobem com o teclado, e a rolagem vai ao fim
- * quando ele abre. [ASSUMPTION] O campo de texto de uma Atividade fica no fim do
- * conteúdo (o nome do Diálogo); um Tipo com campo no meio precisa rolar até ele.
+ * No nativo, conteúdo e rodapé sobem com o teclado, e o campo focado vai para
+ * a área visível acima dele, mesmo no meio do conteúdo (as lacunas digitadas,
+ * 1.17): quando o teclado abre e quando o foco passa a outro campo com ele
+ * aberto (`useRevealField`). Sem campo focado, a rolagem vai ao fim.
  */
 export function PlayerFrame({
   stageNumber,
@@ -159,18 +201,51 @@ export function PlayerFrame({
   children,
 }: PlayerFrameProps) {
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
+  /** A rolagem atual e o topo do teclado na janela (`null` com ele fechado). */
+  const offset = useRef(0);
+  const keyboardTop = useRef<number | null>(null);
+
+  const reveal = useCallback<RevealField>((field) => {
+    if (!KEYBOARD_AVOIDING || keyboardTop.current === null || !field?.measureInWindow) return;
+    // No quadro seguinte: o KeyboardAvoidingView aplica o padding no próprio listener.
+    requestAnimationFrame(() => {
+      const view = scroll.current as unknown as (Measurable & { getNativeScrollRef?: () => Measurable }) | null;
+      // A instância pública da ScrollView já mede; a nativa fica de reserva.
+      const host: Measurable | null | undefined = view?.measureInWindow ? view : view?.getNativeScrollRef?.();
+      if (!host?.measureInWindow) return;
+      host.measureInWindow((_x, top, _width, height) => {
+        field.measureInWindow!((_fx, y, _fw, fieldHeight) => {
+          const bottom = Math.min(top + height, keyboardTop.current ?? top + height);
+          const delta = revealDelta({ y, height: fieldHeight }, top, bottom);
+          if (delta !== 0) scroll.current?.scrollTo({ y: Math.max(0, offset.current + delta), animated: true });
+        });
+      });
+    });
+  }, []);
+
+  // A rolagem nova (outra Atividade) começa no topo.
+  useEffect(() => {
+    offset.current = 0;
+  }, [contentKey]);
+
   useEffect(() => {
     if (!KEYBOARD_AVOIDING) return;
-    // No quadro seguinte: o KeyboardAvoidingView aplica o padding no próprio listener.
     let frame: number | null = null;
-    const shown = Keyboard.addListener('keyboardDidShow', () => {
+    const shown = Keyboard.addListener('keyboardDidShow', (event?: KeyboardEvent) => {
+      keyboardTop.current = event?.endCoordinates?.screenY ?? Number.POSITIVE_INFINITY;
+      const focused = TextInput.State?.currentlyFocusedInput?.() as Measurable | null | undefined;
+      if (focused?.measureInWindow) return reveal(focused);
       frame = requestAnimationFrame(() => scroll.current?.scrollToEnd({ animated: true }));
+    });
+    const hidden = Keyboard.addListener('keyboardDidHide', () => {
+      keyboardTop.current = null;
     });
     return () => {
       shown.remove();
+      hidden.remove();
       if (frame !== null) cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [reveal]);
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom', 'left', 'right']}>
       <PlayerTop onClose={onClose} online={online} progress={total > 0 ? position / total : 0} xp={xp} />
@@ -179,8 +254,8 @@ export function PlayerFrame({
         <Text style={styles.position}>{positionLine(position, total)}</Text>
       </View>
       {/* No nativo (Android de ponta a ponta), o teclado não encolhe a janela: o
-          conteúdo e o rodapé sobem com ele, e a rolagem vai ao fim, onde ficam as
-          perguntas (o campo do nome do Diálogo). No web, nada muda. */}
+          conteúdo e o rodapé sobem com ele, e o campo focado vai para a área
+          visível. No web, nada muda. */}
       <KeyboardAvoidingView style={styles.grow} behavior="padding" enabled={KEYBOARD_AVOIDING} testID="player-keyboard">
         <ScrollView
           key={contentKey}
@@ -189,8 +264,12 @@ export function PlayerFrame({
           style={styles.grow}
           contentContainerStyle={[styles.content, bleed ? styles.bleed : null]}
           keyboardShouldPersistTaps="handled"
+          onScroll={(event) => {
+            offset.current = event.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={16}
         >
-          {children}
+          <RevealFieldContext.Provider value={reveal}>{children}</RevealFieldContext.Provider>
         </ScrollView>
         {sheet ? (
           <PlayerSheet sheet={sheet} online={online} offlineLabel={OFFLINE_LABEL} />

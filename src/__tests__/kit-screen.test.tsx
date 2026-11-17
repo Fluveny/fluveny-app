@@ -2,6 +2,7 @@ import { renderRouter, screen } from 'expo-router/testing-library';
 import { StyleSheet, Text, type TextStyle } from 'react-native';
 
 import KitScreen from '../../app/kit';
+import { GAP_STATES } from '../ui/GapSlot';
 import { MATCH_STATES } from '../ui/MatchCard';
 import { MODE_TAGS } from '../ui/ModeTag';
 import { size } from '../ui/tokens';
@@ -43,6 +44,11 @@ describe('rota /kit (catálogo do kit, Decisão 1)', () => {
     expect(screen.getByRole('button', { name: 'Abrir a folha' })).toBeTruthy();
     // Peças da 1.16.
     for (const state of MATCH_STATES) expect(screen.getByTestId(`match-state-${state}`)).toBeTruthy();
+    // Peças da 1.17.
+    for (const state of GAP_STATES) {
+      expect(screen.getByTestId(`gap-bank-${state}`)).toBeTruthy();
+      expect(screen.getByTestId(`gap-typed-${state}`)).toBeTruthy();
+    }
   });
 
   it('no release (!__DEV__): redireciona para /', async () => {
