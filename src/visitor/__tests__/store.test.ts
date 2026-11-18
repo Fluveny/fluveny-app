@@ -85,6 +85,64 @@ describe('loja do Visitante (expo-sqlite)', () => {
     expect(await store.progress()).toEqual([{ activityKey: 'a1', outcome: 'completed', xp: 10 }]);
   });
 
+  it('Progresso (1.20): guarda o Resultado e o tempo da primeira conclusão, saneados', async () => {
+    const store = createVisitorStore();
+    await store.recordProgress({
+      activityKey: 'a1',
+      outcome: 'completed',
+      xp: 7,
+      resultPct: 66.7,
+      studyTimeMs: 1234.4,
+    });
+    await store.recordProgress({ activityKey: 'a1', outcome: 'completed', xp: 10, resultPct: 100, studyTimeMs: 1 });
+    await store.recordProgress({ activityKey: 'a2', outcome: 'viewed', xp: 0, studyTimeMs: -5 });
+    await store.recordProgress({ activityKey: 'a3', outcome: 'completed', xp: 0, resultPct: 140 });
+    const expected = [
+      { activityKey: 'a1', outcome: 'completed', xp: 7, resultPct: 67, studyTimeMs: 1234 },
+      { activityKey: 'a2', outcome: 'viewed', xp: 0, studyTimeMs: 0 },
+      { activityKey: 'a3', outcome: 'completed', xp: 0, resultPct: 100 },
+    ];
+    expect(await store.progress()).toEqual(expected);
+    expect(await createVisitorStore().progress()).toEqual(expected);
+  });
+
+  it('banco antigo, sem result_pct e study_time_ms: as colunas nascem e as linhas antigas ficam sem elas', async () => {
+    const { openDatabaseAsync } = jest.requireMock('expo-sqlite') as {
+      openDatabaseAsync: (name: string) => Promise<{ execAsync: (sql: string) => Promise<void> }>;
+    };
+    const legacy = await openDatabaseAsync('legado-1-20.db');
+    await legacy.execAsync(`
+      CREATE TABLE IF NOT EXISTS progress (activity_key TEXT PRIMARY KEY NOT NULL, outcome TEXT NOT NULL, xp INTEGER NOT NULL);
+      INSERT OR IGNORE INTO progress VALUES ('a1', 'completed', 10);
+    `);
+    const store = createVisitorStore(() => openDatabaseAsync('legado-1-20.db') as never);
+    await store.recordProgress({ activityKey: 'a2', outcome: 'completed', xp: 5, resultPct: 50, studyTimeMs: 900 });
+    expect(await store.progress()).toEqual([
+      { activityKey: 'a1', outcome: 'completed', xp: 10 },
+      { activityKey: 'a2', outcome: 'completed', xp: 5, resultPct: 50, studyTimeMs: 900 },
+    ]);
+    // Reabrir não tenta acrescentar as colunas de novo.
+    const reopened = createVisitorStore(() => openDatabaseAsync('legado-1-20.db') as never);
+    expect(await reopened.progress()).toHaveLength(2);
+  });
+
+  it('banco antigo aberto duas vezes ao mesmo tempo: o segundo ALTER TABLE não quebra a abertura', async () => {
+    const { openDatabaseAsync } = jest.requireMock('expo-sqlite') as {
+      openDatabaseAsync: (name: string) => Promise<{ execAsync: (sql: string) => Promise<void> }>;
+    };
+    const legacy = await openDatabaseAsync('legado-concorrente.db');
+    await legacy.execAsync(
+      'CREATE TABLE IF NOT EXISTS progress (activity_key TEXT PRIMARY KEY NOT NULL, outcome TEXT NOT NULL, xp INTEGER NOT NULL);',
+    );
+    const open = () => openDatabaseAsync('legado-concorrente.db') as never;
+    const [first, second] = await Promise.all([
+      createVisitorStore(open).progress(),
+      createVisitorStore(open).progress(),
+    ]);
+    expect(first).toEqual([]);
+    expect(second).toEqual([]);
+  });
+
   it('aviso visto (1.15): nasce como não visto, fica visto numa loja nova e num banco antigo', async () => {
     const store = createVisitorStore();
     expect(await store.seen('speech-privacy')).toBe(false);

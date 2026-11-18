@@ -129,7 +129,15 @@ describe('mocks da API', () => {
                   studyTimeMs: 0,
                 }),
               }
-            : undefined;
+            : path === '/api/v1/visitor/events'
+              ? {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    type: 'VISITOR_SESSION_STARTED',
+                    deviceId: '0b6a3f0e-4c1d-4e2a-9b3c-5d6e7f809a1b',
+                  }),
+                }
+              : undefined;
         for (const key of keysOf(await resolve?.(new Request(`http://mock${path}`, init)))) {
           if (secrets.has(key)) leaked.push(`${method.toUpperCase()} ${path}: ${key}`);
         }
@@ -428,6 +436,42 @@ describe('recibos do mock (1.12)', () => {
     await expect(complete(anonymous)).rejects.toMatchObject({ status: 400, code: 'VALIDATION_FAILED' });
     await expect(complete({ ...body, outcome: 'GRADED' })).rejects.toMatchObject({ status: 400 });
     await expect(complete({ ...body, activityKey: 'nope' })).rejects.toMatchObject({ status: 404 });
+  });
+
+  describe('eventos do Visitante (1.20)', () => {
+    const send = (body: unknown) =>
+      mockRoutes['/api/v1/visitor/events'].post(
+        new Request('http://mock/api/v1/visitor/events', { method: 'POST', body: JSON.stringify(body) }),
+      );
+
+    it('VISITOR_SESSION_STARTED e ACTIVITY_STARTED de uma Atividade do Estágio: 202 sem corpo', async () => {
+      await expect(send({ type: 'VISITOR_SESSION_STARTED', deviceId: DEVICE })).resolves.toBeUndefined();
+      await expect(
+        send({
+          type: 'ACTIVITY_STARTED',
+          deviceId: DEVICE,
+          versionId: STAGE.versionId,
+          activityKey: DIALOGUE.activityKey,
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('corpo fechado, deviceId UUID e Atividade conhecida, como a API', async () => {
+      await expect(send({ type: 'VISITOR_SESSION_STARTED', deviceId: DEVICE, name: 'Ana' })).rejects.toMatchObject({
+        status: 400,
+      });
+      await expect(send({ type: 'VISITOR_SESSION_STARTED' })).rejects.toMatchObject({ status: 400 });
+      await expect(send({ type: 'VISITOR_SESSION_STARTED', deviceId: 'nope' })).rejects.toMatchObject({ status: 400 });
+      await expect(send({ type: 'STAGE_COMPLETED', deviceId: DEVICE })).rejects.toMatchObject({ status: 400 });
+      await expect(send({ type: 'ACTIVITY_STARTED', deviceId: DEVICE })).rejects.toMatchObject({ status: 400 });
+      await expect(
+        send({ type: 'ACTIVITY_STARTED', deviceId: DEVICE, versionId: STAGE.versionId, activityKey: 'nope' }),
+      ).rejects.toMatchObject({ status: 404, code: 'NOT_FOUND' });
+    });
+
+    it('o Estágio traz a frase do resumo com {name}', () => {
+      expect(STAGE.completion).toContain('{name}');
+    });
   });
 
   describe('Fala (1.15)', () => {

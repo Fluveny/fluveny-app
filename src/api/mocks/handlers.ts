@@ -10,10 +10,15 @@ export function mswPath(openApiPath: string): string {
   return `*${openApiPath.replace(/\{([^}]+)\}/g, ':$1')}`;
 }
 
-/** A resposta do mock: o corpo de sucesso, ou o problem+json de um `MockProblem`. */
+/**
+ * A resposta do mock: o corpo de sucesso, `202` sem corpo quando o mock não
+ * devolve nada (os eventos do Visitante), ou o problem+json de um `MockProblem`.
+ */
 export async function mockResponse(resolve: Resolver, request: Request): Promise<Response> {
   try {
-    return HttpResponse.json((await resolve(request)) as never);
+    const body = await resolve(request);
+    if (body === undefined) return new HttpResponse(null, { status: 202 });
+    return HttpResponse.json(body as never);
   } catch (error) {
     if (!(error instanceof MockProblem)) throw error;
     return HttpResponse.json(problemBody(error), {

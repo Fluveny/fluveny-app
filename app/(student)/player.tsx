@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { createElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, BackHandler, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,9 +11,13 @@ import { ActivityTransition } from '../../src/player/ActivityTransition';
 import { needsCompletion, useCompletion, type UngradedOutcome } from '../../src/player/completion';
 import { PlayerFooter, PlayerFrame, PlayerTop } from '../../src/player/PlayerFrame';
 import { resolveActivity, type ActivityResult, type FooterAction, type SheetSpec } from '../../src/player/registry';
+import { SIGN_UP_PATH } from '../../src/player/StageInvite';
+import { StageSummary } from '../../src/player/StageSummary';
+import { summarizeStage, type StageSummary as Summary } from '../../src/player/stageStats';
 import { useStage } from '../../src/player/useStage';
 import { ExpressionsProvider, renderPlain, toRenderContext } from '../../src/renderer';
 import { color, spacing, typography } from '../../src/ui/tokens';
+import { sendVisitorEvent } from '../../src/visitor/events';
 import { useVisitor } from '../../src/visitor/useVisitor';
 
 export const RETRY_LABEL = 'TENTAR DE NOVO';
@@ -42,8 +46,16 @@ function useLeave() {
  * tocáveis os trechos `[[rótulo|chave]]` das Atividades. A folha de dicionário
  * fecha com o voltar do Android (o `Modal` o recebe antes do player) e com Esc
  * no web; o voltar do navegador ainda sai do player (UX-DR130, adiado).
+ *
+ * Fim do Estágio (1.20): o CONTINUAR da última Atividade abre o Resumo do
+ * Estágio com o convite ao cadastro, no lugar da boas-vindas; o ✕ e o voltar
+ * dele saem para a boas-vindas. Cada Atividade concluída guarda no Progresso o
+ * Resultado da primeira Tentativa e o tempo de estudo. Eventos (AD-14): cada
+ * Atividade que aparece manda `ACTIVITY_STARTED`, sem esperar e sem mostrar
+ * falha; a sessão sai no toque que abre o player (`openPlayer`).
  */
 export default function Player() {
+  const router = useRouter();
   const leave = useLeave();
   const online = useOnline();
   const visitor = useVisitor();
@@ -51,6 +63,15 @@ export default function Player() {
   const [index, setIndex] = useState(0);
   const [footer, setFooter] = useState<FooterAction | null>(null);
   const [sheet, setSheet] = useState<SheetSpec | null>(null);
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const { store } = visitor;
+
+  // A rede de agora, para o ACTIVITY_STARTED (sem rede, o evento é descartado); antes do efeito que a lê.
+  // A sessão (VISITOR_SESSION_STARTED) sai no toque que abre o player (`openPlayer`), não aqui.
+  const onlineNow = useRef(online);
+  useEffect(() => {
+    onlineNow.current = online;
+  }, [online]);
 
   // O voltar do Android é o ✕.
   useEffect(() => {
@@ -81,16 +102,44 @@ export default function Player() {
     }
   }, [stage, variables, ready]);
 
-  const { store } = visitor;
   const {
     complete,
     clearError: clearCompletionError,
     completing,
     error: completionError,
+    elapsedMs,
   } = useCompletion(store, activity?.activityKey, stage?.versionId);
+
+  // Uma abertura por Atividade que aparece na tela (também ao refazer: cada abertura do player é outra).
+  const versionId = stage?.versionId;
+  const shownKey = summary || !activity || missingStage ? undefined : activity.activityKey;
+  const lastStarted = useRef<string | null>(null);
+  useEffect(() => {
+    if (!shownKey || !versionId || lastStarted.current === shownKey) return;
+    lastStarted.current = shownKey;
+    sendVisitorEvent(store, { type: 'ACTIVITY_STARTED', versionId, activityKey: shownKey }, onlineNow.current);
+  }, [store, shownKey, versionId]);
+
+  /** Fecha o Estágio: os números do Resumo saem do Progresso já gravado. */
+  const finishStage = useCallback(async () => {
+    let progress = visitor.progress;
+    try {
+      progress = await store.progress();
+    } catch (failure) {
+      captureError(failure);
+    }
+    setSummary(
+      summarizeStage(
+        progress,
+        activities.map((entry) => entry.activityKey),
+      ),
+    );
+  }, [store, visitor.progress, activities]);
   const advance = useCallback(
     async (result?: ActivityResult) => {
       if (result && activity) {
+        // O tempo de estudo vai até o toque, sem a espera da conclusão.
+        const studyTimeMs = elapsedMs();
         let xp = result.xp;
         if (needsCompletion(result.outcome)) {
           // A tela fica na falha (com a mensagem) e quando o player já saiu.
@@ -98,7 +147,15 @@ export default function Player() {
           xp = 0;
         }
         try {
-          await store.recordProgress({ activityKey: activity.activityKey, outcome: result.outcome, xp });
+          await store.recordProgress({
+            activityKey: activity.activityKey,
+            outcome: result.outcome,
+            xp,
+            ...(result.outcome === 'completed' && result.resultPct !== undefined
+              ? { resultPct: result.resultPct }
+              : {}),
+            studyTimeMs,
+          });
         } catch (failure) {
           captureError(failure);
         }
@@ -106,9 +163,9 @@ export default function Player() {
       setFooter(null);
       setSheet(null);
       if (position + 1 < total) setIndex(position + 1);
-      else leave();
+      else await finishStage();
     },
-    [activity, position, total, leave, store, complete],
+    [activity, position, total, store, complete, elapsedMs, finishStage],
   );
   // A Atividade pode esperar o fim (a Fala trava o microfone enquanto o pular está no ar).
   const onAdvance = useCallback((result?: ActivityResult) => advance(result), [advance]);
@@ -138,6 +195,20 @@ export default function Player() {
       actions: completing ? sheet.actions.map((action) => ({ ...action, busy: true })) : sheet.actions,
     };
   }, [sheet, completing, completionError]);
+
+  if (summary && stage) {
+    return (
+      <StageSummary
+        stageNumber={stageNumber}
+        stageTitle={stageTitle}
+        completion={stage.completion}
+        summary={summary}
+        online={online}
+        onClose={leave}
+        onSignUp={() => router.navigate(SIGN_UP_PATH)}
+      />
+    );
+  }
 
   if (loading) {
     return (

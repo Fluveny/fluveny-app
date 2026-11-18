@@ -43,11 +43,21 @@ type State = {
   attempts: number;
   /** XP da primeira tentativa: o único que vale (FR-26). */
   firstXp: number | null;
+  /** Resultado da primeira tentativa, que o Progresso guarda para o resumo do Estágio (1.20). */
+  firstPct: number | null;
   /** A última resposta enviada ao VERIFICAR, que o reveal reenvia. */
   lastAnswer: Answer | null;
 };
 
-const INITIAL: State = { phase: 'answering', result: null, error: null, attempts: 0, firstXp: null, lastAnswer: null };
+const INITIAL: State = {
+  phase: 'answering',
+  result: null,
+  error: null,
+  attempts: 0,
+  firstXp: null,
+  firstPct: null,
+  lastAnswer: null,
+};
 
 export type EvaluationOptions = Pick<ActivityProps, 'activity' | 'versionId' | 'setFooter' | 'setSheet' | 'advance'> & {
   /**
@@ -196,6 +206,7 @@ export function useEvaluation({
           result,
           attempts: s.attempts + 1,
           firstXp: s.firstXp ?? Math.max(0, result.xpAwarded),
+          firstPct: s.firstPct ?? result.resultPct ?? null,
           lastAnswer: sent,
         }));
       } catch (error) {
@@ -237,7 +248,8 @@ export function useEvaluation({
   const finish = useCallback(() => {
     if (finished.current) return;
     finished.current = true;
-    advance({ outcome: 'completed', xp: current.current.firstXp ?? 0 });
+    const { firstXp, firstPct } = current.current;
+    advance({ outcome: 'completed', xp: firstXp ?? 0, ...(firstPct === null ? {} : { resultPct: firstPct }) });
   }, [advance]);
 
   // Mudou a resposta depois de uma falha: a mensagem era da resposta anterior, que nem foi enviada.

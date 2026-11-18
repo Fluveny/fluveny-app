@@ -21,11 +21,20 @@ export type SeenKey = 'speech-privacy' | (string & {});
  */
 export type Outcome = 'completed' | 'viewed' | 'skipped';
 
-/** Uma linha do Progresso: a primeira conclusão de uma Atividade. */
+/**
+ * Uma linha do Progresso: a primeira conclusão de uma Atividade. Desde a 1.20,
+ * também o Resultado (`resultPct`, só das avaliadas) e o tempo de estudo
+ * (`studyTimeMs`) dessa conclusão, para o resumo do Estágio. Entradas antigas,
+ * sem os dois campos, continuam válidas.
+ */
 export type ProgressEntry = {
   activityKey: string;
   outcome: Outcome;
   xp: number;
+  /** Resultado da primeira Tentativa, de 0 a 100 (só `completed`). */
+  resultPct?: number;
+  /** Tempo de estudo da primeira conclusão, em ms. */
+  studyTimeMs?: number;
 };
 
 /** Um recibo da API, guardado sem decodificar (o App não lê nem mostra). */
@@ -78,6 +87,37 @@ export function totalXp(progress: readonly ProgressEntry[]): number {
 /** XP inteiro e não negativo (o que vier torto vira 0). */
 export function safeXp(xp: number): number {
   return Number.isFinite(xp) && xp > 0 ? Math.round(xp) : 0;
+}
+
+/** Resultado inteiro de 0 a 100; o que não for número vira `undefined`. */
+export function safePct(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.min(100, Math.max(0, Math.round(value)))
+    : undefined;
+}
+
+/** Tempo inteiro e não negativo, em ms; o que não for número vira `undefined`. */
+export function safeMs(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.round(value)) : undefined;
+}
+
+/** A entrada do Progresso como a loja guarda: XP saneado e os campos opcionais só quando valem. */
+export function progressEntry(
+  activityKey: string,
+  outcome: Outcome,
+  xp: number,
+  resultPct?: unknown,
+  studyTimeMs?: unknown,
+): ProgressEntry {
+  const pct = safePct(resultPct);
+  const ms = safeMs(studyTimeMs);
+  return {
+    activityKey,
+    outcome,
+    xp: safeXp(xp),
+    ...(pct === undefined ? {} : { resultPct: pct }),
+    ...(ms === undefined ? {} : { studyTimeMs: ms }),
+  };
 }
 
 /** Lista de ouvintes das mudanças da loja. */

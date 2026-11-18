@@ -134,9 +134,13 @@ export function useCompletion(store: VisitorStore, activityKey: string | undefin
   /** Esquece a falha (a Resposta Livre trocou pelo Extra Help, 1.18: a mensagem do ENVIAR não vale mais). */
   const clearError = useCallback(() => setFailure(null), []);
 
+  /** O tempo de estudo da Atividade na tela, desde que ela apareceu (o Progresso o guarda, 1.20). */
+  const elapsedMs = useCallback(() => Math.max(0, Date.now() - startedAt.current), []);
+
   return {
     complete,
     clearError,
+    elapsedMs,
     completing,
     /** O código da última falha, só enquanto a Atividade em que ela aconteceu está na tela. */
     error: failure && failure.activityKey === activityKey ? failure.code : null,

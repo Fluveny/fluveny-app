@@ -7,7 +7,7 @@ import { randomUUID } from 'expo-crypto';
 import {
   createEmitter,
   isOutcome,
-  safeXp,
+  progressEntry,
   type ProgressEntry,
   type ReceiptEntry,
   type SeenKey,
@@ -59,9 +59,10 @@ function asProgress(value: unknown): ProgressEntry[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item): ProgressEntry[] => {
     if (!item || typeof item !== 'object') return [];
-    const { activityKey, outcome, xp } = item as Record<string, unknown>;
+    const { activityKey, outcome, xp, resultPct, studyTimeMs } = item as Record<string, unknown>;
     if (typeof activityKey !== 'string' || !isOutcome(outcome) || typeof xp !== 'number') return [];
-    return [{ activityKey, outcome, xp: safeXp(xp) }];
+    // Entradas de antes da 1.20 não têm `resultPct` nem `studyTimeMs`.
+    return [progressEntry(activityKey, outcome, xp, resultPct, studyTimeMs)];
   });
 }
 
@@ -128,7 +129,8 @@ export function createVisitorStore(storage: KeyValue | undefined = defaultStorag
     async recordProgress(entry: ProgressEntry) {
       const progress = asProgress(readJson(read(PROGRESS)));
       if (progress.some((saved) => saved.activityKey === entry.activityKey)) return;
-      write(PROGRESS, JSON.stringify([...progress, { ...entry, xp: safeXp(entry.xp) }]));
+      const saved = progressEntry(entry.activityKey, entry.outcome, entry.xp, entry.resultPct, entry.studyTimeMs);
+      write(PROGRESS, JSON.stringify([...progress, saved]));
       emitter.emit();
     },
     async recordReceipt(activityKey: string, receipt: string) {

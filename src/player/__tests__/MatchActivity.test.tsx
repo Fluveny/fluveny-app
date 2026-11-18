@@ -228,7 +228,7 @@ describe('Associar (Match the Speech Bubbles)', () => {
     expect(item(0)).toBeDisabled();
     expect(response(DISTRACTOR)).toBeDisabled();
     await fireEvent.press(button(CONTINUE_LABEL));
-    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 9 });
+    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 9, resultPct: 100 });
   });
 
   it('parcial (2 de 3): "Quase lá!", "2 de 3 itens"; TENTAR DE NOVO trava os 2 e libera o resto; só a primeira vale', async () => {
@@ -262,7 +262,7 @@ describe('Associar (Match the Speech Bubbles)', () => {
     expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
     expect(screen.queryByTestId('xp-chip-light')).toBeNull();
     await fireEvent.press(button(CONTINUE_LABEL));
-    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 6 });
+    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 6, resultPct: 67 });
   });
 
   it('ver resposta: "RESPOSTA ESPERADA" com os três pares numerados e o nome renderizado', async () => {

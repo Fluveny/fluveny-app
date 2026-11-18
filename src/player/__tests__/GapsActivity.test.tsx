@@ -207,7 +207,7 @@ describe('Completar lacunas, banco', () => {
     expect(gap(0)).toBeDisabled();
     expect(word('is')).toBeDisabled();
     await fireEvent.press(button(CONTINUE_LABEL));
-    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 6 });
+    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 6, resultPct: 100 });
   });
 
   it('parcial (1 de 2): 50%; TENTAR DE NOVO mantém e trava o certo e esvazia só o errado', async () => {
@@ -234,7 +234,7 @@ describe('Completar lacunas, banco', () => {
     await fireEvent.press(button(CHECK_LABEL));
     expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
     await fireEvent.press(button(CONTINUE_LABEL));
-    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 3 });
+    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 3, resultPct: 50 });
   });
 
   it('ver resposta: "Vamos revisar" com as linhas completas', async () => {

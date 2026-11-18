@@ -73,6 +73,17 @@ type PostPaths = {
 export type PostData<P extends PostPaths> =
   JsonOf<paths[P]['post']['responses'][200]> extends { data: infer D } ? D : never;
 
+type AcceptedPaths = {
+  [P in keyof paths]: paths[P] extends { post: { requestBody?: unknown; responses: { 202: unknown } } } ? P : never;
+}[keyof paths];
+
+/** O corpo JSON de `POST path` de uma rota que responde 202 sem corpo. */
+export type AcceptedBody<P extends AcceptedPaths> = paths[P]['post'] extends {
+  requestBody: { content: { 'application/json': infer B } };
+}
+  ? B
+  : never;
+
 /** O corpo JSON de `POST path`, como o contrato pede. */
 export type PostBody<P extends PostPaths> = paths[P]['post'] extends {
   requestBody: { content: { 'application/json': infer B } };
@@ -126,7 +137,16 @@ async function readData<T>(response: Response, signal: AbortSignal): Promise<T> 
   return (body as { data: T }).data;
 }
 
-export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+/** Resposta sem corpo (202): só confere o status; erro vira `ApiError` como em `readData`. */
+async function readNothing(response: Response, signal: AbortSignal): Promise<void> {
+  if (!response.ok) throw new ApiError(response.status, await problemCode(response, signal));
+}
+
+export async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  read: (response: Response, signal: AbortSignal) => Promise<T> = readData,
+): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set(APP_VERSION_HEADER, appVersion());
   if (!headers.has('Accept')) headers.set('Accept', 'application/json, application/problem+json');
@@ -150,7 +170,7 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
       throw new ApiError(0, NETWORK_ERROR);
     }
     try {
-      return await readData<T>(response, controller.signal);
+      return await read(response, controller.signal);
     } catch (error) {
       if (error instanceof ApiError || callerSignal?.aborted) throw error;
       // Timeout durante a leitura do corpo.
@@ -193,4 +213,15 @@ export function post<P extends PostPaths>(path: P, body: PostBody<P>, init?: Req
   const headers = new Headers(init?.headers);
   headers.set('Content-Type', 'application/json');
   return request<PostData<P>>(path, { ...init, method: 'POST', headers, body: JSON.stringify(body) });
+}
+
+/** `POST` de uma rota que responde `202` sem corpo (os eventos do Visitante, 1.20). */
+export function postAccepted<P extends AcceptedPaths>(
+  path: P,
+  body: AcceptedBody<P>,
+  init?: RequestInit,
+): Promise<void> {
+  const headers = new Headers(init?.headers);
+  headers.set('Content-Type', 'application/json');
+  return request<void>(path, { ...init, method: 'POST', headers, body: JSON.stringify(body) }, readNothing);
 }

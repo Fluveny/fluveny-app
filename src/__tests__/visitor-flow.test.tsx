@@ -13,6 +13,7 @@ import Welcome, {
   WELCOME_GOAL,
   WELCOME_TITLE,
 } from '../../app/(public)/index';
+import StageTwoInvite, { REDO_LABEL } from '../../app/(student)/convite';
 import Player, { RETRY_LABEL } from '../../app/(student)/player';
 import UpdateRequired from '../../app/atualize';
 import { messageFor, NETWORK_ERROR } from '../api/errors';
@@ -27,6 +28,9 @@ import { NAME_LABEL } from '../player/types/DialogueActivity';
 import { ANSWER_LABEL, EXTRA_HELP_LABEL, SEND_LABEL, YOU_WROTE } from '../player/types/FreeActivity';
 import { GRAMMAR_TABS, NEXT_LABEL as GRAMMAR_NEXT } from '../player/types/GrammarActivity';
 import { PRIVACY_OK_LABEL, SKIP_LABEL as SPEECH_SKIP } from '../player/types/SpeechActivity';
+import { INVITE_BODY, INVITE_SIGN_UP, INVITE_TITLE } from '../player/StageInvite';
+import { MINUTES_STAT, RESULT_STAT, stageDoneLabel, stageDoneTitle, XP_STAT } from '../player/StageSummary';
+import { ApiError } from '../api/client';
 import { PENDING, registry, type ActivityProps, type ActivityRegistry } from '../player/registry';
 import { OFFLINE_TEXT } from '../network/text';
 import { CLOSE_LABEL, OFFLINE_LABEL } from '../player/PlayerFrame';
@@ -47,6 +51,8 @@ const json = (body: unknown, status = 200) =>
 const completions: Record<string, unknown>[] = [];
 /** Os corpos mandados à rota das Tentativas. */
 const attempts: Record<string, unknown>[] = [];
+/** Os corpos mandados à rota dos eventos do Visitante (1.20). */
+const events: Record<string, unknown>[] = [];
 
 /** O Estágio do mock, que abre com o Diálogo (1.13). */
 const MOCK_STAGE = mockRoutes['/api/v1/units/{unitKey}/stages/{stageKey}'].get(new Request('http://mock')).data;
@@ -68,7 +74,7 @@ let servedStage: typeof MOCK_STAGE = STAGE;
 /** A API respondendo com os mocks; `fail` troca a resposta de uma rota. */
 function apiResponds(
   fail: Partial<
-    Record<'unit' | 'stage' | 'completion', () => Response | Promise<Response | undefined> | undefined>
+    Record<'unit' | 'stage' | 'completion' | 'event', () => Response | Promise<Response | undefined> | undefined>
   > = {},
   minAppVersion = '0.0.0',
 ) {
@@ -86,6 +92,12 @@ function apiResponds(
       const failure = await fail.completion?.();
       if (failure) return failure;
       return mockResponse(mockRoutes['/api/v1/visitor/completions'].post, new Request(url, init));
+    }
+    if (url.endsWith('/api/v1/visitor/events')) {
+      events.push(JSON.parse(String(init?.body)));
+      const failure = await fail.event?.();
+      if (failure) return failure;
+      return mockResponse(mockRoutes['/api/v1/visitor/events'].post, new Request(url, init));
     }
     if (url.endsWith('/api/v1/meta')) return json({ data: { minAppVersion, activityTypes: [] } });
     if (url.includes('/stages/')) {
@@ -113,6 +125,7 @@ async function openApp(initialUrl = '/') {
       '(public)/index': Welcome,
       '(public)/em-breve': ComingSoon,
       '(student)/player': Player,
+      '(student)/convite': StageTwoInvite,
       atualize: UpdateRequired,
     },
     { initialUrl },
@@ -139,6 +152,7 @@ beforeEach(() => {
   resetMockVisitorRecords();
   completions.length = 0;
   attempts.length = 0;
+  events.length = 0;
   servedStage = STAGE;
   (sentry.captureError as jest.Mock).mockClear();
   apiResponds();
@@ -292,7 +306,12 @@ describe('boas-vindas e player do Visitante (1.10)', () => {
       await fireEvent.press(button(DONE_LABEL));
       expect(await screen.findByText(`2 DE ${TOTAL}`)).toBeTruthy();
       expect(await visitorStore.progress()).toEqual([
-        { activityKey: STAGE.activities[0]!.activityKey, outcome: 'completed', xp: 10 },
+        {
+          activityKey: STAGE.activities[0]!.activityKey,
+          outcome: 'completed',
+          xp: 10,
+          studyTimeMs: expect.any(Number),
+        },
       ]);
       expect(await screen.findByLabelText('10 XP')).toBeTruthy();
     });
@@ -350,11 +369,14 @@ describe('boas-vindas e player do Visitante (1.10)', () => {
     expect(screen.queryByText(OFFLINE_TEXT)).toBeNull();
   });
 
-  it('última Atividade: CONTINUAR em m de m volta à boas-vindas', async () => {
+  it('última Atividade: CONTINUAR em m de m abre o resumo do Estágio (1.20), e o ✕ volta à boas-vindas', async () => {
     await startTrying();
     for (let position = 1; position < TOTAL; position += 1) await pressContinue();
     expect(await screen.findByText(`${TOTAL} DE ${TOTAL}`)).toBeTruthy();
     await pressContinue();
+    expect(await screen.findByTestId('stage-summary')).toBeTruthy();
+    expect(screen).toHavePathname('/player');
+    await fireEvent.press(button(CLOSE_LABEL));
     expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
     expect(screen).toHavePathname('/');
   });
@@ -442,7 +464,13 @@ describe('Escolha real no player (1.11)', () => {
     await fireEvent.press(button(CONTINUE_SHEET));
     expect(await screen.findByText(`2 DE ${TOTAL}`)).toBeTruthy();
     expect(await visitorStore.progress()).toEqual([
-      { activityKey: STAGE.activities[0]!.activityKey, outcome: 'completed', xp: 10 },
+      {
+        activityKey: STAGE.activities[0]!.activityKey,
+        outcome: 'completed',
+        xp: 10,
+        resultPct: 100,
+        studyTimeMs: expect.any(Number),
+      },
     ]);
     expect(await screen.findByLabelText('10 XP')).toBeTruthy();
     expect(screen.queryByText(FEEDBACK_TITLES.correct)).toBeNull();
@@ -464,8 +492,15 @@ describe('Escolha real no player (1.11)', () => {
     expect(screen.queryByTestId('xp-chip-light')).toBeNull();
     await fireEvent.press(button(CONTINUE_SHEET));
     expect(await screen.findByText(`2 DE ${TOTAL}`)).toBeTruthy();
+    // O Resultado guardado é o da primeira Tentativa (67), como o XP.
     expect(await visitorStore.progress()).toEqual([
-      { activityKey: STAGE.activities[0]!.activityKey, outcome: 'completed', xp: 7 },
+      {
+        activityKey: STAGE.activities[0]!.activityKey,
+        outcome: 'completed',
+        xp: 7,
+        resultPct: 67,
+        studyTimeMs: expect.any(Number),
+      },
     ]);
   });
 
@@ -527,7 +562,9 @@ describe('conclusão vista ou pulada (1.12)', () => {
         },
       ]);
       expect(await visitorStore.receipts()).toEqual([{ activityKey: key, receipt: expect.any(String) }]);
-      expect(await visitorStore.progress()).toEqual([{ activityKey: key, outcome, xp: 0 }]);
+      expect(await visitorStore.progress()).toEqual([
+        { activityKey: key, outcome, xp: 0, studyTimeMs: expect.any(Number) },
+      ]);
       expect(screen.getByLabelText('0 XP')).toBeTruthy();
     });
   });
@@ -567,7 +604,12 @@ describe('conclusão vista ou pulada (1.12)', () => {
       expect(new Set(completions.map((body) => body.attemptId)).size).toBe(1);
       expect(completions).toHaveLength(3);
       expect(await visitorStore.progress()).toEqual([
-        { activityKey: MOCK_STAGE.activities[0]!.activityKey, outcome: 'viewed', xp: 0 },
+        {
+          activityKey: MOCK_STAGE.activities[0]!.activityKey,
+          outcome: 'viewed',
+          xp: 0,
+          studyTimeMs: expect.any(Number),
+        },
       ]);
       expect(screen.queryByText(messageFor(NETWORK_ERROR))).toBeNull();
     });
@@ -662,7 +704,9 @@ describe('Diálogo no player (1.13)', () => {
     expect(await screen.findByText(`2 DE ${FULL}`)).toBeTruthy();
     expect(completions).toEqual([expect.objectContaining({ activityKey: DIALOGUE.activityKey, outcome: 'VIEWED' })]);
     expect(await visitorStore.receipts()).toEqual([{ activityKey: DIALOGUE.activityKey, receipt: expect.any(String) }]);
-    expect(await visitorStore.progress()).toEqual([{ activityKey: DIALOGUE.activityKey, outcome: 'viewed', xp: 0 }]);
+    expect(await visitorStore.progress()).toEqual([
+      { activityKey: DIALOGUE.activityKey, outcome: 'viewed', xp: 0, studyTimeMs: expect.any(Number) },
+    ]);
     // A próxima Atividade tem o recuo lateral de volta.
     expect(sidePadding()).not.toBe(0);
     // A próxima Atividade (os Cartões, 1.14) mostra o nome do Visitante, em ouro, no 2º bloco.
@@ -842,7 +886,7 @@ describe('Expressões Úteis no player (1.14)', () => {
     expect(await screen.findByText(position(of('speech')[0]))).toBeTruthy();
     expect(await screen.findByTestId('speech-privacy')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('speech-privacy-decline'));
-    expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
+    expect(await screen.findByTestId('stage-summary')).toBeTruthy();
 
     // Os expositivos passaram pela completions com VIEWED, e a Fala com SKIPPED; todos têm recibo.
     expect(completions.map((body) => [body.activityKey, body.outcome])).toEqual([
@@ -858,12 +902,11 @@ describe('Expressões Úteis no player (1.14)', () => {
       MOCK_STAGE.activities.map((activity) => activity.activityKey).sort(),
     );
     expect(await visitorStore.progress()).toEqual(
-      expect.arrayContaining([
-        { activityKey: cards!.activityKey, outcome: 'viewed', xp: 0 },
-        { activityKey: expression!.activityKey, outcome: 'viewed', xp: 0 },
-        { activityKey: free!.activityKey, outcome: 'viewed', xp: 0 },
-        { activityKey: grammar!.activityKey, outcome: 'viewed', xp: 0 },
-      ]),
+      expect.arrayContaining(
+        [cards, expression, free, grammar].map((activity) =>
+          expect.objectContaining({ activityKey: activity!.activityKey, outcome: 'viewed', xp: 0 }),
+        ),
+      ),
     );
     // O texto da Resposta Livre nunca vai à API (FR-7, NFR4).
     const sentBodies = (global.fetch as jest.Mock).mock.calls
@@ -914,13 +957,17 @@ describe('Fala no player (1.15)', () => {
     await fireEvent.press(button(PRIVACY_OK_LABEL));
     await waitFor(() => expect(screen.queryByTestId('speech-privacy')).toBeNull());
     await fireEvent.press(button(SPEECH_SKIP));
-    expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
+    expect(await screen.findByTestId('stage-summary')).toBeTruthy();
     expect(completions).toEqual([expect.objectContaining({ activityKey: SPEECH.activityKey, outcome: 'SKIPPED' })]);
     expect(await visitorStore.receipts()).toEqual([{ activityKey: SPEECH.activityKey, receipt: expect.any(String) }]);
-    expect(await visitorStore.progress()).toEqual([{ activityKey: SPEECH.activityKey, outcome: 'skipped', xp: 0 }]);
+    expect(await visitorStore.progress()).toEqual([
+      { activityKey: SPEECH.activityKey, outcome: 'skipped', xp: 0, studyTimeMs: expect.any(Number) },
+    ]);
 
-    // Na volta, sem o aviso.
+    // Na volta (o Estágio já está completo: o convite e "Refazer"), sem o aviso.
+    await fireEvent.press(button(CLOSE_LABEL));
     await fireEvent.press(await screen.findByRole('button', { name: TRY_NOW }));
+    await fireEvent.press(await screen.findByRole('button', { name: REDO_LABEL }));
     expect(await screen.findByText('1 DE 1')).toBeTruthy();
     await act(async () => {});
     expect(screen.queryByTestId('speech-privacy')).toBeNull();
@@ -942,7 +989,488 @@ describe('Fala no player (1.15)', () => {
     await act(async () => {});
     expect(screen.queryByTestId('speech-privacy')).toBeNull();
     await fireEvent.press(button(SPEECH_SKIP));
+    expect(await screen.findByTestId('stage-summary')).toBeTruthy();
+    expect(await visitorStore.progress()).toEqual([
+      { activityKey: SPEECH.activityKey, outcome: 'skipped', xp: 0, studyTimeMs: expect.any(Number) },
+    ]);
+  });
+});
+
+describe('fim do Estágio, convite e eventos do Visitante (1.20)', () => {
+  /** Tipo de teste: conclui com o Resultado de `results[activityKey]` (padrão 100) e xp 10. */
+  const results: Record<string, number> = {};
+  function ScriptedActivity({ activity, setFooter, advance }: ActivityProps) {
+    useEffect(() => {
+      setFooter({
+        label: DONE_LABEL,
+        onPress: () => void advance({ outcome: 'completed', xp: 10, resultPct: results[activity.activityKey] ?? 100 }),
+      });
+    }, [setFooter, advance, activity.activityKey]);
+    return <Text>{activity.activityKey}</Text>;
+  }
+
+  const SPEECH = MOCK_STAGE.activities.find((activity) => activity.type === 'speech')!;
+  const keysOf = (stage: typeof MOCK_STAGE) => stage.activities.map((activity) => activity.activityKey);
+
+  beforeEach(() => {
+    for (const key of Object.keys(results)) delete results[key];
+    global.__speech.reset();
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(false);
+    jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  /** Joga o Estágio de Escolhas com o Tipo de teste até o Resumo. */
+  async function finishScripted() {
+    await withChoice(ScriptedActivity, async () => {
+      await startTrying();
+      for (let position = 1; position <= TOTAL; position += 1) {
+        await screen.findByText(`${position} DE ${TOTAL}`);
+        await fireEvent.press(button(DONE_LABEL));
+      }
+      await screen.findByTestId('stage-summary');
+    });
+  }
+
+  it('fim do Estágio: título "…: check!", frase com o nome, XP, Resultado médio, minutos, confete e o convite ouro', async () => {
+    await visitorStore.setVariable('name', 'Zoraide');
+    servedStage = { ...STAGE, completion: 'Well done, {name}!' };
+    const [a, b, c] = keysOf(STAGE);
+    Object.assign(results, { [a!]: 100, [b!]: 50, [c!]: 90 });
+    await finishScripted();
+
+    expect(screen.getByText(stageDoneLabel(1))).toBeTruthy();
+    expect(screen.getByRole('header', { name: stageDoneTitle(STAGE.title as string) })).toBeTruthy();
+    expect(stageDoneTitle('Meet & Greet')).toBe('Meet & Greet: check!');
+    expect(screen.getByTestId('stage-completion')).toHaveTextContent('Well done, Zoraide!', { exact: true });
+    expect(screen.getByLabelText(`${TOTAL * 10} XP`)).toBeTruthy();
+    expect(screen.getByText(XP_STAT)).toBeTruthy();
+    expect(screen.getByLabelText(`${RESULT_STAT} médio: 80%`)).toBeTruthy();
+    expect(screen.getByLabelText('0 minutos')).toBeTruthy();
+    expect(screen.getByText(MINUTES_STAT)).toBeTruthy();
+    expect(screen.queryByTestId('stage-skipped')).toBeNull();
+    expect(screen.getByTestId('alex-cheer')).toBeTruthy();
+    expect(await screen.findByTestId('confetti', { includeHiddenElements: true })).toBeTruthy();
+    // O convite ouro no lugar do CONTINUAR.
+    expect(screen.getByRole('header', { name: INVITE_TITLE })).toBeTruthy();
+    expect(screen.getByText(INVITE_BODY)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: CONTINUE_LABEL })).toBeNull();
+    // O Progresso guardou o Resultado e o tempo de cada uma.
+    expect(await visitorStore.progress()).toEqual(
+      [a, b, c].map((activityKey) => ({
+        activityKey,
+        outcome: 'completed',
+        xp: 10,
+        resultPct: results[activityKey!],
+        studyTimeMs: expect.any(Number),
+      })),
+    );
+
+    // CRIAR CONTA leva ao "Em breve".
+    await fireEvent.press(button(INVITE_SIGN_UP));
+    expect(await screen.findByText(SOON_TITLE)).toBeTruthy();
+    expect(screen).toHavePathname('/em-breve');
+  });
+
+  it('tempo de estudo: o Progresso guarda o tempo de cada Atividade na tela, e o resumo soma os minutos', async () => {
+    (AccessibilityInfo.isReduceMotionEnabled as jest.Mock).mockResolvedValue(true);
+    const spent = [50_000, 40_000, 70_000];
+    await withChoice(ScriptedActivity, async () => {
+      await startTrying();
+      for (let position = 1; position <= TOTAL; position += 1) {
+        await screen.findByText(`${position} DE ${TOTAL}`);
+        await act(async () => {});
+        // O `renderRouter` liga os relógios falsos do Jest: o tempo anda pelo `setSystemTime`.
+        jest.setSystemTime(Date.now() + spent[position - 1]!);
+        await fireEvent.press(button(DONE_LABEL));
+      }
+      await screen.findByTestId('stage-summary');
+    });
+    expect((await visitorStore.progress()).map((entry) => entry.studyTimeMs)).toEqual(spent);
+    // 160 s ≈ 3 minutos.
+    expect(screen.getByLabelText('3 minutos')).toBeTruthy();
+  });
+
+  it('sem frase: Estágio sem completion, o resumo não tem a linha', async () => {
+    const { completion: _completion, ...withoutPhrase } = STAGE;
+    servedStage = withoutPhrase;
+    await finishScripted();
+    expect(screen.queryByTestId('stage-completion')).toBeNull();
+    expect(screen.getByRole('header', { name: INVITE_TITLE })).toBeTruthy();
+  });
+
+  it('a frase do mock vem com o nome do Visitante', async () => {
+    await visitorStore.setVariable('name', 'Zoraide');
+    servedStage = { ...MOCK_STAGE, activities: [SPEECH] };
+    await startTrying(1);
+    await fireEvent.press(await screen.findByTestId('speech-privacy-decline'));
+    await screen.findByTestId('stage-summary');
+    expect(MOCK_STAGE.completion).toContain('{name}');
+    expect(screen.getByTestId('stage-completion')).toHaveTextContent(
+      (MOCK_STAGE.completion as string).replace('{name}', 'Zoraide'),
+      { exact: true },
+    );
+  });
+
+  it('puladas: uma Fala pulada dá "1 atividade de fala pulada…", e sem avaliadas não há Resultado', async () => {
+    servedStage = { ...MOCK_STAGE, activities: [SPEECH] };
+    await startTrying(1);
+    await fireEvent.press(await screen.findByTestId('speech-privacy-decline'));
+    await screen.findByTestId('stage-summary');
+    expect(screen.getByTestId('stage-skipped')).toHaveTextContent(
+      '1 atividade de fala pulada. Você pode refazer quando quiser.',
+      { exact: true },
+    );
+    expect(screen.queryByText(RESULT_STAT)).toBeNull();
+    expect(screen.getByLabelText('0 XP')).toBeTruthy();
+  });
+
+  it('✕ e o voltar do Android no resumo levam à boas-vindas', async () => {
+    const handlers: ((event: never) => boolean | null | undefined)[] = [];
+    jest.spyOn(BackHandler, 'addEventListener').mockImplementation((event, handler) => {
+      if (event === 'hardwareBackPress') handlers.push(handler);
+      return { remove: () => handlers.splice(handlers.indexOf(handler), 1) };
+    });
+    await finishScripted();
+    await act(async () => {
+      handlers.at(-1)?.(undefined as never);
+    });
     expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
-    expect(await visitorStore.progress()).toEqual([{ activityKey: SPEECH.activityKey, outcome: 'skipped', xp: 0 }]);
+    expect(screen).toHavePathname('/');
+  });
+
+  it('movimento reduzido: o resumo fica sem confete', async () => {
+    (AccessibilityInfo.isReduceMotionEnabled as jest.Mock).mockResolvedValue(true);
+    await finishScripted();
+    await act(async () => {});
+    expect(screen.queryByTestId('confetti', { includeHiddenElements: true })).toBeNull();
+    expect(screen.getByTestId('alex-cheer')).toBeTruthy();
+  });
+
+  it('Progresso antigo (sem resultPct e studyTimeMs): o resumo calcula com o que há, sem quebrar', async () => {
+    const [a, b] = keysOf(STAGE);
+    await visitorStore.recordProgress({ activityKey: a!, outcome: 'completed', xp: 10 });
+    await visitorStore.recordProgress({ activityKey: b!, outcome: 'viewed', xp: 0 });
+    await withType('choice', PendingActivity, async () => {
+      await startTrying();
+      for (let position = 1; position <= TOTAL; position += 1) {
+        await screen.findByText(`${position} DE ${TOTAL}`);
+        await pressContinue();
+      }
+      await screen.findByTestId('stage-summary');
+    });
+    expect(screen.getByLabelText('10 XP')).toBeTruthy();
+    expect(screen.queryByText(RESULT_STAT)).toBeNull();
+    expect(screen.getByLabelText('0 minutos')).toBeTruthy();
+  });
+
+  describe('Estágio 2 e eventos', () => {
+    /** Todas as Atividades do Estágio no Progresso do aparelho. */
+    async function stageDone(stage = STAGE) {
+      for (const activityKey of keysOf(stage)) {
+        await visitorStore.recordProgress({ activityKey, outcome: 'completed', xp: 10, resultPct: 100 });
+      }
+    }
+
+    it('sessão: EXPERIMENTAR AGORA com o Estágio incompleto abre o player e manda um VISITOR_SESSION_STARTED', async () => {
+      await startTrying();
+      const deviceId = await visitorStore.deviceId();
+      await waitFor(() => expect(events.length).toBeGreaterThanOrEqual(2));
+      expect(events.filter((event) => event.type === 'VISITOR_SESSION_STARTED')).toEqual([
+        { type: 'VISITOR_SESSION_STARTED', deviceId },
+      ]);
+    });
+
+    it('abertura: cada Atividade na tela manda um ACTIVITY_STARTED com versionId e activityKey, sem mais nada', async () => {
+      await withType('choice', PendingActivity, async () => {
+        await startTrying();
+        await pressContinue();
+        await screen.findByText(`2 DE ${TOTAL}`);
+        await pressContinue();
+        await screen.findByText(`3 DE ${TOTAL}`);
+      });
+      const deviceId = await visitorStore.deviceId();
+      await waitFor(() => expect(events).toHaveLength(1 + TOTAL));
+      expect(events).toEqual([
+        { type: 'VISITOR_SESSION_STARTED', deviceId },
+        ...keysOf(STAGE).map((activityKey) => ({
+          type: 'ACTIVITY_STARTED',
+          deviceId,
+          versionId: STAGE.versionId,
+          activityKey,
+        })),
+      ]);
+    });
+
+    it('sem rede ao avançar: o ACTIVITY_STARTED da Atividade seguinte é descartado, sem requisição', async () => {
+      const ADVANCE = 'AVANÇAR AQUI';
+      /** Tipo de teste que avança por um botão do conteúdo (o rodapé vira "SEM CONEXÃO" sem rede). */
+      function InlineAdvance({ activity, advance }: ActivityProps) {
+        return (
+          <Text accessibilityRole="button" accessibilityLabel={ADVANCE} onPress={() => void advance()}>
+            {activity.activityKey}
+          </Text>
+        );
+      }
+      await withChoice(InlineAdvance, async () => {
+        await startTrying();
+        await waitFor(() => expect(events).toHaveLength(2));
+        await act(async () => global.__setNetwork({ isConnected: false, isInternetReachable: false }));
+        await fireEvent.press(button(ADVANCE));
+        expect(await screen.findByText(`2 DE ${TOTAL}`)).toBeTruthy();
+        await act(async () => {});
+      });
+      expect(events.map((event) => event.activityKey ?? event.type)).toEqual([
+        'VISITOR_SESSION_STARTED',
+        keysOf(STAGE)[0],
+      ]);
+    });
+
+    it('abrir o player pelo link direto não conta sessão (só o toque no EXPERIMENTAR AGORA)', async () => {
+      await openApp('/player');
+      expect(await screen.findByText(`1 DE ${TOTAL}`)).toBeTruthy();
+      await waitFor(() => expect(events).toHaveLength(1));
+      expect(events[0]).toMatchObject({ type: 'ACTIVITY_STARTED' });
+    });
+
+    it('EXPERIMENTAR AGORA sem rede: vai direto ao player, que mostra o aviso, e a sessão é tentada', async () => {
+      await stageDone();
+      await openApp();
+      await screen.findByText(WELCOME_TITLE);
+      await act(async () => global.__setNetwork({ isConnected: false, isInternetReachable: false }));
+      await fireEvent.press(button(TRY_NOW));
+      expect(await screen.findByText(`1 DE ${TOTAL}`)).toBeTruthy();
+      expect(screen).toHavePathname('/player');
+      expect(screen.getByText(OFFLINE_TEXT)).toBeTruthy();
+      await waitFor(() => expect(events.map((event) => event.type)).toContain('VISITOR_SESSION_STARTED'));
+    });
+
+    it('a loja falha no EXPERIMENTAR: a falha vai ao Sentry e segue para o player', async () => {
+      const failure = new Error('loja quebrada');
+      jest.spyOn(visitorStore, 'progress').mockRejectedValueOnce(failure);
+      await openApp();
+      await fireEvent.press(await screen.findByRole('button', { name: TRY_NOW }));
+      expect(await screen.findByText(`1 DE ${TOTAL}`)).toBeTruthy();
+      expect(sentry.captureError).toHaveBeenCalledWith(failure);
+    });
+
+    it('com o EXPERIMENTAR ocupado, CRIAR CONTA, ENTRAR e os links ficam desabilitados', async () => {
+      let release: () => void = () => {};
+      const held = new Promise<void>((resolve) => (release = resolve));
+      apiResponds({
+        unit: async () => {
+          await held;
+          return json(mockRoutes['/api/v1/units/{unitKey}'].get(new Request('http://mock')));
+        },
+      });
+      await openApp();
+      await fireEvent.press(await screen.findByRole('button', { name: TRY_NOW }));
+      expect(button(SIGN_UP)).toBeDisabled();
+      expect(button(SIGN_IN)).toBeDisabled();
+      expect(screen.getByTestId('welcome-privacy')).toBeDisabled();
+      expect(screen.getByTestId('welcome-terms')).toBeDisabled();
+      await act(async () => release());
+      expect(await screen.findByText(`1 DE ${TOTAL}`)).toBeTruthy();
+    });
+
+    it('/convite pelo link direto, sem o Estágio 1 completo: volta à boas-vindas', async () => {
+      await openApp('/convite');
+      expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
+      expect(screen).toHavePathname('/');
+      expect(screen.queryByTestId('stage-two-invite')).toBeNull();
+    });
+
+    it('Estágio 2: com o Estágio 1 completo, EXPERIMENTAR AGORA abre o convite, sem o player e sem sessão', async () => {
+      await stageDone();
+      await openApp();
+      await fireEvent.press(await screen.findByRole('button', { name: TRY_NOW }));
+      expect(await screen.findByTestId('stage-two-invite')).toBeTruthy();
+      expect(screen).toHavePathname('/convite');
+      expect(screen.getByRole('header', { name: INVITE_TITLE })).toBeTruthy();
+      expect(screen.getByText(INVITE_BODY)).toBeTruthy();
+      expect(screen.queryByText(`1 DE ${TOTAL}`)).toBeNull();
+      await act(async () => {});
+      expect(events).toEqual([]);
+
+      // ✕ volta à boas-vindas; CRIAR CONTA leva ao "Em breve".
+      await fireEvent.press(button(CLOSE_LABEL));
+      expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
+      await fireEvent.press(button(TRY_NOW));
+      await fireEvent.press(await screen.findByRole('button', { name: INVITE_SIGN_UP }));
+      expect(await screen.findByText(SOON_TITLE)).toBeTruthy();
+    });
+
+    it('Refazer: "Refazer o Estágio 1" abre o player do início e manda VISITOR_SESSION_STARTED', async () => {
+      await stageDone();
+      await openApp();
+      await fireEvent.press(await screen.findByRole('button', { name: TRY_NOW }));
+      await fireEvent.press(await screen.findByRole('button', { name: REDO_LABEL }));
+      expect(await screen.findByText(`1 DE ${TOTAL}`)).toBeTruthy();
+      expect(screen).toHavePathname('/player');
+      const deviceId = await visitorStore.deviceId();
+      await waitFor(() => expect(events).toHaveLength(2));
+      expect(events).toEqual([
+        { type: 'VISITOR_SESSION_STARTED', deviceId },
+        { type: 'ACTIVITY_STARTED', deviceId, versionId: STAGE.versionId, activityKey: keysOf(STAGE)[0] },
+      ]);
+    });
+
+    it('a busca do Estágio falha no EXPERIMENTAR: segue para o player, que mostra o erro', async () => {
+      apiResponds({ unit: () => json({ code: 'INTERNAL_ERROR' }, 500) });
+      await openApp();
+      await fireEvent.press(await screen.findByRole('button', { name: TRY_NOW }));
+      expect(await screen.findByText(messageFor('INTERNAL_ERROR'))).toBeTruthy();
+      expect(screen).toHavePathname('/player');
+    });
+
+    it('evento falha (500): a tela segue sem mensagem e a falha vai ao Sentry', async () => {
+      apiResponds({ event: () => json({ code: 'INTERNAL_ERROR' }, 500) });
+      await withType('choice', PendingActivity, async () => {
+        await startTrying();
+        await waitFor(() =>
+          expect(sentry.captureError).toHaveBeenCalledWith(expect.objectContaining({ code: 'INTERNAL_ERROR' })),
+        );
+        expect((sentry.captureError as jest.Mock).mock.calls[0]![0]).toBeInstanceOf(ApiError);
+        expect(screen.queryByText(messageFor('INTERNAL_ERROR'))).toBeNull();
+        await pressContinue();
+        expect(await screen.findByText(`2 DE ${TOTAL}`)).toBeTruthy();
+      });
+      // Não repete: um envio por evento.
+      expect(events).toHaveLength(3);
+    });
+
+    it('evento sem rede: descartado, sem mensagem, sem Sentry e sem repetir', async () => {
+      apiResponds({
+        event: () => {
+          throw new TypeError('Network request failed');
+        },
+      });
+      await withType('choice', PendingActivity, async () => {
+        await startTrying();
+        await waitFor(() => expect(events).toHaveLength(2));
+        await pressContinue();
+        expect(await screen.findByText(`2 DE ${TOTAL}`)).toBeTruthy();
+      });
+      await waitFor(() => expect(events).toHaveLength(3));
+      expect(sentry.captureError).not.toHaveBeenCalled();
+      expect(screen.queryByText(messageFor(NETWORK_ERROR))).toBeNull();
+    });
+  });
+});
+
+describe('contrato de PII do modo Visitante (1.20, FR-7, NFR7)', () => {
+  // Nome, país e texto livre que não aparecem no conteúdo do mock (Alex fala de Canada e Brazil).
+  const NAME = 'Zoraide';
+  const COUNTRY = { code: 'JP', name: 'Japan' };
+  const FREE_TEXT = 'Meu segredo é pistache 4729';
+
+  beforeEach(() => {
+    servedStage = MOCK_STAGE;
+    global.__speech.reset();
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
+    jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  /** URL, cabeçalhos e corpo de cada requisição feita à API. */
+  function requests(): string[] {
+    return (global.fetch as jest.Mock).mock.calls.map(([input, init]: [RequestInfo | URL, RequestInit | undefined]) => {
+      const headers = [...new Headers(init?.headers).entries()].map(([key, value]) => `${key}: ${value}`).join('\n');
+      return [String(input), headers, typeof init?.body === 'string' ? init.body : ''].join('\n');
+    });
+  }
+
+  it('o Estágio inteiro do mock, com nome, país e texto livre: nenhuma URL, cabeçalho ou corpo os contém', async () => {
+    const of = (type: StageActivity['type']) => MOCK_STAGE.activities.filter((activity) => activity.type === type);
+    const choose = async (activity: StageActivity, item: number, letter: string) =>
+      fireEvent.press(screen.getByTestId(`choice-${activity.activityKey}-${item + 1}-${letter}`));
+    const position = (activity: StageActivity | undefined) =>
+      `${MOCK_STAGE.activities.indexOf(activity!) + 1} DE ${FULL}`;
+    const continueSheet = async () => fireEvent.press(await screen.findByRole('button', { name: CONTINUE_SHEET }));
+    for (const text of [NAME, COUNTRY.name, FREE_TEXT]) {
+      expect(JSON.stringify(MOCK_STAGE).toLowerCase()).not.toContain(text.toLowerCase());
+    }
+
+    await startTrying(FULL);
+    // Diálogo: nome e país.
+    await fireEvent.changeText(await screen.findByLabelText(NAME_LABEL), NAME);
+    await fireEvent.press(button(CONTINUE_LABEL));
+    await fireEvent.press(await screen.findByTestId(`dialogue-country-${COUNTRY.code}`));
+    await fireEvent.press(button(CONTINUE_LABEL));
+    await waitFor(() => expect(screen.queryByTestId('dialogue-ask-country')).toBeNull());
+    await fireEvent.press(button(CONTINUE_LABEL));
+    // Cartões e Expressão.
+    expect(await screen.findByText(position(of('cards')[0]))).toBeTruthy();
+    await fireEvent.press(button(NEXT_BLOCK_LABEL));
+    await fireEvent.press(button(NEXT_BLOCK_LABEL));
+    await fireEvent.press(button(CONTINUE_LABEL));
+    expect(await screen.findByText(position(of('expression')[0]))).toBeTruthy();
+    await fireEvent.press(button(CONTINUE_LABEL));
+    // Escolhas.
+    const [first, second, third] = of('choice');
+    expect(await screen.findByText(position(first))).toBeTruthy();
+    for (const [item, letter] of (['A', 'B', 'B'] as const).entries()) await choose(first!, item, letter);
+    await fireEvent.press(button(CHECK_LABEL));
+    await continueSheet();
+    for (const activity of [second, third]) {
+      expect(await screen.findByText(position(activity))).toBeTruthy();
+      await choose(activity!, 0, 'A');
+      await fireEvent.press(button(CHECK_LABEL));
+      await continueSheet();
+    }
+    // Associar.
+    const [match] = of('match') as MatchView[];
+    expect(await screen.findByText(position(match))).toBeTruthy();
+    for (const [i, item] of match!.items.entries()) {
+      await fireEvent.press(screen.getByTestId(`match-item-${item.itemKey}`));
+      await fireEvent.press(screen.getByTestId(`match-response-${match!.responses[i]!.responseKey}`));
+    }
+    await fireEvent.press(button(CHECK_LABEL));
+    await continueSheet();
+    // Lacunas: do banco e digitadas (com o nome).
+    const [bankGaps, typedGaps] = of('gaps');
+    expect(await screen.findByText(position(bankGaps))).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('gap-fill-word-am'));
+    await fireEvent.press(screen.getByTestId('gap-fill-word-meet'));
+    await fireEvent.press(button(CHECK_LABEL));
+    await continueSheet();
+    expect(await screen.findByText(position(typedGaps))).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('gap-fill-gap-0'), 'i am');
+    await fireEvent.changeText(screen.getByTestId('gap-fill-gap-1'), NAME.toLowerCase());
+    await fireEvent.press(button(CHECK_LABEL));
+    await continueSheet();
+    // Resposta Livre com o texto livre, o nome e o país.
+    expect(await screen.findByText(position(of('free')[0]))).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText(ANSWER_LABEL), `${FREE_TEXT}. I'm ${NAME} from ${COUNTRY.name}`);
+    await fireEvent.press(button(SEND_LABEL));
+    expect(await screen.findByText(YOU_WROTE)).toBeTruthy();
+    await continueSheet();
+    // Grammar Time.
+    expect(await screen.findByText(position(of('grammar')[0]))).toBeTruthy();
+    await fireEvent.press(button(GRAMMAR_NEXT));
+    await fireEvent.press(button(GRAMMAR_NEXT));
+    await fireEvent.press(button(CONTINUE_LABEL));
+    // Fala: pulada.
+    expect(await screen.findByText(position(of('speech')[0]))).toBeTruthy();
+    await fireEvent.press(await screen.findByTestId('speech-privacy-decline'));
+    // O Resumo (com o nome na frase) e o convite.
+    expect(await screen.findByTestId('stage-summary')).toBeTruthy();
+    expect(screen.getByTestId('stage-completion')).toHaveTextContent(new RegExp(NAME));
+    await waitFor(() => expect(events.length).toBeGreaterThan(FULL));
+
+    const sent = requests();
+    // Passou por todas as rotas do Visitante.
+    for (const path of ['/visitor/attempts', '/visitor/completions', '/visitor/events']) {
+      expect(sent.some((request) => request.includes(path))).toBe(true);
+    }
+    for (const request of sent) {
+      const lower = request.toLowerCase();
+      expect(lower).not.toContain(NAME.toLowerCase());
+      expect(lower).not.toContain(COUNTRY.name.toLowerCase());
+      expect(lower).not.toContain(FREE_TEXT.toLowerCase());
+      expect(lower).not.toContain('pistache');
+      // A forma guardada do país é o código.
+      expect(request).not.toMatch(new RegExp(`\\b${COUNTRY.code}\\b`));
+    }
   });
 });

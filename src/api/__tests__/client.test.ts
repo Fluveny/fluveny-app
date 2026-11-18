@@ -1,4 +1,14 @@
-import { ApiError, APP_VERSION_HEADER, appVersion, fillPath, get, post, request, REQUEST_TIMEOUT_MS } from '../client';
+import {
+  ApiError,
+  APP_VERSION_HEADER,
+  appVersion,
+  fillPath,
+  get,
+  post,
+  postAccepted,
+  request,
+  REQUEST_TIMEOUT_MS,
+} from '../client';
 import { ERROR_MESSAGES, GENERIC_MESSAGE, messageFor, NETWORK_ERROR, UNKNOWN_ERROR } from '../errors';
 
 const appJson = require('../../../app.json');
@@ -274,5 +284,26 @@ describe('post', () => {
   it('sem rede: NETWORK_ERROR', async () => {
     global.fetch = jest.fn().mockRejectedValue(new TypeError('Network request failed'));
     expect((await caught(post('/api/v1/visitor/attempts', attempt))).code).toBe(NETWORK_ERROR);
+  });
+});
+
+describe('postAccepted() (1.20)', () => {
+  const event = { type: 'VISITOR_SESSION_STARTED' as const, deviceId: '0b6a3f0e-4c1d-4e2a-9b3c-5d6e7f809a1b' };
+
+  it('202 sem corpo: resolve sem valor, com o corpo em JSON e X-App-Version', async () => {
+    global.fetch = jest.fn().mockResolvedValue(new Response(null, { status: 202 }));
+    await expect(postAccepted('/api/v1/visitor/events', event)).resolves.toBeUndefined();
+    const [url, init] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url).toBe('https://api.exemplo.test/api/v1/visitor/events');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual(event);
+    expect(new Headers(init.headers).get(APP_VERSION_HEADER)).toBe(appJson.expo.version);
+  });
+
+  it('erro do problem+json: ApiError com o code; sem rede, NETWORK_ERROR', async () => {
+    global.fetch = respond(500, problem('INTERNAL_ERROR'), 'application/problem+json');
+    expect((await caught(postAccepted('/api/v1/visitor/events', event))).code).toBe('INTERNAL_ERROR');
+    global.fetch = jest.fn().mockRejectedValue(new TypeError('Network request failed'));
+    expect((await caught(postAccepted('/api/v1/visitor/events', event))).code).toBe(NETWORK_ERROR);
   });
 });
