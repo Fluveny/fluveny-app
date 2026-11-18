@@ -492,8 +492,8 @@ describe('recibos do mock (1.12)', () => {
     });
 
     it('o Estágio tem um Associar antes da Fala, com um distrator, {name} numa resposta e sem gabarito', () => {
-      // Entre o Associar e a Fala ficam as duas Lacunas (1.17).
-      expect(STAGE.activities.indexOf(MATCH)).toBe(STAGE.activities.indexOf(SPEECH) - 3);
+      // Entre o Associar e a Fala ficam as duas Lacunas (1.17) e a Resposta Livre (1.18).
+      expect(STAGE.activities.indexOf(MATCH)).toBe(STAGE.activities.indexOf(SPEECH) - 4);
       expect(MATCH.responses.length - MATCH.items.length).toBe(1);
       expect(MATCH.responses.some((response) => String(response.text).includes('{name}'))).toBe(true);
       expect(Object.keys(MATCH.items[0]!).sort()).toEqual(['itemKey', 'line']);
@@ -586,7 +586,7 @@ describe('recibos do mock (1.12)', () => {
     });
 
     it('o Estágio tem as Lacunas do banco e as digitadas antes da Fala, sem gabarito', () => {
-      expect(STAGE.activities.indexOf(TYPED)).toBe(STAGE.activities.indexOf(SPEECH) - 1);
+      expect(STAGE.activities.indexOf(TYPED)).toBe(STAGE.activities.indexOf(SPEECH) - 2);
       expect(STAGE.activities.indexOf(BANK)).toBe(STAGE.activities.indexOf(TYPED) - 1);
       // Um distrator no banco; nada de banco no digitado.
       expect(BANK.bank!.length - BANK.items.length).toBe(1);
@@ -681,6 +681,101 @@ describe('recibos do mock (1.12)', () => {
           }),
         ).rejects.toMatchObject({ status: 409, code: 'COMPLETION_NOT_ALLOWED' });
       }
+    });
+  });
+  describe('Resposta Livre (1.18)', () => {
+    type Free = Extract<StageActivity, { type: 'free' }>;
+    const FREE = STAGE.activities.find((activity): activity is Free => activity.type === 'free')!;
+    const viewed = (attemptId: string = randomUUID()) => ({
+      attemptId,
+      deviceId: DEVICE,
+      versionId: STAGE.versionId,
+      activityKey: FREE.activityKey,
+      outcome: 'VIEWED',
+      studyTimeMs: 1000,
+    });
+    const help = (values: string[]) => ({
+      attemptId: randomUUID(),
+      deviceId: DEVICE,
+      versionId: STAGE.versionId,
+      activityKey: FREE.activityKey,
+      type: 'free',
+      answer: {
+        type: 'free',
+        items: values.map((value, i) => ({ itemKey: FREE.extraHelp.items[i]?.itemKey ?? 'nope', value })),
+      },
+      studyTimeMs: 1000,
+    });
+
+    it('o Estágio tem a Resposta Livre antes da Fala, sem a resposta-modelo nem o gabarito do Extra Help', () => {
+      expect(STAGE.activities.indexOf(FREE)).toBe(STAGE.activities.indexOf(SPEECH) - 1);
+      expect(FREE).not.toHaveProperty('modelAnswer');
+      expect(Object.keys(FREE.extraHelp.items[0]!)).toEqual(['itemKey']);
+      expect(FREE.extraHelp.bank.length - FREE.extraHelp.items.length).toBe(1);
+    });
+
+    it('VIEWED devolve a resposta-modelo com {name} e o recibo; a repetição, a resposta-modelo sem recibo', async () => {
+      const first = await complete(viewed());
+      expect(first).toMatchObject({ outcome: 'VIEWED', xpAwarded: 0, receipt: expect.any(String) });
+      expect(String(first.modelAnswer)).toContain('{name}');
+      const again = await complete(viewed());
+      expect(again.modelAnswer).toEqual(first.modelAnswer);
+      expect(again.receipt).toBeUndefined();
+    });
+
+    it('SKIPPED é 409 COMPLETION_NOT_ALLOWED; a conclusão de outro Tipo não traz resposta-modelo', async () => {
+      await expect(complete({ ...viewed(), outcome: 'SKIPPED' })).rejects.toMatchObject({
+        status: 409,
+        code: 'COMPLETION_NOT_ALLOWED',
+      });
+      const dialogue = STAGE.activities.find((activity) => activity.type === 'dialogue')!;
+      const other = await complete({ ...viewed(), activityKey: dialogue.activityKey });
+      expect(other).not.toHaveProperty('modelAnswer');
+    });
+
+    it('Extra Help certo: extraHelp, xp 6, expected do Tipo free e recibo', async () => {
+      const right = await send('/api/v1/visitor/attempts', help(["I'm", 'from']));
+      expect(right).toMatchObject({ outcome: 'GRADED', resultPct: 100, xpAwarded: 6, extraHelp: true });
+      expect(right.expected).toEqual({
+        type: 'free',
+        items: [
+          { itemKey: 'about-you-im', value: "I'm" },
+          { itemKey: 'about-you-from', value: 'from' },
+        ],
+      });
+      expect(right.receipt).toEqual(expect.any(String));
+    });
+
+    it('Extra Help parcial: 50, xp 3, sem expected', async () => {
+      const partial = await send('/api/v1/visitor/attempts', help(["I'm", 'is']));
+      expect(partial).toMatchObject({ resultPct: 50, xpAwarded: 3, extraHelp: true });
+      expect(partial.expected).toBeUndefined();
+    });
+
+    it('depois da conclusão, a Tentativa é corrigida sem recibo', async () => {
+      await complete(viewed());
+      const later = await send('/api/v1/visitor/attempts', help(["I'm", 'from']));
+      expect(later).toMatchObject({ resultPct: 100 });
+      expect(later.receipt).toBeUndefined();
+    });
+
+    it('o reveal do Extra Help exige uma Tentativa corrigida: depois do VIEWED, 409 ATTEMPT_REQUIRED', async () => {
+      await complete(viewed());
+      await expect(send('/api/v1/visitor/attempts/reveal', help(['is', 'is']))).rejects.toMatchObject({
+        status: 409,
+        code: 'ATTEMPT_REQUIRED',
+      });
+      resetMockVisitorRecords();
+      await send('/api/v1/visitor/attempts', help(['is', 'from']));
+      const revealed = await send('/api/v1/visitor/attempts/reveal', help(['is', 'from']));
+      expect(revealed).toMatchObject({ expected: { type: 'free' } });
+    });
+
+    it('a Answer das Lacunas não vale no Extra Help', async () => {
+      const body = help(["I'm", 'from']);
+      await expect(
+        send('/api/v1/visitor/attempts', { ...body, type: 'gaps', answer: { ...body.answer, type: 'gaps' } }),
+      ).rejects.toMatchObject({ status: 400, code: 'INVALID_ANSWER' });
     });
   });
 });

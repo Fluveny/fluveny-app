@@ -7,10 +7,12 @@ import type { GetData } from '../api/client';
 import type { ContentText } from '../renderer';
 import type { ButtonVariant, FeedbackTone } from '../ui';
 import type { Outcome } from '../visitor/types';
+import type { CompletionResult, UngradedOutcome } from './completion';
 import { CardsActivity } from './types/CardsActivity';
 import { ChoiceActivity } from './types/ChoiceActivity';
 import { DialogueActivity } from './types/DialogueActivity';
 import { ExpressionActivity } from './types/ExpressionActivity';
+import { FreeActivity } from './types/FreeActivity';
 import { GapsActivity } from './types/GapsActivity';
 import { MatchActivity } from './types/MatchActivity';
 import { SpeechActivity } from './types/SpeechActivity';
@@ -72,8 +74,12 @@ export type SheetSpec = {
   actions: SheetAction[];
 };
 
-/** O que a Atividade concluída grava no Progresso. */
-export type ActivityResult = { outcome: Outcome; xp: number };
+/**
+ * O que a Atividade concluída grava no Progresso. `recorded`: a conclusão
+ * `viewed`/`skipped` já passou pela rota `completions` (`complete`, 1.18), e o
+ * player só grava o Progresso, sem concluir de novo.
+ */
+export type ActivityResult = { outcome: Outcome; xp: number; recorded?: boolean };
 
 /**
  * Contrato entre o player e um Tipo. A Atividade desenha o conteúdo e chama
@@ -90,6 +96,17 @@ export type ActivityProps = {
   setSheet: (sheet: SheetSpec | null) => void;
   /** Termina quando o player avançou ou desistiu (falha da conclusão: a tela fica). */
   advance: (result?: ActivityResult) => void | Promise<void>;
+  /**
+   * Conclui (`viewed`/`skipped`) pela rota `completions` sem avançar e devolve
+   * o Resultado (a Resposta Livre mostra a `modelAnswer` antes do CONTINUAR,
+   * 1.18). Sem Resultado, `null`: na falha da API, a moldura mostra
+   * `messageFor(code)` no rodapé; com outra conclusão em curso ou com o player
+   * já fechado, volta `null` sem mensagem. Quem usa avança depois com
+   * `recorded: true`.
+   */
+  complete?: (outcome: UngradedOutcome) => Promise<CompletionResult | null>;
+  /** Esquece a falha da conclusão mostrada no rodapé (a Resposta Livre ao entrar no Extra Help, 1.18). */
+  clearCompletionError?: () => void;
 };
 
 /**
@@ -109,6 +126,7 @@ export const registry: { [T in ActivityType]: ActivityComponent | typeof PENDING
   choice: ChoiceActivity,
   dialogue: DialogueActivity,
   expression: ExpressionActivity,
+  free: FreeActivity,
   match: MatchActivity,
   gaps: GapsActivity,
   speech: SpeechActivity,

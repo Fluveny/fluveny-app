@@ -157,17 +157,17 @@ export interface components {
     schemas: {
         Activity: {
             type: string;
-        } & (components["schemas"]["ChoiceActivity"] | components["schemas"]["DialogueActivity"] | components["schemas"]["CardsActivity"] | components["schemas"]["ExpressionActivity"] | components["schemas"]["SpeechActivity"] | components["schemas"]["MatchActivity"] | components["schemas"]["GapsActivity"]);
+        } & (components["schemas"]["ChoiceActivity"] | components["schemas"]["DialogueActivity"] | components["schemas"]["CardsActivity"] | components["schemas"]["ExpressionActivity"] | components["schemas"]["SpeechActivity"] | components["schemas"]["MatchActivity"] | components["schemas"]["GapsActivity"] | components["schemas"]["FreeActivity"]);
         ActivityStudentView: {
             type: string;
-        } & (components["schemas"]["ChoiceActivityStudentView"] | components["schemas"]["DialogueActivityStudentView"] | components["schemas"]["CardsActivityStudentView"] | components["schemas"]["ExpressionActivityStudentView"] | components["schemas"]["SpeechActivityStudentView"] | components["schemas"]["MatchActivityStudentView"] | components["schemas"]["GapsActivityStudentView"]);
+        } & (components["schemas"]["ChoiceActivityStudentView"] | components["schemas"]["DialogueActivityStudentView"] | components["schemas"]["CardsActivityStudentView"] | components["schemas"]["ExpressionActivityStudentView"] | components["schemas"]["SpeechActivityStudentView"] | components["schemas"]["MatchActivityStudentView"] | components["schemas"]["GapsActivityStudentView"] | components["schemas"]["FreeActivityStudentView"]);
         ActivityTypeSupport: {
             sinceAppVersion?: string;
             type: string;
         };
         Answer: {
             type: string;
-        } & (components["schemas"]["ChoiceAnswer"] | components["schemas"]["SpeechAnswer"] | components["schemas"]["MatchAnswer"] | components["schemas"]["GapsAnswer"]);
+        } & (components["schemas"]["ChoiceAnswer"] | components["schemas"]["SpeechAnswer"] | components["schemas"]["MatchAnswer"] | components["schemas"]["GapsAnswer"] | components["schemas"]["FreeAnswer"]);
         ApiResponseAttemptResult: {
             data: components["schemas"]["AttemptResult"];
             message?: string;
@@ -217,6 +217,8 @@ export interface components {
         };
         AttemptResult: {
             expected?: components["schemas"]["Answer"];
+            /** @description true nas Tentativas da Resposta Livre (free), que são sempre do Extra Help; ausente nos outros Tipos. */
+            extraHelp?: boolean;
             items: components["schemas"]["ItemResult"][];
             /** @enum {string} */
             outcome: "GRADED" | "SKIPPED" | "VIEWED";
@@ -325,6 +327,8 @@ export interface components {
             versionId: string;
         };
         CompletionResult: {
+            /** @description A resposta-modelo da Resposta Livre, crua (pode ter {name}). Só na conclusão VIEWED de um free, também na repetição. */
+            modelAnswer?: components["schemas"]["ContentText"];
             /** @enum {string} */
             outcome: "GRADED" | "SKIPPED" | "VIEWED";
             receipt?: string;
@@ -386,6 +390,70 @@ export interface components {
              * @enum {string}
              */
             type: "expression";
+        };
+        FreeActivity: {
+            activityKey: string;
+            extraHelp: components["schemas"]["FreeExtraHelp"];
+            /** @description Uma resposta possível; pode ter {name} e {country}. Sai na conclusão VIEWED. */
+            modelAnswer: components["schemas"]["ContentText"];
+            /** @description A pergunta de Alex. */
+            prompt: components["schemas"]["ContentText"];
+            title: components["schemas"]["ContentText"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "free";
+            /**
+             * Format: int32
+             * @description O XP do Extra Help; a Resposta Livre enviada não dá XP.
+             */
+            xp: number;
+        };
+        FreeActivityStudentView: {
+            activityKey: string;
+            extraHelp: components["schemas"]["FreeExtraHelpStudentView"];
+            /** @description A pergunta de Alex. */
+            prompt: components["schemas"]["ContentText"];
+            title: components["schemas"]["ContentText"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "free";
+            /**
+             * Format: int32
+             * @description O XP do Extra Help; a Resposta Livre enviada não dá XP.
+             */
+            xp: number;
+        };
+        FreeAnswer: {
+            items: components["schemas"]["GapsAnswerItem"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "free";
+        };
+        FreeExtraHelp: {
+            /** @description O banco de palavras, na ordem do conteúdo, com os distratores; o App embaralha. */
+            bank: components["schemas"]["GapsWord"][];
+            /** @description Um item por lacuna, na ordem dos ___ nas linhas (linha a linha). */
+            items: components["schemas"]["GapsItem"][];
+            /** @description As linhas, na ordem de exibição. Cada ___ (três ou mais _) é uma lacuna. */
+            lines: components["schemas"]["ContentText"][];
+            /** @description A instrução do Extra Help, acima das lacunas. */
+            prompt?: components["schemas"]["ContentText"];
+        };
+        FreeExtraHelpStudentView: {
+            /** @description O banco de palavras, na ordem do conteúdo, com os distratores; o App embaralha. */
+            bank: components["schemas"]["GapsWord"][];
+            /** @description Um item por lacuna, na ordem dos ___ nas linhas (linha a linha). */
+            items: components["schemas"]["GapsItemStudentView"][];
+            /** @description As linhas, na ordem de exibição. Cada ___ (três ou mais _) é uma lacuna. */
+            lines: components["schemas"]["ContentText"][];
+            /** @description A instrução do Extra Help, acima das lacunas. */
+            prompt?: components["schemas"]["ContentText"];
         };
         GapsActivity: {
             activityKey: string;

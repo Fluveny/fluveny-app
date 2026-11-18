@@ -69,6 +69,11 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 - `GapFill` (`src/player/GapFill.tsx`) é a mecânica das lacunas (linhas, `GapSlot`, banco e campos), sem rede nem avaliação; o `GapsActivity` e o Extra Help (1.18) montam a Atividade em volta dele. No banco, a Answer leva o texto da palavra na variante do pronome, com os tokens; digitada, o texto passa pelo `tokenizeVariables` antes de sair.
 - Campo de texto no meio do conteúdo do player chama `useRevealField()` (de `PlayerFrame`) no `onFocus`: com o teclado aberto, a moldura rola até o campo caber acima dele. Quando o teclado abre, ela faz o mesmo com o campo focado (`TextInput.State.currentlyFocusedInput`); sem campo focado, rola até o fim.
 
+## Resposta Livre (1.18)
+
+- `FreeActivity` (`src/player/types/FreeActivity.tsx`): ENVIAR chama `complete('viewed')` (prop do player, que conclui pela rota `completions` sem avançar) e mostra a `modelAnswer` que vem no `CompletionResult`; CONTINUAR avança com `recorded: true`, e o player só grava o Progresso. O texto do aluno fica só no estado da tela: nunca vai à API nem à loja do Visitante, e aparece como texto puro (nunca pelo `RenderedText`).
+- EXTRA HELP troca a tela, sem volta, pelas lacunas do banco do `extraHelp`, com a Answer `type: 'free'`. A resposta e a avaliação das lacunas ficam no `useGapAttempt` (`src/player/useGapAttempt.ts`), o mesmo do `GapsActivity`.
+
 ## Renderizador do conteúdo (1.10)
 
 - Todo texto do conteúdo na tela usa `RenderedText` (`src/renderer`), com `vars` e `pronoun` do `useRenderVars()`. Nunca mostre `ContentText` cru nem escolha a variante à mão. Texto puro (rótulo, título de linha): `renderPlain`.
