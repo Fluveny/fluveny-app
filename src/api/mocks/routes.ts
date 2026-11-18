@@ -36,6 +36,9 @@
 // repetição, sem recibo); a Tentativa é o Extra Help, corrigido pelas lacunas
 // do banco, com `extraHelp: true`. O gabarito (resposta-modelo e respostas
 // aceitas) fica só aqui.
+//
+// Grammar Time (1.19): antes da Fala, um `grammar` com `{name}` e uma frase
+// com variantes de pronome em `used`. Aceita `VIEWED`, como os expositivos.
 import type { components, paths } from '../schema';
 
 export const MOCK_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
@@ -90,9 +93,10 @@ export function problemBody(problem: MockProblem) {
 const VERSION_ID = 'sha256:0000000000000000000000000000000000000000000000000000000000000001';
 
 // Uma Unidade com um Estágio de um Diálogo, os Cartões, a Expressão Útil, três
-// Escolhas, o Associar, as duas Lacunas, a Resposta Livre e a Fala (o player
-// percorre 1 de 11 a 11 de 11), e a Unit 2 "em breve" (sem Estágios). A
-// primeira Escolha tem 3 itens (Resultado "n de 3 itens"); as outras, um só.
+// Escolhas, o Associar, as duas Lacunas, a Resposta Livre, o Grammar Time e a
+// Fala (o player percorre 1 de 12 a 12 de 12), e a Unit 2 "em breve" (sem
+// Estágios). A primeira Escolha tem 3 itens (Resultado "n de 3 itens"); as
+// outras, um só.
 const unit1 = { unitKey: 'unit-1', order: 1, title: 'Unit 1', comingSoon: false, versionId: VERSION_ID };
 const unit2 = {
   unitKey: 'unit-2',
@@ -111,8 +115,9 @@ type SpeechView = components['schemas']['SpeechActivityStudentView'];
 type MatchView = components['schemas']['MatchActivityStudentView'];
 type GapsView = components['schemas']['GapsActivityStudentView'];
 type FreeView = components['schemas']['FreeActivityStudentView'];
+type GrammarView = components['schemas']['GrammarActivityStudentView'];
 type ActivityView =
-  ChoiceView | DialogueView | CardsView | ExpressionView | SpeechView | MatchView | GapsView | FreeView;
+  ChoiceView | DialogueView | CardsView | ExpressionView | SpeechView | MatchView | GapsView | FreeView | GrammarView;
 type UsefulExpression = components['schemas']['UsefulExpressionStudentView'];
 type AttemptResult = components['schemas']['AttemptResult'];
 type CompletionResult = components['schemas']['CompletionResult'];
@@ -241,6 +246,7 @@ const ALLOWED_COMPLETION: Partial<Record<ActivityView['type'], string>> = {
   expression: 'VIEWED',
   speech: 'SKIPPED',
   free: 'VIEWED',
+  grammar: 'VIEWED',
 };
 
 /** Gabarito da Fala no mock: as formas aceitas (alvo e alternativas) e o XP. */
@@ -484,6 +490,40 @@ const yourTurn = speech('your-turn-speech', "It's your turn", 'Se apresente para
   'Hello Alex, my name is {name}.',
 ]);
 
+/**
+ * O Grammar Time (1.19), no molde do fixture da API
+ * (`grammar-student-view-full.json`), sem o `[[…|chave]]` da regra.
+ */
+const verbToBe: GrammarView = {
+  activityKey: 'verb-to-be-grammar',
+  type: 'grammar',
+  title: 'Verb to be',
+  used: [
+    { sentenceKey: 'my-name', form: 'is', sentence: 'My name **is** {name}.' },
+    {
+      sentenceKey: 'from-canada',
+      form: { he: 'is', she: 'is', they: 'are' },
+      sentence: {
+        he: 'He **is** from Canada.',
+        she: 'She **is** from Canada.',
+        they: 'They **are** from Canada.',
+      },
+    },
+  ],
+  rules: [
+    { ruleKey: 'am', form: 'am', use: 'only with I', example: 'I **am** a student.' },
+    { ruleKey: 'is', form: 'is', use: 'with he, she and it', example: '{name} **is** from {country}.' },
+    { ruleKey: 'are', form: 'are', use: 'with you, we and they', example: 'You **are** from Canada.' },
+  ],
+  examples: [
+    { exampleKey: 'alex', text: "I'm Alex. My name **is** Alex." },
+    {
+      exampleKey: 'pronoun',
+      text: { he: 'He **is** my friend.', she: 'She **is** my friend.', they: 'They **are** my friends.' },
+    },
+  ],
+};
+
 const stage1Activities: ActivityView[] = [
   meetAlex,
   greetingCards,
@@ -549,6 +589,7 @@ const stage1Activities: ActivityView[] = [
   gapsBank,
   gapsTyped,
   aboutYou,
+  verbToBe,
   yourTurn,
 ];
 

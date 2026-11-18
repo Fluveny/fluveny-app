@@ -143,7 +143,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Conclui uma Atividade sem correção, sem XP: a vista de um Tipo expositivo ou a pulada de um Tipo avaliado que aceita pular (a speech, com SKIPPED). receipt só volta na primeira conclusão ou Tentativa do aparelho na Atividade. Cada Tipo aceita a sua conclusão: os expositivos dialogue, cards e expression, com VIEWED, e a speech pulada, com SKIPPED. Fora dela, 409 COMPLETION_NOT_ALLOWED. */
+        /** @description Conclui uma Atividade sem correção, sem XP: a vista de um Tipo expositivo ou a pulada de um Tipo avaliado que aceita pular (a speech, com SKIPPED). receipt só volta na primeira conclusão ou Tentativa do aparelho na Atividade. Cada Tipo aceita a sua conclusão: os expositivos dialogue, cards, expression e grammar, com VIEWED, e a speech pulada, com SKIPPED. Fora dela, 409 COMPLETION_NOT_ALLOWED. */
         post: operations["completeVisitorActivity"];
         delete?: never;
         options?: never;
@@ -157,10 +157,10 @@ export interface components {
     schemas: {
         Activity: {
             type: string;
-        } & (components["schemas"]["ChoiceActivity"] | components["schemas"]["DialogueActivity"] | components["schemas"]["CardsActivity"] | components["schemas"]["ExpressionActivity"] | components["schemas"]["SpeechActivity"] | components["schemas"]["MatchActivity"] | components["schemas"]["GapsActivity"] | components["schemas"]["FreeActivity"]);
+        } & (components["schemas"]["ChoiceActivity"] | components["schemas"]["DialogueActivity"] | components["schemas"]["CardsActivity"] | components["schemas"]["ExpressionActivity"] | components["schemas"]["SpeechActivity"] | components["schemas"]["MatchActivity"] | components["schemas"]["GapsActivity"] | components["schemas"]["FreeActivity"] | components["schemas"]["GrammarActivity"]);
         ActivityStudentView: {
             type: string;
-        } & (components["schemas"]["ChoiceActivityStudentView"] | components["schemas"]["DialogueActivityStudentView"] | components["schemas"]["CardsActivityStudentView"] | components["schemas"]["ExpressionActivityStudentView"] | components["schemas"]["SpeechActivityStudentView"] | components["schemas"]["MatchActivityStudentView"] | components["schemas"]["GapsActivityStudentView"] | components["schemas"]["FreeActivityStudentView"]);
+        } & (components["schemas"]["ChoiceActivityStudentView"] | components["schemas"]["DialogueActivityStudentView"] | components["schemas"]["CardsActivityStudentView"] | components["schemas"]["ExpressionActivityStudentView"] | components["schemas"]["SpeechActivityStudentView"] | components["schemas"]["MatchActivityStudentView"] | components["schemas"]["GapsActivityStudentView"] | components["schemas"]["FreeActivityStudentView"] | components["schemas"]["GrammarActivityStudentView"]);
         ActivityTypeSupport: {
             sinceAppVersion?: string;
             type: string;
@@ -519,6 +519,45 @@ export interface components {
         GapsWord: {
             text: components["schemas"]["ContentText"];
             wordKey: string;
+        };
+        GrammarActivity: {
+            activityKey: string;
+            examples: components["schemas"]["GrammarTimeExample"][];
+            rules: components["schemas"]["GrammarTimeRule"][];
+            title: components["schemas"]["ContentText"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "grammar";
+            used: components["schemas"]["GrammarTimeSentence"][];
+        };
+        GrammarActivityStudentView: {
+            activityKey: string;
+            examples: components["schemas"]["GrammarTimeExample"][];
+            rules: components["schemas"]["GrammarTimeRule"][];
+            title: components["schemas"]["ContentText"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "grammar";
+            used: components["schemas"]["GrammarTimeSentence"][];
+        };
+        GrammarTimeExample: {
+            exampleKey: string;
+            text: components["schemas"]["ContentText"];
+        };
+        GrammarTimeRule: {
+            example: components["schemas"]["ContentText"];
+            form: components["schemas"]["ContentText"];
+            ruleKey: string;
+            use: components["schemas"]["ContentText"];
+        };
+        GrammarTimeSentence: {
+            form: components["schemas"]["ContentText"];
+            sentence: components["schemas"]["ContentText"];
+            sentenceKey: string;
         };
         ItemResult: {
             correct: boolean;

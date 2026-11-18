@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native';
 
 import * as sentry from '../../observability/sentry';
 import { color, fontFamily, typography } from '../../ui/tokens';
+import { ExpressionsProvider } from '../ExpressionsProvider';
 import { RenderedText } from '../RenderedText';
 import type { ContentText } from '../render';
 
@@ -55,6 +56,47 @@ describe('RenderedText', () => {
     expect(screen.getByText('She is here.')).toBeTruthy();
     expect(styleOf(screen.getByText('She')).fontFamily).toBe(fontFamily[800]);
     expect(styleOf(screen.getByText('She is here.')).fontFamily).toBeUndefined();
+  });
+
+  it('strongStyle: soma ao negrito (peso 800 + sublinhado em ink), sem tocar no texto comum nem na variável', async () => {
+    const strong = { textDecorationLine: 'underline', textDecorationColor: color.ink } as const;
+    await render(<RenderedText text="My name **is** {name}." vars={{ name: 'Ana' }} strongStyle={strong} />);
+    expect(screen.getByText('My name is Ana.')).toBeTruthy();
+    expect(styleOf(screen.getByText('is'))).toEqual({
+      fontFamily: fontFamily[800],
+      fontWeight: '800',
+      ...strong,
+    });
+    expect(styleOf(screen.getByTestId('student-var')).textDecorationColor).toBe(color.gold);
+    expect(styleOf(screen.getByTestId('student-var')).fontFamily).toBeUndefined();
+  });
+
+  it('strongStyle não vale na Expressão Útil nem na Variável do Aluno: ficam o azul pontilhado e o ouro', async () => {
+    const strong = { textDecorationLine: 'underline', textDecorationColor: color.ink } as const;
+    const expressions = [{ expressionKey: 'k', term: 'is', meaning: 'é', examples: [] }];
+    await render(
+      <ExpressionsProvider expressions={expressions}>
+        <RenderedText
+          text="A [[**is**|k]] B **[[from|k]]** C **{name}**."
+          vars={{ name: 'Ana' }}
+          strongStyle={strong}
+        />
+      </ExpressionsProvider>,
+    );
+    for (const label of ['is', 'from']) {
+      const run = screen.getByText(label, { exact: true });
+      expect(styleOf(run).fontFamily).toBe(fontFamily[800]);
+      expect(styleOf(run).textDecorationColor).toBeUndefined();
+    }
+    for (const chunk of screen.getAllByTestId('expression-k')) {
+      expect(styleOf(chunk)).toMatchObject({ color: color.blue, textDecorationStyle: 'dotted' });
+    }
+    const variable = screen.getByTestId('student-var');
+    expect(styleOf(variable)).toMatchObject({
+      fontFamily: fontFamily[800],
+      color: color.goldText,
+      textDecorationColor: color.gold,
+    });
   });
 
   it('expressão: só o rótulo, com {name} resolvido, sem ação', async () => {

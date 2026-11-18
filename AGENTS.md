@@ -74,6 +74,11 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 - `FreeActivity` (`src/player/types/FreeActivity.tsx`): ENVIAR chama `complete('viewed')` (prop do player, que conclui pela rota `completions` sem avançar) e mostra a `modelAnswer` que vem no `CompletionResult`; CONTINUAR avança com `recorded: true`, e o player só grava o Progresso. O texto do aluno fica só no estado da tela: nunca vai à API nem à loja do Visitante, e aparece como texto puro (nunca pelo `RenderedText`).
 - EXTRA HELP troca a tela, sem volta, pelas lacunas do banco do `extraHelp`, com a Answer `type: 'free'`. A resposta e a avaliação das lacunas ficam no `useGapAttempt` (`src/player/useGapAttempt.ts`), o mesmo do `GapsActivity`.
 
+## Grammar Time (1.19)
+
+- `GrammarActivity` (`src/player/types/GrammarActivity.tsx`): três abas locais ao Tipo (`accessibilityRole` `tablist`/`tab`, `selected` só na ativa, 48 dp), livres desde a entrada e sempre começando na 1. PRÓXIMO vai à aba seguinte; na 3, CONTINUAR conclui com `viewed`. A troca de aba (toque ou PRÓXIMO) é anunciada; a entrada, não.
+- A forma destacada é o `**negrito**` do conteúdo com a prop `strongStyle` do `RenderedText` (sublinhado em `ink`), numa frase de peso 500 para o negrito aparecer. Nunca vermelho, azul ou ouro, e nunca por regex de `form` sobre a frase. [ASSUMPTION] O DESIGN.md reserva o vermelho a recompensa e erro; a EXPERIENCE e a UX-DR79 dizem "em vermelho".
+
 ## Renderizador do conteúdo (1.10)
 
 - Todo texto do conteúdo na tela usa `RenderedText` (`src/renderer`), com `vars` e `pronoun` do `useRenderVars()`. Nunca mostre `ContentText` cru nem escolha a variante à mão. Texto puro (rótulo, título de linha): `renderPlain`.

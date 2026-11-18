@@ -380,6 +380,30 @@ describe('recibos do mock (1.12)', () => {
     }
   });
 
+  it('Grammar Time (1.19): antes da Fala, com {name} e variantes de pronome em used; VIEWED com recibo, SKIPPED 409', async () => {
+    const grammar = STAGE.activities.find(
+      (activity): activity is Extract<StageActivity, { type: 'grammar' }> => activity.type === 'grammar',
+    )!;
+    expect(STAGE.activities.indexOf(grammar)).toBe(STAGE.activities.indexOf(SPEECH) - 1);
+    expect(JSON.stringify(grammar.used)).toContain('{name}');
+    expect(grammar.used.some((entry) => typeof entry.sentence === 'object')).toBe(true);
+    expect(grammar.rules.length).toBeGreaterThan(0);
+    expect(grammar.examples.length).toBeGreaterThan(0);
+    const body = {
+      attemptId: randomUUID(),
+      deviceId: DEVICE,
+      versionId: STAGE.versionId,
+      activityKey: grammar.activityKey,
+      outcome: 'VIEWED',
+      studyTimeMs: 0,
+    };
+    await expect(complete({ ...body, outcome: 'SKIPPED' })).rejects.toMatchObject({
+      status: 409,
+      code: 'COMPLETION_NOT_ALLOWED',
+    });
+    expect(await complete(body)).toEqual({ outcome: 'VIEWED', xpAwarded: 0, receipt: expect.any(String) });
+  });
+
   it('Expressões Úteis (1.14): toda chave [[…|chave]] do Estágio está nas usefulExpressions da Unidade', () => {
     const unit = mockRoutes['/api/v1/units/{unitKey}'].get(new Request('http://mock')).data;
     const known = new Set(unit.usefulExpressions.map((entry) => entry.expressionKey));
@@ -492,8 +516,8 @@ describe('recibos do mock (1.12)', () => {
     });
 
     it('o Estágio tem um Associar antes da Fala, com um distrator, {name} numa resposta e sem gabarito', () => {
-      // Entre o Associar e a Fala ficam as duas Lacunas (1.17) e a Resposta Livre (1.18).
-      expect(STAGE.activities.indexOf(MATCH)).toBe(STAGE.activities.indexOf(SPEECH) - 4);
+      // Entre o Associar e a Fala ficam as duas Lacunas (1.17), a Resposta Livre (1.18) e o Grammar Time (1.19).
+      expect(STAGE.activities.indexOf(MATCH)).toBe(STAGE.activities.indexOf(SPEECH) - 5);
       expect(MATCH.responses.length - MATCH.items.length).toBe(1);
       expect(MATCH.responses.some((response) => String(response.text).includes('{name}'))).toBe(true);
       expect(Object.keys(MATCH.items[0]!).sort()).toEqual(['itemKey', 'line']);
@@ -586,7 +610,7 @@ describe('recibos do mock (1.12)', () => {
     });
 
     it('o Estágio tem as Lacunas do banco e as digitadas antes da Fala, sem gabarito', () => {
-      expect(STAGE.activities.indexOf(TYPED)).toBe(STAGE.activities.indexOf(SPEECH) - 2);
+      expect(STAGE.activities.indexOf(TYPED)).toBe(STAGE.activities.indexOf(SPEECH) - 3);
       expect(STAGE.activities.indexOf(BANK)).toBe(STAGE.activities.indexOf(TYPED) - 1);
       // Um distrator no banco; nada de banco no digitado.
       expect(BANK.bank!.length - BANK.items.length).toBe(1);
@@ -707,8 +731,8 @@ describe('recibos do mock (1.12)', () => {
       studyTimeMs: 1000,
     });
 
-    it('o Estágio tem a Resposta Livre antes da Fala, sem a resposta-modelo nem o gabarito do Extra Help', () => {
-      expect(STAGE.activities.indexOf(FREE)).toBe(STAGE.activities.indexOf(SPEECH) - 1);
+    it('o Estágio tem a Resposta Livre antes do Grammar Time, sem a resposta-modelo nem o gabarito do Extra Help', () => {
+      expect(STAGE.activities.indexOf(FREE)).toBe(STAGE.activities.indexOf(SPEECH) - 2);
       expect(FREE).not.toHaveProperty('modelAnswer');
       expect(Object.keys(FREE.extraHelp.items[0]!)).toEqual(['itemKey']);
       expect(FREE.extraHelp.bank.length - FREE.extraHelp.items.length).toBe(1);

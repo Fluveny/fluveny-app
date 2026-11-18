@@ -14,6 +14,7 @@ import { DialogueActivity } from './types/DialogueActivity';
 import { ExpressionActivity } from './types/ExpressionActivity';
 import { FreeActivity } from './types/FreeActivity';
 import { GapsActivity } from './types/GapsActivity';
+import { GrammarActivity } from './types/GrammarActivity';
 import { MatchActivity } from './types/MatchActivity';
 import { SpeechActivity } from './types/SpeechActivity';
 import { PendingActivity } from './PendingActivity';
@@ -129,6 +130,7 @@ export const registry: { [T in ActivityType]: ActivityComponent | typeof PENDING
   free: FreeActivity,
   match: MatchActivity,
   gaps: GapsActivity,
+  grammar: GrammarActivity,
   speech: SpeechActivity,
 };
 
