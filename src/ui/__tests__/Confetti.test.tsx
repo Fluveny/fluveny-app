@@ -30,4 +30,21 @@ describe('Confetti (1.20)', () => {
     await act(async () => {});
     expect(screen.queryByTestId('confetti', { includeHiddenElements: true })).toBeNull();
   });
+
+  it('a mudança chega antes da leitura inicial: a leitura antiga não a sobrescreve', async () => {
+    let resolveRead: (value: boolean) => void = () => {};
+    jest
+      .spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
+      .mockReturnValue(new Promise<boolean>((resolve) => (resolveRead = resolve)));
+    let onChange: (value: boolean) => void = () => {};
+    jest.spyOn(AccessibilityInfo, 'addEventListener').mockImplementation((_event, handler) => {
+      onChange = handler as (value: boolean) => void;
+      return { remove: () => {} } as ReturnType<typeof AccessibilityInfo.addEventListener>;
+    });
+    await render(<Confetti />);
+    // Ligou "remover animações" antes de a leitura (antiga, sem a preferência) voltar.
+    await act(async () => onChange(true));
+    await act(async () => resolveRead(false));
+    expect(screen.queryByTestId('confetti', { includeHiddenElements: true })).toBeNull();
+  });
 });

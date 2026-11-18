@@ -7,12 +7,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOnline } from '../../src/network/useOnline';
 import { PlayerTop } from '../../src/player/PlayerFrame';
 import { SIGN_UP_PATH, StageInvite } from '../../src/player/StageInvite';
-import { isStageComplete } from '../../src/player/stageStats';
-import { fetchVisitorActivityKeys } from '../../src/player/useStage';
+import { checkVisitorStageComplete } from '../../src/player/stageComplete';
 import { Alex, Button } from '../../src/ui';
 import { color, size, spacing } from '../../src/ui/tokens';
 import { openPlayer } from '../../src/visitor/events';
-import { visitorStore } from '../../src/visitor/store';
 
 /** Ação secundária do convite: o player do Estágio 1 de novo, do início. */
 export const REDO_LABEL = 'Refazer o Estágio 1';
@@ -23,7 +21,7 @@ export const REDO_LABEL = 'Refazer o Estágio 1';
  * CONTA leva ao cadastro (por ora, "Em breve"); "Refazer o Estágio 1" abre o
  * player do início; o ✕ e o voltar levam à boas-vindas. Aberto pelo link
  * direto sem o Estágio 1 completo (ou sem conseguir conferir), volta à
- * boas-vindas.
+ * boas-vindas; enquanto confere, a tela mostra só o ✕.
  */
 export default function StageTwoInvite() {
   const router = useRouter();
@@ -33,14 +31,11 @@ export default function StageTwoInvite() {
 
   useEffect(() => {
     let alive = true;
-    Promise.all([fetchVisitorActivityKeys(client), visitorStore.progress()])
-      .then(([keys, progress]) => isStageComplete(progress, keys))
-      .catch(() => false)
-      .then((done) => {
-        if (!alive) return;
-        if (done) setConfirmed(true);
-        else router.replace('/');
-      });
+    void checkVisitorStageComplete(client).then((done) => {
+      if (!alive) return;
+      if (done) setConfirmed(true);
+      else router.replace('/');
+    });
     return () => {
       alive = false;
     };
@@ -59,7 +54,14 @@ export default function StageTwoInvite() {
     return () => subscription.remove();
   }, [leave]);
 
-  if (!confirmed) return <View style={styles.screen} />;
+  // Enquanto confere, só o ✕ (a conferência tem o prazo de uma requisição).
+  if (!confirmed) {
+    return (
+      <SafeAreaView style={styles.screen} edges={['top', 'bottom', 'left', 'right']} testID="stage-two-checking">
+        <PlayerTop onClose={leave} online={online} />
+      </SafeAreaView>
+    );
+  }
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom', 'left', 'right']} testID="stage-two-invite">
       <PlayerTop onClose={leave} online={online} />

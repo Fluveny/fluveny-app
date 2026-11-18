@@ -30,11 +30,16 @@ import { GRAMMAR_TABS, NEXT_LABEL as GRAMMAR_NEXT } from '../player/types/Gramma
 import { PRIVACY_OK_LABEL, SKIP_LABEL as SPEECH_SKIP } from '../player/types/SpeechActivity';
 import { INVITE_BODY, INVITE_SIGN_UP, INVITE_TITLE } from '../player/StageInvite';
 import { MINUTES_STAT, RESULT_STAT, stageDoneLabel, stageDoneTitle, XP_STAT } from '../player/StageSummary';
-import { ApiError } from '../api/client';
+import { ApiError, REQUEST_TIMEOUT_MS } from '../api/client';
 import { PENDING, registry, type ActivityProps, type ActivityRegistry } from '../player/registry';
 import { OFFLINE_TEXT } from '../network/text';
 import { CLOSE_LABEL, OFFLINE_LABEL } from '../player/PlayerFrame';
-import { CHECK_LABEL, CONTINUE_LABEL as CONTINUE_SHEET, RETRY_LABEL as RETRY_SHEET } from '../player/useEvaluation';
+import {
+  CHECK_LABEL,
+  CONTINUE_LABEL as CONTINUE_SHEET,
+  RETRY_LABEL as RETRY_SHEET,
+  REVEAL_LABEL as REVEAL_SHEET,
+} from '../player/useEvaluation';
 import { EXPRESSION_CLOSE_LABEL, FEEDBACK_TITLES } from '../ui';
 import { visitorStore } from '../visitor/store';
 import { clearVisitorCache } from '../visitor/useVisitor';
@@ -1037,11 +1042,15 @@ describe('fim do Estágio, convite e eventos do Visitante (1.20)', () => {
     servedStage = { ...STAGE, completion: 'Well done, {name}!' };
     const [a, b, c] = keysOf(STAGE);
     Object.assign(results, { [a!]: 100, [b!]: 50, [c!]: 90 });
+    const announce = AccessibilityInfo.announceForAccessibility as jest.Mock;
+    announce.mockClear();
     await finishScripted();
 
     expect(screen.getByText(stageDoneLabel(1))).toBeTruthy();
     expect(screen.getByRole('header', { name: stageDoneTitle(STAGE.title as string) })).toBeTruthy();
     expect(stageDoneTitle('Meet & Greet')).toBe('Meet & Greet: check!');
+    // O fim do Estágio é anunciado ao leitor de tela, uma vez.
+    expect(announce.mock.calls.filter(([text]) => text === stageDoneTitle(STAGE.title as string))).toHaveLength(1);
     expect(screen.getByTestId('stage-completion')).toHaveTextContent('Well done, Zoraide!', { exact: true });
     expect(screen.getByLabelText(`${TOTAL * 10} XP`)).toBeTruthy();
     expect(screen.getByText(XP_STAT)).toBeTruthy();
@@ -1091,12 +1100,36 @@ describe('fim do Estágio, convite e eventos do Visitante (1.20)', () => {
     expect(screen.getByLabelText('3 minutos')).toBeTruthy();
   });
 
+  it('a loja falha ao ler o Progresso no último CONTINUAR: o resumo abre, a falha vai ao Sentry e o XP inclui a última', async () => {
+    (AccessibilityInfo.isReduceMotionEnabled as jest.Mock).mockResolvedValue(true);
+    const failure = new Error('loja quebrada');
+    await withChoice(ScriptedActivity, async () => {
+      await startTrying();
+      for (let position = 1; position <= TOTAL; position += 1) {
+        await screen.findByText(`${position} DE ${TOTAL}`);
+        if (position === TOTAL) jest.spyOn(visitorStore, 'progress').mockRejectedValue(failure);
+        await fireEvent.press(button(DONE_LABEL));
+      }
+      await screen.findByTestId('stage-summary');
+    });
+    expect(sentry.captureError).toHaveBeenCalledWith(failure);
+    expect(screen.getByLabelText(`${TOTAL * 10} XP`)).toBeTruthy();
+    expect(screen.getByLabelText(`${RESULT_STAT} médio: 100%`)).toBeTruthy();
+  });
+
   it('sem frase: Estágio sem completion, o resumo não tem a linha', async () => {
     const { completion: _completion, ...withoutPhrase } = STAGE;
     servedStage = withoutPhrase;
     await finishScripted();
     expect(screen.queryByTestId('stage-completion')).toBeNull();
     expect(screen.getByRole('header', { name: INVITE_TITLE })).toBeTruthy();
+  });
+
+  it('frase null: o Estágio com completion null (como pode chegar da API), o resumo não tem a linha', async () => {
+    servedStage = { ...STAGE, completion: null as unknown as typeof STAGE.completion };
+    await finishScripted();
+    expect(screen.queryByTestId('stage-completion')).toBeNull();
+    expect(screen.getByRole('header', { name: stageDoneTitle(STAGE.title as string) })).toBeTruthy();
   });
 
   it('a frase do mock vem com o nome do Visitante', async () => {
@@ -1147,7 +1180,7 @@ describe('fim do Estágio, convite e eventos do Visitante (1.20)', () => {
     expect(screen.getByTestId('alex-cheer')).toBeTruthy();
   });
 
-  it('Progresso antigo (sem resultPct e studyTimeMs): o resumo calcula com o que há, sem quebrar', async () => {
+  it('Progresso antigo (sem resultPct e studyTimeMs): o resumo calcula com o que há, sem os minutos', async () => {
     const [a, b] = keysOf(STAGE);
     await visitorStore.recordProgress({ activityKey: a!, outcome: 'completed', xp: 10 });
     await visitorStore.recordProgress({ activityKey: b!, outcome: 'viewed', xp: 0 });
@@ -1161,7 +1194,8 @@ describe('fim do Estágio, convite e eventos do Visitante (1.20)', () => {
     });
     expect(screen.getByLabelText('10 XP')).toBeTruthy();
     expect(screen.queryByText(RESULT_STAT)).toBeNull();
-    expect(screen.getByLabelText('0 minutos')).toBeTruthy();
+    // Sem nenhum tempo gravado, o cartão de minutos não aparece.
+    expect(screen.queryByText(MINUTES_STAT)).toBeNull();
   });
 
   describe('Estágio 2 e eventos', () => {
@@ -1277,6 +1311,39 @@ describe('fim do Estágio, convite e eventos do Visitante (1.20)', () => {
       await openApp('/convite');
       expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
       expect(screen).toHavePathname('/');
+      expect(screen.queryByTestId('stage-two-invite')).toBeNull();
+    });
+
+    it('/convite com a Unidade respondendo 500: volta à boas-vindas', async () => {
+      await stageDone();
+      apiResponds({ unit: () => json({ code: 'INTERNAL_ERROR' }, 500) });
+      await openApp('/convite');
+      expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
+      expect(screen).toHavePathname('/');
+      expect(screen.queryByTestId('stage-two-invite')).toBeNull();
+    });
+
+    it('/convite enquanto confere: mostra o ✕, que volta à boas-vindas', async () => {
+      await stageDone();
+      apiResponds({ unit: () => new Promise<Response>(() => {}) });
+      await openApp('/convite');
+      expect(await screen.findByTestId('stage-two-checking')).toBeTruthy();
+      expect(screen.queryByTestId('stage-two-invite')).toBeNull();
+      await fireEvent.press(button(CLOSE_LABEL));
+      expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
+      expect(screen).toHavePathname('/');
+    });
+
+    it('EXPERIMENTAR AGORA com a conferência presa: no prazo único (REQUEST_TIMEOUT_MS), segue para o player', async () => {
+      await stageDone();
+      apiResponds({ unit: () => new Promise<Response>(() => {}) });
+      await openApp();
+      await fireEvent.press(await screen.findByRole('button', { name: TRY_NOW }));
+      expect(button(SIGN_UP)).toBeDisabled();
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS);
+      });
+      await waitFor(() => expect(screen).toHavePathname('/player'));
       expect(screen.queryByTestId('stage-two-invite')).toBeNull();
     });
 
@@ -1450,17 +1517,29 @@ describe('contrato de PII do modo Visitante (1.20, FR-7, NFR7)', () => {
     await fireEvent.press(button(GRAMMAR_NEXT));
     await fireEvent.press(button(GRAMMAR_NEXT));
     await fireEvent.press(button(CONTINUE_LABEL));
-    // Fala: pulada.
+    // Fala: aceita o aviso e responde com o nome e o país; o Erro leva ao VER RESPOSTA (a rota de reveal).
     expect(await screen.findByText(position(of('speech')[0]))).toBeTruthy();
-    await fireEvent.press(await screen.findByTestId('speech-privacy-decline'));
+    expect(await screen.findByTestId('speech-privacy')).toBeTruthy();
+    await fireEvent.press(button(PRIVACY_OK_LABEL));
+    await waitFor(() => expect(screen.queryByTestId('speech-privacy')).toBeNull());
+    await fireEvent.press(await screen.findByTestId('mic'));
+    await act(async () => global.__speech.finish(`I'm ${NAME} from ${COUNTRY.name}`));
+    await fireEvent.press(await screen.findByRole('button', { name: REVEAL_SHEET }));
+    await continueSheet();
     // O Resumo (com o nome na frase) e o convite.
     expect(await screen.findByTestId('stage-summary')).toBeTruthy();
     expect(screen.getByTestId('stage-completion')).toHaveTextContent(new RegExp(NAME));
     await waitFor(() => expect(events.length).toBeGreaterThan(FULL));
 
     const sent = requests();
+    // A transcrição da Fala foi, com o nome e o país trocados pelos marcadores, na Tentativa e no reveal.
+    const spoken = { type: 'speech', transcript: "I'm {name} from {country}" };
+    expect(attempts.filter((body) => body.type === 'speech').map((body) => body.answer)).toEqual([spoken]);
+    const reveals = sent.filter((request) => request.includes('/visitor/attempts/reveal'));
+    expect(reveals).toHaveLength(1);
+    expect(reveals[0]).toContain(JSON.stringify(spoken).slice(1, -1));
     // Passou por todas as rotas do Visitante.
-    for (const path of ['/visitor/attempts', '/visitor/completions', '/visitor/events']) {
+    for (const path of ['/visitor/attempts', '/visitor/attempts/reveal', '/visitor/completions', '/visitor/events']) {
       expect(sent.some((request) => request.includes(path))).toBe(true);
     }
     for (const request of sent) {
