@@ -25,6 +25,7 @@ import { NEXT_BLOCK_LABEL } from '../player/types/CardsActivity';
 import { ChoiceActivity } from '../player/types/ChoiceActivity';
 import { NAME_LABEL } from '../player/types/DialogueActivity';
 import { ANSWER_LABEL, EXTRA_HELP_LABEL, SEND_LABEL, YOU_WROTE } from '../player/types/FreeActivity';
+import { GRAMMAR_TABS, NEXT_LABEL as GRAMMAR_NEXT } from '../player/types/GrammarActivity';
 import { PRIVACY_OK_LABEL, SKIP_LABEL as SPEECH_SKIP } from '../player/types/SpeechActivity';
 import { PENDING, registry, type ActivityProps, type ActivityRegistry } from '../player/registry';
 import { OFFLINE_TEXT } from '../network/text';
@@ -825,18 +826,31 @@ describe('Expressões Úteis no player (1.14)', () => {
     );
     await fireEvent.press(button(CONTINUE_SHEET));
 
+    // O Grammar Time (1.19): três abas, a frase com o nome, PRÓXIMO, um toque na aba e CONTINUAR.
+    const [grammar] = of('grammar');
+    expect(await screen.findByText(position(grammar))).toBeTruthy();
+    expect(screen.getByLabelText('GRAMMAR TIME')).toBeTruthy();
+    expect(screen.getAllByRole('tab').map((el) => el.props.accessibilityLabel)).toEqual([...GRAMMAR_TABS]);
+    expect(screen.getByText('My name is Júlia.')).toBeTruthy();
+    await fireEvent.press(button(GRAMMAR_NEXT));
+    expect(screen.getByTestId('grammar-rules')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('tab', { name: GRAMMAR_TABS[2] }));
+    expect(screen.getByTestId('grammar-examples')).toBeTruthy();
+    await fireEvent.press(button(CONTINUE_LABEL));
+
     // A Fala (1.15) fecha o Estágio: o aviso de privacidade, e "Não posso falar agora" pula.
     expect(await screen.findByText(position(of('speech')[0]))).toBeTruthy();
     expect(await screen.findByTestId('speech-privacy')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('speech-privacy-decline'));
     expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
 
-    // Os três expositivos passaram pela completions com VIEWED, e a Fala com SKIPPED; todos têm recibo.
+    // Os expositivos passaram pela completions com VIEWED, e a Fala com SKIPPED; todos têm recibo.
     expect(completions.map((body) => [body.activityKey, body.outcome])).toEqual([
       [dialogue!.activityKey, 'VIEWED'],
       [cards!.activityKey, 'VIEWED'],
       [expression!.activityKey, 'VIEWED'],
       [free!.activityKey, 'VIEWED'],
+      [grammar!.activityKey, 'VIEWED'],
       [MOCK_STAGE.activities.find((activity) => activity.type === 'speech')!.activityKey, 'SKIPPED'],
     ]);
     const receipts = await visitorStore.receipts();
@@ -848,6 +862,7 @@ describe('Expressões Úteis no player (1.14)', () => {
         { activityKey: cards!.activityKey, outcome: 'viewed', xp: 0 },
         { activityKey: expression!.activityKey, outcome: 'viewed', xp: 0 },
         { activityKey: free!.activityKey, outcome: 'viewed', xp: 0 },
+        { activityKey: grammar!.activityKey, outcome: 'viewed', xp: 0 },
       ]),
     );
     // O texto da Resposta Livre nunca vai à API (FR-7, NFR4).

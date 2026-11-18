@@ -13,6 +13,11 @@ export type RenderedTextProps = Omit<TextProps, 'children' | 'style'> & {
   vars?: RenderVars | null;
   pronoun?: Pronoun | null;
   style?: StyleProp<TextStyle>;
+  /**
+   * Estilo somado ao `**negrito**` (o destaque da forma no Grammar Time, 1.19).
+   * Só muda a aparência: a gramática do conteúdo é a mesma (AD-8).
+   */
+  strongStyle?: StyleProp<TextStyle>;
   /** O `Text` de fora (para mover o foco até ele). */
   ref?: Ref<ComponentRef<typeof Text>>;
 };
@@ -63,11 +68,13 @@ function groupsOf(runs: readonly Run[]): Group[] {
   return groups;
 }
 
-function RunText({ run }: { run: Run }) {
+function RunText({ run, strongStyle }: { run: Run; strongStyle?: StyleProp<TextStyle> }) {
+  // O `strongStyle` não vale na Expressão Útil (fica o azul pontilhado) nem na Variável do Aluno (fica o ouro).
+  const strong = run.bold && run.expression === undefined && !run.studentVar;
   return run.bold || run.studentVar ? (
     <Text
       testID={run.studentVar ? 'student-var' : undefined}
-      style={[run.bold && styles.bold, run.studentVar && styles.studentVar]}
+      style={[run.bold && styles.bold, strong && strongStyle, run.studentVar && styles.studentVar]}
     >
       {run.text}
     </Text>
@@ -87,7 +94,7 @@ function RunText({ run }: { run: Run }) {
  * {@link EXPRESSION_HINT}, que abre a folha de dicionário. Fora dele, ou com
  * chave desconhecida, sai como texto comum.
  */
-export function RenderedText({ text, vars, pronoun, style, ...rest }: RenderedTextProps) {
+export function RenderedText({ text, vars, pronoun, style, strongStyle, ...rest }: RenderedTextProps) {
   const runs = useMemo(() => runsOf(text, vars, pronoun), [text, vars, pronoun]);
   const groups = useMemo(() => groupsOf(runs), [runs]);
   const taps = useExpressions();
@@ -95,7 +102,7 @@ export function RenderedText({ text, vars, pronoun, style, ...rest }: RenderedTe
     <Text style={style} {...rest}>
       {groups.map((group, i) => {
         const key = group.expression;
-        const children = group.runs.map((run, j) => <RunText key={j} run={run} />);
+        const children = group.runs.map((run, j) => <RunText key={j} run={run} strongStyle={strongStyle} />);
         if (key === undefined || !taps?.find(key)) return <Fragment key={i}>{children}</Fragment>;
         const press = taps.press;
         return press ? (
