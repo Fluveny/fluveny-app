@@ -215,7 +215,7 @@ describe('Escolha (Vocab Mode)', () => {
     expect(option(THREE, 0, 'B')).toBeDisabled();
     expect(label(THREE, 0, 'A')).toContain('certo');
     await fireEvent.press(button(CONTINUE_LABEL));
-    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 10 });
+    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 10, resultPct: 100 });
   });
 
   it('Erro (2/3) e nova tentativa: "2 de 3 itens · 67%", sem gabarito; mantém os certos; Acerto sem XP; grava xp 7', async () => {
@@ -247,7 +247,7 @@ describe('Escolha (Vocab Mode)', () => {
     expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
     expect(screen.queryByTestId('xp-chip-light')).toBeNull();
     await fireEvent.press(button(CONTINUE_LABEL));
-    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 7 });
+    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 7, resultPct: 67 });
   });
 
   it('Ver resposta (1/3): reveal falha e volta; depois, folha azul com a certa em right; grava xp 3', async () => {
@@ -281,7 +281,7 @@ describe('Escolha (Vocab Mode)', () => {
     expect(screen.queryByRole('button', { name: RETRY_LABEL })).toBeNull();
     expect(screen.queryByRole('button', { name: REVEAL_LABEL })).toBeNull();
     await fireEvent.press(button(CONTINUE_LABEL));
-    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 3 });
+    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 3, resultPct: 33 });
     expect(advance).toHaveBeenCalledTimes(1);
   });
 

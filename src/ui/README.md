@@ -18,7 +18,7 @@ Em desenvolvimento, a rota `/kit` mostra todas as peças e estados (`npx expo st
 - Toda peça tocável tem papel, rótulo e estado (`disabled`, `selected`, `busy`) e área de toque de pelo menos 48 dp (o `Pressable3D` calcula o `hitSlop`).
 - Estado nunca só por cor: certo e errado mostram ✓ ou ✕, e a palavra ("certo", "errado", "usado") entra no rótulo do leitor de tela. O texto visível do estado é o título da folha de feedback (1.11).
 - Texto nunca corta: `minHeight` em vez de `height`, sem `numberOfLines`, `allowFontScaling` padrão. Com a fonte a 200%, o botão cresce em altura.
-- Animações (pulo do XP, barra de progresso, transição entre Atividades) desligam com "remover animações" do sistema (`useReducedMotion()`). As durações ficam em `motion` (`progressMs` 450, `activityMs` 260 com subida de `activityRise` 12 dp).
+- Animações (pulo do XP, barra de progresso, transição entre Atividades, confete) desligam com "remover animações" do sistema (`useReducedMotion()`; o `Confetti` lê a preferência por conta própria, ver abaixo). As durações ficam em `motion` (`progressMs` 450, `activityMs` 260 com subida de `activityRise` 12 dp).
 - Sem ícone nem botão de áudio no Lançamento 1.
 
 ## Peças
@@ -176,6 +176,10 @@ Peças da Fala (1.15).
 - `TextLink`: link de texto azul, sem fundo nem sombra, área de toque de 48 dp, papel de botão. `caps` para o link em caixa alta com o peso de botão ("NÃO POSSO FALAR AGORA", o rodapé `variant: 'link'` do player). `small` para o link de rodapé em `caption` ("Política de privacidade", "Termos de uso"), com a mesma área de toque; com `caps`, o `small` é ignorado. Nunca é a ação principal da tela.
 - `NoticeSheet`: aviso com duas ações empilhadas (primária e ghost), no casco da `ExpressionSheet`. Pede decisão: o scrim não fecha; o voltar do Android e o Esc fecham sem decidir. O foco vai para o texto ao abrir. `links` é um slot opcional abaixo das ações (os links `small` da política e dos termos, 1.21).
 - `SheetModal`: o casco comum (`Modal` transparente, scrim, folha inferior com mola, alça). Use-o para folha nova por cima da tela.
+
+### `Confetti`
+
+Confete do Resumo do Estágio (UX-DR104, UX-DR132; história 1.20): 18 papéis chapados de 10 × 16 dp (cantos de 3) nas cores da marca (`red`, `gold`, `blue`, `teal`) caem uma vez do topo da caixa, giram e somem, em 1,8 a 3 s (`motion.confettiMs`, `confettiStepMs`, `confettiStaggerMs`). Fica por cima (`position: absolute`), sem toque e oculto do leitor de tela. `height` é quanto cai (padrão `size.confettiFall`, 420). Com "remover animações" (ou `prefers-reduced-motion` no web), e enquanto essa configuração não foi lida, não desenha nada (UX-DR143). É a exceção ao `useReducedMotion()`: ele começa em `false` antes de ler a preferência, e o confete cairia por um instante para quem pediu sem animações; por isso o `Confetti` lê o `AccessibilityInfo` e ouve a mudança por conta própria, começando em "não sei". Medidas e tempos `[ASSUMPTION]`, como no protótipo.
 
 ### `StatusBanner`
 

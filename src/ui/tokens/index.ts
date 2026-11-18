@@ -185,6 +185,14 @@ export const size = {
   micHaloInner: 176,
   /** Ícone dentro do microfone [ASSUMPTION: 52; o DESIGN.md não fixa]. */
   micIcon: 52,
+  /** Alex `cheer` no Resumo do Estágio (1.20) [ASSUMPTION: 190, como no protótipo; o DESIGN.md não fixa]. */
+  stageAlex: 190,
+  /** Papel do confete (1.20) [ASSUMPTION: 10 × 16 com cantos de 3, como no protótipo]. */
+  confettiWidth: 10,
+  confettiHeight: 16,
+  confettiRadius: 3,
+  /** Quanto o confete cai, do topo da caixa [ASSUMPTION: 420, como no protótipo]. */
+  confettiFall: 420,
 } as const;
 
 /** Altura da cena do Diálogo (DESIGN.md, Layout & Spacing): cerca de 46% da tela, entre 300 e 420 dp. */

@@ -5,8 +5,8 @@ import type { LegalDocument } from './types';
 
 export const PRIVACY_POLICY: LegalDocument = {
   title: 'Política de privacidade',
-  version: '0.1',
-  date: '2026-11-17',
+  version: '0.2',
+  date: '2026-11-18',
   sections: [
     {
       title: 'Sobre esta política',
@@ -19,7 +19,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       title: 'O que fica no seu aparelho',
       paragraphs: [
         'Um identificador aleatório do aparelho (deviceId), criado e guardado no aparelho na primeira vez que você usa o Fluveny. Ele não tem seu nome nem nada que identifique você diretamente. Ele também vai ao servidor, como explicado abaixo.',
-        'Só no aparelho ficam o nome e o país que você digita no Diálogo, o pronome que você escolhe, o seu Progresso e o XP, e os recibos das Atividades que você concluiu.',
+        'Só no aparelho ficam o nome e o país que você digita no Diálogo, o pronome que você escolhe, o seu Progresso (com o resultado e o tempo de estudo de cada Atividade) e o XP, e os recibos das Atividades que você concluiu.',
         'Esses dados (e o deviceId) ficam guardados no próprio aparelho: no navegador (localStorage), no site, e num banco local (SQLite), no App Android. Eles somem quando você limpa os dados do site no navegador ou os dados do App no Android.',
       ],
     },
@@ -30,6 +30,7 @@ export const PRIVACY_POLICY: LegalDocument = {
         'Nas Atividades avaliadas, a sua resposta também vai, para ser corrigida. Antes de sair do aparelho, o nome e o país que você digitou são trocados por marcadores, quando aparecem na resposta.',
         'Na Fala, vai a transcrição do que você disse, com o nome e o país trocados da mesma forma. Ela é corrigida e não é guardada.',
         'O texto que você escreve na Resposta Livre nunca sai do aparelho.',
+        'Para a equipe medir o uso do Fluveny, o App avisa o servidor quando você abre o Estágio e cada Atividade, só com o deviceId e qual Atividade foi (sem nome, país, respostas, resultado ou tempo). O servidor também registra quando o deviceId conclui o Estágio 1. Cada aviso é gravado com a hora do servidor. O prazo de guarda desses avisos ainda está sendo definido e entra na versão final desta política.',
         'O servidor guarda a primeira tentativa de cada Atividade (com o deviceId, o resultado, o XP e o tempo de estudo, mas sem a resposta) por até 90 dias. Depois disso, ela é apagada.',
       ],
     },

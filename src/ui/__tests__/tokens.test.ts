@@ -113,6 +113,11 @@ describe('tokens vs. DESIGN.md (design.yaml)', () => {
       micHaloOuter: 226, // DESIGN.md, Components: halos de 226 e 176 px
       micHaloInner: 176,
       micIcon: 52, // [ASSUMPTION] ícone do microfone
+      stageAlex: 190, // [ASSUMPTION] Alex cheer do Resumo do Estágio, protótipo
+      confettiWidth: 10, // [ASSUMPTION] papel do confete, protótipo
+      confettiHeight: 16,
+      confettiRadius: 3,
+      confettiFall: 420,
     });
     expect(size.avatar).toBeGreaterThanOrEqual(58);
     expect(size.avatar).toBeLessThanOrEqual(64);

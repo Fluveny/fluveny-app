@@ -55,6 +55,33 @@ describe('loja do Visitante no web (localStorage)', () => {
     expect(await store.getVariable('name')).toBe('Júlia');
   });
 
+  it('Progresso (1.20): Resultado e tempo saneados; entradas antigas sem eles continuam lidas', async () => {
+    const storage = memoryStorage();
+    storage.setItem(
+      'fluveny:visitor:progress',
+      JSON.stringify([
+        { activityKey: 'antiga', outcome: 'completed', xp: 10 },
+        { activityKey: 'torta', outcome: 'viewed', xp: 0, resultPct: 'x', studyTimeMs: null },
+      ]),
+    );
+    const store = createWebStore(storage);
+    await store.recordProgress({
+      activityKey: 'nova',
+      outcome: 'completed',
+      xp: 7,
+      resultPct: 66.6,
+      studyTimeMs: 1500.2,
+    });
+    await store.recordProgress({ activityKey: 'nova', outcome: 'completed', xp: 10, resultPct: 100, studyTimeMs: 1 });
+    const expected = [
+      { activityKey: 'antiga', outcome: 'completed', xp: 10 },
+      { activityKey: 'torta', outcome: 'viewed', xp: 0 },
+      { activityKey: 'nova', outcome: 'completed', xp: 7, resultPct: 67, studyTimeMs: 1500 },
+    ];
+    expect(await store.progress()).toEqual(expected);
+    expect(await createWebStore(storage).progress()).toEqual(expected);
+  });
+
   it('dado torto no storage vira vazio', async () => {
     const storage = memoryStorage();
     storage.setItem('fluveny:visitor:progress', '{nope');

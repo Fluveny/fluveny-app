@@ -36,4 +36,16 @@ describe('mockResponse()', () => {
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toMatchObject({ code: 'NOT_FOUND' });
   });
+
+  it('mock sem corpo (eventos do Visitante, 1.20) vira 202 sem corpo', async () => {
+    const response = await mockResponse(
+      mockRoutes['/api/v1/visitor/events'].post,
+      new Request('http://mock/api/v1/visitor/events', {
+        method: 'POST',
+        body: JSON.stringify({ type: 'VISITOR_SESSION_STARTED', deviceId: '0b6a3f0e-4c1d-4e2a-9b3c-5d6e7f809a1b' }),
+      }),
+    );
+    expect(response.status).toBe(202);
+    await expect(response.text()).resolves.toBe('');
+  });
 });

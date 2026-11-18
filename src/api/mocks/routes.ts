@@ -39,6 +39,10 @@
 //
 // Grammar Time (1.19): antes da Fala, um `grammar` com `{name}` e uma frase
 // com variantes de pronome em `used`. Aceita `VIEWED`, como os expositivos.
+//
+// Fim do Estágio (1.20): o Estágio traz a frase `completion` com `{name}`, e a
+// rota dos eventos do Visitante responde 202 sem corpo, com as validações da
+// API (corpo fechado, `deviceId` UUID, Atividade do Estágio no ACTIVITY_STARTED).
 import type { components, paths } from '../schema';
 
 export const MOCK_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
@@ -46,13 +50,15 @@ type Method = (typeof MOCK_METHODS)[number];
 
 type Json<R> = R extends { content: { 'application/json': infer B } } ? B : never;
 
-/** Corpo da resposta de sucesso (200 ou 201) da operação. */
+/** Corpo da resposta de sucesso (200 ou 201) da operação; `202` sem corpo é `undefined`. */
 type SuccessBody<O> = O extends { responses: infer R }
   ? R extends { 200: infer S }
     ? Json<S>
     : R extends { 201: infer S }
       ? Json<S>
-      : never
+      : R extends { 202: unknown }
+        ? undefined
+        : never
   : never;
 
 /**
@@ -888,6 +894,36 @@ async function complete(request: Request): Promise<{ data: CompletionResult }> {
   };
 }
 
+/** A frase do resumo do Estágio 1 (1.20), com o nome do Visitante [ASSUMPTION: texto do mock, não do conteúdo]. */
+const STAGE_COMPLETION = 'Now you can say hello and tell people where you are from, {name}.';
+
+const EVENT_FIELDS = new Set(['type', 'deviceId', 'versionId', 'activityKey']);
+
+/**
+ * Evento do Visitante (1.20), como a rota da API: corpo fechado (campo
+ * desconhecido é `400`), `deviceId` UUID obrigatório e, no `ACTIVITY_STARTED`,
+ * `versionId` e `activityKey` de uma Atividade do Estágio (senão, `404`).
+ * Responde 202 sem corpo.
+ */
+async function recordEvent(request: Request): Promise<undefined> {
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!body || typeof body !== 'object' || Object.keys(body).some((key) => !EVENT_FIELDS.has(key))) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  if (!deviceIdOf(body.deviceId)) throw new MockProblem(400, 'VALIDATION_FAILED');
+  if (body.type === 'VISITOR_SESSION_STARTED') {
+    if (body.versionId !== undefined || body.activityKey !== undefined) throw new MockProblem(400, 'VALIDATION_FAILED');
+    return undefined;
+  }
+  if (body.type !== 'ACTIVITY_STARTED') throw new MockProblem(400, 'VALIDATION_FAILED');
+  if (typeof body.versionId !== 'string' || typeof body.activityKey !== 'string') {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  const known = stage1Activities.some((activity) => activity.activityKey === body.activityKey);
+  if (body.versionId !== VERSION_ID || !known) throw new MockProblem(404, 'NOT_FOUND');
+  return undefined;
+}
+
 export const mockRoutes: MockRoutes = {
   '/api/v1/meta': {
     get: () => ({ data: { minAppVersion: '0.0.0', activityTypes: [] } }),
@@ -910,6 +946,7 @@ export const mockRoutes: MockRoutes = {
         versionId: VERSION_ID,
         stageKey: 'stage-1',
         title: 'Meet & Greet',
+        completion: STAGE_COMPLETION,
         activities: stage1Activities,
       },
     }),
@@ -922,6 +959,9 @@ export const mockRoutes: MockRoutes = {
   },
   '/api/v1/visitor/completions': {
     post: (request) => complete(request),
+  },
+  '/api/v1/visitor/events': {
+    post: (request) => recordEvent(request),
   },
   // Rotas do job de publicação: o App não as chama, mas o tipo exige um mock por rota.
   '/api/v1/admin/content/units/{unitKey}/versions': {

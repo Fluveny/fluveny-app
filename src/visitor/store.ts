@@ -2,16 +2,21 @@
 // usa o store.web.ts (localStorage), com a mesma API. As tabelas:
 // - `device`: uma linha só, com o `deviceId` (UUID v4 do expo-crypto);
 // - `variables`: chave/valor das Variáveis do Aluno (nome, país, pronome…);
-// - `progress`: a primeira conclusão de cada Atividade (`activityKey`, `outcome`, `xp`);
+// - `progress`: a primeira conclusão de cada Atividade (`activityKey`, `outcome`, `xp` e,
+//   desde a 1.20, `result_pct` e `study_time_ms`, nulos nas linhas antigas);
 // - `receipts`: o primeiro recibo opaco da API por Atividade (1.12);
 // - `seen`: os avisos já vistos no aparelho (o de privacidade do microfone, 1.15).
 // Tabela nova entra com `IF NOT EXISTS`: um banco antigo a ganha na abertura.
+// Coluna nova entra em `COLUMNS`: a abertura a acrescenta com `ALTER TABLE` se faltar.
 import { randomUUID } from 'expo-crypto';
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 
 import {
   createEmitter,
   isOutcome,
+  progressEntry,
+  safeMs,
+  safePct,
   safeXp,
   type ProgressEntry,
   type ReceiptEntry,
@@ -41,7 +46,9 @@ CREATE TABLE IF NOT EXISTS variables (
 CREATE TABLE IF NOT EXISTS progress (
   activity_key TEXT PRIMARY KEY NOT NULL,
   outcome TEXT NOT NULL,
-  xp INTEGER NOT NULL
+  xp INTEGER NOT NULL,
+  result_pct INTEGER,
+  study_time_ms INTEGER
 );
 CREATE TABLE IF NOT EXISTS receipts (
   activity_key TEXT PRIMARY KEY NOT NULL,
@@ -54,7 +61,32 @@ CREATE TABLE IF NOT EXISTS seen (
 );
 `;
 
-type ProgressRow = { activity_key: string; outcome: string; xp: number };
+/** Colunas acrescentadas depois da criação da tabela (o banco antigo as ganha na abertura). */
+const COLUMNS: { table: string; column: string; type: string }[] = [
+  { table: 'progress', column: 'result_pct', type: 'INTEGER' },
+  { table: 'progress', column: 'study_time_ms', type: 'INTEGER' },
+];
+
+async function addMissingColumns(database: VisitorDatabase) {
+  for (const { table, column, type } of COLUMNS) {
+    const columns = await database.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`);
+    if (columns.some((info) => info.name === column)) continue;
+    try {
+      await database.execAsync(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+    } catch (error) {
+      // Outra abertura do mesmo banco acrescentou a coluna entre a leitura e o ALTER.
+      if (!/duplicate column name/i.test(String((error as Error | undefined)?.message ?? error))) throw error;
+    }
+  }
+}
+
+type ProgressRow = {
+  activity_key: string;
+  outcome: string;
+  xp: number;
+  result_pct: number | null;
+  study_time_ms: number | null;
+};
 
 export function createVisitorStore(
   open: () => Promise<VisitorDatabase> = () => openDatabaseAsync(VISITOR_DB),
@@ -67,6 +99,7 @@ export function createVisitorStore(
     if (!ready) {
       ready = open().then(async (database) => {
         await database.execAsync(SCHEMA);
+        await addMissingColumns(database);
         return database;
       });
       ready.catch(() => {
@@ -107,19 +140,23 @@ export function createVisitorStore(
     async progress() {
       const database = await db();
       const rows = await database.getAllAsync<ProgressRow>(
-        'SELECT activity_key, outcome, xp FROM progress ORDER BY rowid',
+        'SELECT activity_key, outcome, xp, result_pct, study_time_ms FROM progress ORDER BY rowid',
       );
       return rows.flatMap((row): ProgressEntry[] =>
-        isOutcome(row.outcome) ? [{ activityKey: row.activity_key, outcome: row.outcome, xp: safeXp(row.xp) }] : [],
+        isOutcome(row.outcome)
+          ? [progressEntry(row.activity_key, row.outcome, row.xp, row.result_pct, row.study_time_ms)]
+          : [],
       );
     },
     async recordProgress(entry: ProgressEntry) {
       const database = await db();
       const result = await database.runAsync(
-        'INSERT OR IGNORE INTO progress (activity_key, outcome, xp) VALUES (?, ?, ?)',
+        'INSERT OR IGNORE INTO progress (activity_key, outcome, xp, result_pct, study_time_ms) VALUES (?, ?, ?, ?, ?)',
         entry.activityKey,
         entry.outcome,
         safeXp(entry.xp),
+        safePct(entry.resultPct) ?? null,
+        safeMs(entry.studyTimeMs) ?? null,
       );
       if (result.changes > 0) emitter.emit();
     },

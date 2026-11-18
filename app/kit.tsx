@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
+  Confetti,
   Alex,
   ALEX_POSES,
   AlexAvatar,
@@ -92,6 +93,7 @@ function KitCatalog() {
   const [dictionary, setDictionary] = useState(false);
   const [listening, setListening] = useState(false);
   const [notice, setNotice] = useState(false);
+  const [confetti, setConfetti] = useState(0);
   const progress = PROGRESS_STEPS[step % PROGRESS_STEPS.length] ?? 0;
 
   return (
@@ -320,6 +322,13 @@ function KitCatalog() {
           <StatusBanner tone="notice" text="Faixa sem ação" testID="status-banner-plain" />
         </Section>
 
+        <Section title="CONFETE">
+          <View style={styles.confetti}>
+            <Confetti key={confetti} height={size.confettiFall / 2} testID="kit-confetti" />
+          </View>
+          <Button label="Soltar de novo" small variant="ghost" onPress={() => setConfetti((n) => n + 1)} />
+        </Section>
+
         <Section title="TAGS DE MODO">
           <View style={styles.wrap}>
             {MODE_TAGS.map((label) => (
@@ -350,6 +359,8 @@ const styles = StyleSheet.create({
   item: { ...typography.item, color: color.ink },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], flexWrap: 'wrap' },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
+  // O confete cai dentro desta caixa.
+  confetti: { height: size.confettiFall / 2, backgroundColor: color.surface },
   // A cena tem o recuo próprio de 14 dp: sai da margem da tela.
   bleed: { marginHorizontal: -spacing.screenX },
 });

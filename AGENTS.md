@@ -38,7 +38,7 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 
 ## Kit de UI
 
-- Telas usam as peças de `src/ui` (importe de `src/ui/index.ts`): `Button`, `Card`, `WordChip`, `XpChip`, `ProgressBar`, `ModeTag`, `SpeechBubble`, `SceneFrame`, `AlexAvatar`, `TextField`, `ChoiceCard`, `MatchCard`, `GapSlot`, `StatusBanner`, `ExpressionCard`, `ExpressionSheet`, `MicButton`, `TextLink`, `NoticeSheet`. Nada de estilo de botão, cartão ou chip solto numa tela nem `Pressable` com `solid()`/`sunk()` à mão; peça nova do kit usa `Pressable3D`. Regras, variantes e copy em `src/ui/README.md`; catálogo em `/kit` (só com `__DEV__`).
+- Telas usam as peças de `src/ui` (importe de `src/ui/index.ts`): `Button`, `Card`, `WordChip`, `XpChip`, `ProgressBar`, `ModeTag`, `SpeechBubble`, `SceneFrame`, `AlexAvatar`, `TextField`, `ChoiceCard`, `MatchCard`, `GapSlot`, `StatusBanner`, `ExpressionCard`, `ExpressionSheet`, `MicButton`, `TextLink`, `NoticeSheet`, `Confetti`. Nada de estilo de botão, cartão ou chip solto numa tela nem `Pressable` com `solid()`/`sunk()` à mão; peça nova do kit usa `Pressable3D`. Regras, variantes e copy em `src/ui/README.md`; catálogo em `/kit` (só com `__DEV__`).
 
 ## Build do EAS só sob pedido
 
@@ -48,7 +48,7 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 
 ## Visitante, player e rede (1.10)
 
-- `src/visitor`: `deviceId`, Variáveis do Aluno, Progresso e recibos do Visitante, no aparelho. `store.ts` (expo-sqlite) e `store.web.ts` (localStorage) têm a mesma API; use `visitorStore` ou `useVisitor()`. Só o `deviceId` vai para a API, e só nas rotas do Visitante (`/visitor/attempts`, `/attempts/reveal` e `/visitor/completions`, 1.12). Nome, país, texto livre, Progresso e recibos nunca vão para a API antes do cadastro (Épico 2).
+- `src/visitor`: `deviceId`, Variáveis do Aluno, Progresso e recibos do Visitante, no aparelho. `store.ts` (expo-sqlite) e `store.web.ts` (localStorage) têm a mesma API; use `visitorStore` ou `useVisitor()`. Só o `deviceId` vai para a API, e só nas rotas do Visitante (`/visitor/attempts`, `/attempts/reveal` e `/visitor/completions`, 1.12; `/visitor/events`, 1.20). Nome, país, texto livre, Progresso e recibos nunca vão para a API antes do cadastro (Épico 2).
 - `src/player`: `registry.ts` liga `type` → componente. Tipo novo (1.12 a 1.19) troca o seu `PENDING` por um componente que recebe `{activity, versionId, setFooter, setSheet, advance}`. A Atividade não trata rede: a moldura troca o rodapé, e a ação da folha que chama o servidor, por "SEM CONEXÃO". O teste do registro falha se um `type` do `openapi.json` faltar no `registry`.
 - Atividade avaliada usa `useEvaluation` (`src/player/useEvaluation.ts`, 1.11): manda a Tentativa, monta VERIFICAR e a folha de feedback e guarda o XP da primeira tentativa. O App nunca corrige nem tem gabarito; o do mock fica só em `src/api/mocks/routes.ts`. `post()` e `PostData<>` do `client.ts` tipam as rotas `POST`.
 - Recibos (1.12): o Resultado da Tentativa ou da conclusão pode trazer `receipt`, opaco. Ele é gravado na hora (`recordReceipt`, só o primeiro por `activityKey`), antes da folha, e o App nunca o decodifica nem o mostra. Um `attemptId` por resposta enviada: repetir depois de falha reaproveita o id; ele muda com outra resposta ou depois de um Resultado. O reveal tem o seu.
@@ -78,6 +78,14 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 
 - `GrammarActivity` (`src/player/types/GrammarActivity.tsx`): três abas locais ao Tipo (`accessibilityRole` `tablist`/`tab`, `selected` só na ativa, 48 dp), livres desde a entrada e sempre começando na 1. PRÓXIMO vai à aba seguinte; na 3, CONTINUAR conclui com `viewed`. A troca de aba (toque ou PRÓXIMO) é anunciada; a entrada, não.
 - A forma destacada é o `**negrito**` do conteúdo com a prop `strongStyle` do `RenderedText` (sublinhado em `ink`), numa frase de peso 500 para o negrito aparecer. Nunca vermelho, azul ou ouro, e nunca por regex de `form` sobre a frase. [ASSUMPTION] O DESIGN.md reserva o vermelho a recompensa e erro; a EXPERIENCE e a UX-DR79 dizem "em vermelho".
+
+## Fim do Estágio (1.20)
+
+- O Progresso guarda também `resultPct` (da primeira Tentativa, só nas avaliadas, vindo do `useEvaluation` pelo `ActivityResult`) e `studyTimeMs` (medido pelo `useCompletion` até o toque) da primeira conclusão. Banco antigo ganha as colunas na abertura (`COLUMNS` do `store.ts`); entrada antiga sem eles conta como sem Resultado e sem tempo.
+- O CONTINUAR da última Atividade abre o `StageSummary` (estado do player): "Estágio 1 concluído", "{título}: check!", a frase `completion` do Estágio pelo `RenderedText`, XP, Resultado médio (sem vistas e puladas), minutos, as puladas com plural, Alex `cheer`, `Confetti` e o `StageInvite` ouro (CRIAR CONTA → `/em-breve`) no lugar do CONTINUAR. Os números saem de `src/player/stageStats.ts` e são os da primeira conclusão de cada Atividade (o Progresso guarda só a primeira), inclusive depois de "Refazer o Estágio 1". Com algum tempo de estudo, os minutos são no mínimo 1.
+- EXPERIMENTAR AGORA (`app/(public)/index.tsx`) busca as Atividades do Estágio pelo mesmo cache do `useStage` (`fetchVisitorActivityKeys`) e, com todas no Progresso, abre `/convite` (`app/(student)/convite.tsx`) em vez do player; "Refazer o Estágio 1" abre o player do início. Sem rede, vai direto ao player; falha da busca ou da loja (esta vai ao Sentry) segue para o player. Enquanto confere, as outras ações da boas-vindas ficam desabilitadas. `/convite` aberto direto sem o Estágio completo volta à boas-vindas.
+- Eventos (AD-14): `sendVisitorEvent` (`src/visitor/events.ts`) manda `VISITOR_SESSION_STARTED` no toque que abre o player (`openPlayer`: EXPERIMENTAR AGORA e "Refazer o Estágio 1"; recarregar ou abrir o link direto não conta) e `ACTIVITY_STARTED` (`versionId`, `activityKey`) a cada Atividade na tela, por `postAccepted` (202 sem corpo). Sem esperar, sem repetir, sem fila: sem rede, descarta; outra falha vai ao Sentry. Nunca `unitKey`, `stageKey`, hora, nome, país, texto, Resultado ou tempo.
+- O teste de contrato de PII (`visitor-flow.test.tsx`, "contrato de PII") percorre o Estágio do mock com nome, país e texto livre que o conteúdo não tem e confere URL, cabeçalhos e corpo de toda requisição. Tipo novo no Estágio do mock entra nesse percurso.
 
 ## Renderizador do conteúdo (1.10)
 

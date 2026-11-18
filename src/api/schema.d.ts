@@ -151,6 +151,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/visitor/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Grava um evento do Visitante, sem PII, com a hora do servidor. VISITOR_SESSION_STARTED a cada abertura do player pelo EXPERIMENTAR AGORA, só com type e deviceId. ACTIVITY_STARTED a cada abertura de Atividade, com versionId e activityKey: Atividade inexistente dá 404 e Estágio fechado ao Visitante, 401 UNAUTHENTICATED. Campo desconhecido dá 400. Responde 202 sem corpo; o App envia sem esperar. */
+        post: operations["recordVisitorEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -675,11 +692,15 @@ export interface components {
         };
         StageContent: {
             activities: components["schemas"]["Activity"][];
+            /** @description Opcional: a frase do resumo do fim do Estágio, em português. */
+            completion?: components["schemas"]["ContentText"];
             stageKey: string;
             title: components["schemas"]["ContentText"];
         };
         StageStudentView: {
             activities: components["schemas"]["ActivityStudentView"][];
+            /** @description A frase do resumo do fim do Estágio, crua (pode ter placeholders e variantes he/she/they). Só quando o conteúdo tem. */
+            completion?: components["schemas"]["ContentText"];
             stageKey: string;
             title: components["schemas"]["ContentText"];
             versionId: string;
@@ -752,6 +773,15 @@ export interface components {
             expressionKey: string;
             meaning: components["schemas"]["ContentText"];
             term: components["schemas"]["ContentText"];
+        };
+        /** @description VISITOR_SESSION_STARTED leva só type e deviceId. ACTIVITY_STARTED exige versionId e activityKey. */
+        VisitorEvent: {
+            activityKey?: string;
+            /** Format: uuid */
+            deviceId: string;
+            /** @enum {string} */
+            type: "VISITOR_SESSION_STARTED" | "ACTIVITY_STARTED";
+            versionId?: string;
         };
     };
     responses: never;
@@ -976,6 +1006,28 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiResponseCompletionResult"];
                 };
+            };
+        };
+    };
+    recordVisitorEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisitorEvent"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

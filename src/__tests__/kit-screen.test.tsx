@@ -49,6 +49,8 @@ describe('rota /kit (catálogo do kit, Decisão 1)', () => {
       expect(screen.getByTestId(`gap-bank-${state}`)).toBeTruthy();
       expect(screen.getByTestId(`gap-typed-${state}`)).toBeTruthy();
     }
+    // Peças da 1.20.
+    expect(await screen.findByTestId('kit-confetti', { includeHiddenElements: true })).toBeTruthy();
   });
 
   it('no release (!__DEV__): redireciona para /', async () => {

@@ -232,7 +232,7 @@ describe('Extra Help', () => {
     expect(completions()).toEqual([]);
     expect(await visitorStore.receipts()).toEqual([{ activityKey: FREE.activityKey, receipt: expect.any(String) }]);
     await fireEvent.press(button(CONTINUE_LABEL));
-    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 6 });
+    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 6, resultPct: 100 });
   });
 
   it('parcial (1 de 2): "Quase lá!"; TENTAR DE NOVO esvazia só a errada', async () => {

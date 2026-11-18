@@ -78,9 +78,11 @@ export type SheetSpec = {
 /**
  * O que a Atividade concluída grava no Progresso. `recorded`: a conclusão
  * `viewed`/`skipped` já passou pela rota `completions` (`complete`, 1.18), e o
- * player só grava o Progresso, sem concluir de novo.
+ * player só grava o Progresso, sem concluir de novo. `resultPct`: o Resultado
+ * da primeira Tentativa, só das avaliadas (o resumo do Estágio, 1.20). O tempo
+ * de estudo é o player que mede.
  */
-export type ActivityResult = { outcome: Outcome; xp: number; recorded?: boolean };
+export type ActivityResult = { outcome: Outcome; xp: number; recorded?: boolean; resultPct?: number };
 
 /**
  * Contrato entre o player e um Tipo. A Atividade desenha o conteúdo e chama

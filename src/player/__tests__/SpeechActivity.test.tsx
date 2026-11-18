@@ -219,7 +219,7 @@ describe('Fala: Tentativa', () => {
     expect(screen.getByTestId('sheet-heard')).toHaveTextContent(heardLine("hi alex i'm ana"));
     expect(screen.getByLabelText('+10 XP')).toBeTruthy();
     await fireEvent.press(button(CONTINUE_LABEL));
-    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 10 });
+    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 10, resultPct: 100 });
     expect(await visitorStore.receipts()).toEqual([{ activityKey: SPEECH.activityKey, receipt: expect.any(String) }]);
   });
 
@@ -250,7 +250,7 @@ describe('Fala: Tentativa', () => {
     expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
     expect(screen.queryByLabelText('+10 XP')).toBeNull();
     await fireEvent.press(button(CONTINUE_LABEL));
-    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 0 });
+    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 0, resultPct: 0 });
   });
 
   it('VER RESPOSTA encerra com a frase-alvo renderizada', async () => {

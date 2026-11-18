@@ -1,12 +1,19 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { captureError } from '../../src/observability/sentry';
 import { PRIVACY_LINK, PRIVACY_PATH, TERMS_LINK, TERMS_PATH } from '../../src/legal/paths';
 import { useOnline } from '../../src/network/useOnline';
 import { OFFLINE_TEXT } from '../../src/network/text';
+import { isStageComplete } from '../../src/player/stageStats';
+import { fetchVisitorActivityKeys } from '../../src/player/useStage';
 import { AlexWave, Button, Room, StatusBanner, sceneHeight, TextLink } from '../../src/ui';
 import { color, size, spacing, typography } from '../../src/ui/tokens';
+import { openPlayer } from '../../src/visitor/events';
+import { visitorStore } from '../../src/visitor/store';
 
 // Copy da boas-vindas (EXPERIENCE.md, Voice and Tone).
 export const WELCOME_TITLE = 'Seu primeiro dia na universidade. Em inglês.';
@@ -17,6 +24,43 @@ export const WELCOME_GOAL = 'Learn how to introduce yourself, talk about yoursel
 export const TRY_NOW = 'EXPERIMENTAR AGORA';
 export const SIGN_UP = 'CRIAR CONTA';
 export const SIGN_IN = 'ENTRAR';
+/** O convite ao cadastro, no lugar do Estágio 2 (1.20). */
+export const INVITE_PATH = '/convite';
+
+/**
+ * Para onde o EXPERIMENTAR AGORA leva: com o Estágio 1 completo no aparelho, ao
+ * convite (o "Estágio 2" do Visitante, 1.20); senão, ao player. Sem rede, direto
+ * ao player (que mostra o aviso). Se a API falhar, ao player, que mostra o erro
+ * e o TENTAR DE NOVO; se a loja falhar, também, e a falha vai ao Sentry.
+ */
+function useTryNow(online: boolean) {
+  const router = useRouter();
+  const client = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const running = useRef(false);
+  const tryNow = useCallback(async () => {
+    if (running.current) return;
+    if (!online) {
+      openPlayer(router);
+      return;
+    }
+    running.current = true;
+    setBusy(true);
+    const [keys, progress] = await Promise.all([
+      // Falha da API: o player refaz a busca e mostra a falha.
+      fetchVisitorActivityKeys(client).catch(() => null),
+      visitorStore.progress().catch((failure: unknown) => {
+        captureError(failure);
+        return null;
+      }),
+    ]);
+    running.current = false;
+    setBusy(false);
+    if (keys && progress && isStageComplete(progress, keys)) router.navigate(INVITE_PATH);
+    else openPlayer(router);
+  }, [client, router, online]);
+  return { tryNow, busy };
+}
 
 /**
  * Boas-vindas, a raiz do Visitante (FR-1): o quarto com Alex acenando e a
@@ -27,6 +71,7 @@ export default function Welcome() {
   const router = useRouter();
   const online = useOnline();
   const { height } = useWindowDimensions();
+  const { tryNow, busy } = useTryNow(online);
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       {online ? null : (
@@ -50,18 +95,39 @@ export default function Welcome() {
             {WELCOME_GOAL}
           </Text>
           <View style={styles.actions}>
-            <Button label={TRY_NOW} onPress={() => router.navigate('/player')} fullWidth />
-            <Button label={SIGN_UP} variant="ghost" onPress={() => router.navigate('/em-breve')} fullWidth />
-            <Button label={SIGN_IN} variant="ghost" small onPress={() => router.navigate('/em-breve')} fullWidth />
+            <Button label={TRY_NOW} onPress={() => void tryNow()} busy={busy} fullWidth />
+            {/* Com o EXPERIMENTAR ocupado, as outras ações esperam: senão, ele arrastaria para o player depois. */}
+            <Button
+              label={SIGN_UP}
+              variant="ghost"
+              disabled={busy}
+              onPress={() => router.navigate('/em-breve')}
+              fullWidth
+            />
+            <Button
+              label={SIGN_IN}
+              variant="ghost"
+              small
+              disabled={busy}
+              onPress={() => router.navigate('/em-breve')}
+              fullWidth
+            />
           </View>
           <View style={styles.legal}>
             <TextLink
               label={PRIVACY_LINK}
               small
+              disabled={busy}
               onPress={() => router.navigate(PRIVACY_PATH)}
               testID="welcome-privacy"
             />
-            <TextLink label={TERMS_LINK} small onPress={() => router.navigate(TERMS_PATH)} testID="welcome-terms" />
+            <TextLink
+              label={TERMS_LINK}
+              small
+              disabled={busy}
+              onPress={() => router.navigate(TERMS_PATH)}
+              testID="welcome-terms"
+            />
           </View>
         </SafeAreaView>
       </ScrollView>

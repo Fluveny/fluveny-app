@@ -12,6 +12,10 @@ export const motion = {
   xpPopScale: 1.25,
   /** Intervalo entre as falas do Diálogo (EXPERIENCE.md, Tipos de Atividade). */
   dialogueLineMs: 650,
+  /** Queda do confete (Resumo do Estágio, 1.20): a mais curta, o passo entre as durações e o atraso entre papéis [ASSUMPTION: protótipo]. */
+  confettiMs: 1800,
+  confettiStepMs: 300,
+  confettiStaggerMs: 40,
 } as const;
 
 /**

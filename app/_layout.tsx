@@ -51,6 +51,8 @@ export function RootStack() {
         <Stack.Screen name="(public)" />
         <Stack.Screen name="(public)/em-breve" />
         <Stack.Screen name="(student)/player" />
+        {/* O convite ao cadastro no lugar do Estágio 2 do Visitante (1.20). */}
+        <Stack.Screen name="(student)/convite" />
         {/* Catálogo do kit (1.8): só abre com __DEV__; no release, redireciona para /. */}
         <Stack.Screen name="kit" />
       </Stack.Protected>
