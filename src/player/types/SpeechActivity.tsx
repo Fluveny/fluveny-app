@@ -1,7 +1,9 @@
+import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Platform, StyleSheet, View } from 'react-native';
 
 import { messageFor } from '../../api/errors';
+import { PRIVACY_LINK, PRIVACY_PATH, TERMS_LINK, TERMS_PATH } from '../../legal/paths';
 import { captureError } from '../../observability/sentry';
 import { chooseVariant, RenderedText, tokenizeVariables, useRenderVars, type ContentText } from '../../renderer';
 import { Card, MicButton, NoticeSheet, SceneFrame, TextLink } from '../../ui';
@@ -170,6 +172,13 @@ export function SpeechActivity({ activity, versionId, setFooter, setSheet, advan
     toggle();
   }, [notice, toggle]);
 
+  // A folha é um Modal por cima de tudo: fecha sem decidir antes de abrir a política ou os termos.
+  // Na volta, o toque no microfone a abre de novo.
+  const openLegal = useCallback((path: typeof PRIVACY_PATH | typeof TERMS_PATH) => {
+    setNotice((value) => (value === 'pending' ? 'closed' : value));
+    router.navigate(path);
+  }, []);
+
   const ready = mic.status === 'idle' || mic.status === 'listening';
   const noticeOpen = notice === 'pending' && ready;
   const denied = unavailable && mic.reason === 'denied' && Platform.OS !== 'web';
@@ -218,6 +227,17 @@ export function SpeechActivity({ activity, versionId, setFooter, setSheet, advan
         declineLabel={SKIP_LABEL}
         onDecline={onSkip}
         onRequestClose={() => setNotice('closed')}
+        links={
+          <>
+            <TextLink
+              label={PRIVACY_LINK}
+              small
+              onPress={() => openLegal(PRIVACY_PATH)}
+              testID="speech-privacy-policy"
+            />
+            <TextLink label={TERMS_LINK} small onPress={() => openLegal(TERMS_PATH)} testID="speech-privacy-terms" />
+          </>
+        }
         testID="speech-privacy"
       />
     </View>

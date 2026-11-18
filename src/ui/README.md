@@ -173,8 +173,8 @@ Expressão Útil (`useful-expression`, UX-DR40 a UX-DR42, 1.14). O trecho tocáv
 Peças da Fala (1.15).
 
 - `MicButton` (`mic-button`, UX-DR44, UX-DR45, UX-DR134): círculo de 132 dp azul com sombra sólida de 8 em `blue-dk`, dentro dos halos de 226 (`blue-lt`) e 176 (`blue-md`), ícone `mic`. `listening`: vermelho (sombra `red-dk`) com dois anéis pulsantes, sem pulsar com "remover animações". `disabled`: cinza, sem afundar, com a legenda "O microfone não está disponível neste aparelho.". Legenda em eyebrow abaixo ("TOQUE PARA FALAR", "OUVINDO…"); `message` troca a legenda por um aviso em texto corrido. Rótulo do leitor: "Microfone: toque para falar" ("Microfone: toque para parar" ouvindo); sem `onPress` ou indisponível, é anunciado como desabilitado. Toque, clique ou teclado; nunca manter pressionado.
-- `TextLink`: link de texto azul, sem fundo nem sombra, área de toque de 48 dp, papel de botão. `caps` para o link em caixa alta com o peso de botão ("NÃO POSSO FALAR AGORA", o rodapé `variant: 'link'` do player). Nunca é a ação principal da tela.
-- `NoticeSheet`: aviso com duas ações empilhadas (primária e ghost), no casco da `ExpressionSheet`. Pede decisão: o scrim não fecha; o voltar do Android e o Esc fecham sem decidir. O foco vai para o texto ao abrir.
+- `TextLink`: link de texto azul, sem fundo nem sombra, área de toque de 48 dp, papel de botão. `caps` para o link em caixa alta com o peso de botão ("NÃO POSSO FALAR AGORA", o rodapé `variant: 'link'` do player). `small` para o link de rodapé em `caption` ("Política de privacidade", "Termos de uso"), com a mesma área de toque; com `caps`, o `small` é ignorado. Nunca é a ação principal da tela.
+- `NoticeSheet`: aviso com duas ações empilhadas (primária e ghost), no casco da `ExpressionSheet`. Pede decisão: o scrim não fecha; o voltar do Android e o Esc fecham sem decidir. O foco vai para o texto ao abrir. `links` é um slot opcional abaixo das ações (os links `small` da política e dos termos, 1.21).
 - `SheetModal`: o casco comum (`Modal` transparente, scrim, folha inferior com mola, alça). Use-o para folha nova por cima da tela.
 
 ### `StatusBanner`

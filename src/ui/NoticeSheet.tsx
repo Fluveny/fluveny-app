@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ComponentRef } from 'react';
+import { useEffect, useRef, type ComponentRef, type ReactNode } from 'react';
 import { AccessibilityInfo, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from './Button';
@@ -17,6 +17,8 @@ export type NoticeSheetProps = {
   onDecline: () => void;
   /** Voltar do Android e Esc no web: fecha sem decidir. O scrim não fecha. */
   onRequestClose: () => void;
+  /** Slot opcional abaixo das ações (os links da política e dos termos, 1.21). */
+  links?: ReactNode;
   testID?: string;
 };
 
@@ -34,6 +36,7 @@ export function NoticeSheet({
   declineLabel,
   onDecline,
   onRequestClose,
+  links,
   testID = 'notice-sheet',
 }: NoticeSheetProps) {
   const body = useRef<ComponentRef<typeof View>>(null);
@@ -58,6 +61,11 @@ export function NoticeSheet({
         <Button label={confirmLabel} onPress={onConfirm} fullWidth testID={`${testID}-confirm`} />
         <Button label={declineLabel} variant="ghost" onPress={onDecline} fullWidth testID={`${testID}-decline`} />
       </View>
+      {links ? (
+        <View style={styles.links} testID={`${testID}-links`}>
+          {links}
+        </View>
+      ) : null}
     </SheetModal>
   );
 }
@@ -66,4 +74,5 @@ const styles = StyleSheet.create({
   body: { flexGrow: 0, flexShrink: 1 },
   text: { ...typography.bodyStrong, color: color.ink },
   actions: { gap: spacing[3] },
+  links: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
 });
