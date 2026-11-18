@@ -2,9 +2,10 @@ import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PRIVACY_LINK, PRIVACY_PATH, TERMS_LINK, TERMS_PATH } from '../../src/legal/paths';
 import { useOnline } from '../../src/network/useOnline';
 import { OFFLINE_TEXT } from '../../src/network/text';
-import { AlexWave, Button, Room, StatusBanner, sceneHeight } from '../../src/ui';
+import { AlexWave, Button, Room, StatusBanner, sceneHeight, TextLink } from '../../src/ui';
 import { color, size, spacing, typography } from '../../src/ui/tokens';
 
 // Copy da boas-vindas (EXPERIENCE.md, Voice and Tone).
@@ -53,6 +54,15 @@ export default function Welcome() {
             <Button label={SIGN_UP} variant="ghost" onPress={() => router.navigate('/em-breve')} fullWidth />
             <Button label={SIGN_IN} variant="ghost" small onPress={() => router.navigate('/em-breve')} fullWidth />
           </View>
+          <View style={styles.legal}>
+            <TextLink
+              label={PRIVACY_LINK}
+              small
+              onPress={() => router.navigate(PRIVACY_PATH)}
+              testID="welcome-privacy"
+            />
+            <TextLink label={TERMS_LINK} small onPress={() => router.navigate(TERMS_PATH)} testID="welcome-terms" />
+          </View>
         </SafeAreaView>
       </ScrollView>
     </SafeAreaView>
@@ -60,10 +70,11 @@ export default function Welcome() {
 }
 
 /**
- * A cena começa em 60% da do Diálogo e cresce com a tela: a folha com as três
- * ações precisa caber sem rolar num celular de 360×740.
+ * A cena começa em 57% da do Diálogo e cresce com a tela: a folha com as três
+ * ações e os links da política e dos termos (1.21) precisa caber sem rolar num
+ * celular de 360×740.
  */
-const SCENE_SHARE = 0.6;
+const SCENE_SHARE = 0.57;
 /** Alex um pouco menor que em cena (205), para caber na cena reduzida [ASSUMPTION]. */
 const ALEX_SIZE = 180;
 
@@ -80,11 +91,13 @@ const styles = StyleSheet.create({
     borderTopRightRadius: size.welcomeSheetRadius,
     paddingHorizontal: spacing[6],
     paddingTop: spacing[6],
-    paddingBottom: spacing[4],
+    paddingBottom: spacing[1],
     gap: spacing[3],
   },
   title: { ...typography.display, color: color.ink },
   body: { ...typography.body, color: color.muted },
   goal: { ...typography.item, color: color.blue },
   actions: { gap: spacing.half, marginTop: spacing[2] },
+  // Os links da política e dos termos (1.21), numa linha abaixo das ações; quebram com a fonte ampliada.
+  legal: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginTop: -spacing[3] },
 });

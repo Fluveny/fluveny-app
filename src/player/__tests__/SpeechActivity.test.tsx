@@ -1,12 +1,14 @@
 // Matriz da 1.15 (Fala "It's your turn"): a Fala real dentro da moldura, com o
 // reconhecimento simulado (jest.setup.js) e a API pelo corretor do mock.
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { router } from 'expo-router';
 import * as React from 'react';
 import { useState } from 'react';
 import { AccessibilityInfo, AppState, Linking, Platform, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { messageFor, NETWORK_ERROR } from '../../api/errors';
+import { PRIVACY_LINK, PRIVACY_PATH, TERMS_LINK, TERMS_PATH } from '../../legal/paths';
 import { mockResponse } from '../../api/mocks/handlers';
 import { mockRoutes, resetMockVisitorRecords } from '../../api/mocks/routes';
 import {
@@ -171,6 +173,22 @@ describe('Fala: aviso de privacidade', () => {
     expect(advance).toHaveBeenCalledWith({ outcome: 'skipped', xp: 0 });
     expect(screen.queryByTestId('speech-privacy')).toBeNull();
     expect(await visitorStore.seen(PRIVACY_SEEN_KEY)).toBe(false);
+  });
+
+  it('links da política e dos termos: fecham a folha sem decidir e abrem o documento', async () => {
+    const navigate = jest.spyOn(router, 'navigate').mockImplementation(() => {});
+    await open({ seen: false });
+    expect(button(PRIVACY_LINK)).toBeTruthy();
+    expect(button(TERMS_LINK)).toBeTruthy();
+    await fireEvent.press(button(PRIVACY_LINK));
+    expect(navigate).toHaveBeenCalledWith(PRIVACY_PATH);
+    await waitFor(() => expect(screen.queryByTestId('speech-privacy')).toBeNull());
+    expect(await visitorStore.seen(PRIVACY_SEEN_KEY)).toBe(false);
+    expect(global.__speech.module.requestPermissionsAsync).not.toHaveBeenCalled();
+    // Na volta, o microfone abre a folha de novo; dela, os termos.
+    await pressMic();
+    await fireEvent.press(button(TERMS_LINK));
+    expect(navigate).toHaveBeenCalledWith(TERMS_PATH);
   });
 
   it('fechar a folha sem decidir: o toque no microfone a abre de novo, sem ouvir', async () => {

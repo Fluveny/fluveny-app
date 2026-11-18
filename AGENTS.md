@@ -85,3 +85,9 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 - A gramática é a do `ContentRenderer.java` da API (AD-8). Mudou a regra: muda na API e nos vetores, e o App acompanha. `src/renderer/render-vectors.json` e `.lock` só mudam pelo `npm run api:sync`, no mesmo sha do contrato; o `api:check` confere.
 - `render` só troca placeholders e marca `studentVar`; `format` interpreta `**` e `[[rótulo|chave]]` só nos segmentos do conteúdo. O valor do aluno é sempre texto.
 - Expressões Úteis (1.14): o `[[rótulo|chave]]` só vira trecho tocável dentro de um `ExpressionsProvider` (o player monta um com as `usefulExpressions` da Unidade, do `useStage`) e com chave conhecida; fora dele, é texto comum. O toque abre a `ExpressionSheet`; com a folha de feedback aberta (`disabled`), o trecho fica sem toque. Para trocar o que o toque faz (a Expressão destacada), envolva o texto num `ExpressionContext.Provider` próprio.
+
+## Política e termos (1.21)
+
+- Os textos ficam em `src/legal/privacy.ts` e `src/legal/terms.ts` (versão, data e seções, texto puro em pt-BR), com o aviso de versão provisória de `src/legal/types.ts`. Eles só dizem fatos do código: mudou o que o App, a API ou o Worker tratam (dado novo, terceiro novo, prazo), mude o texto, a versão e a data no mesmo PR. Nada de controlador, contato, idade mínima ou licença inventados: entram na versão final [ASSUMPTION: PRD §11 Q7, Q8, Q13].
+- As rotas `/privacidade` e `/termos` (`LegalScreen`) ficam fora dos guards de versão do `_layout` e, abertas direto, a splash só espera as fontes, não o `/meta`. Quem só precisa do caminho ou do rótulo importa `src/legal/paths.ts`, nunca os textos: eles não podem entrar no chunk da primeira tela (`_layout` e `index`).
+- Links: na boas-vindas, abaixo das três ações; no player, no `NoticeSheet` da Fala (slot `links`), que fecha sem decidir antes de navegar.
