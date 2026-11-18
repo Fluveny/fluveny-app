@@ -692,11 +692,15 @@ export interface components {
         };
         StageContent: {
             activities: components["schemas"]["Activity"][];
+            /** @description Opcional: a frase do resumo do fim do Estágio, em português. */
+            completion?: components["schemas"]["ContentText"];
             stageKey: string;
             title: components["schemas"]["ContentText"];
         };
         StageStudentView: {
             activities: components["schemas"]["ActivityStudentView"][];
+            /** @description A frase do resumo do fim do Estágio, crua (pode ter placeholders e variantes he/she/they). Só quando o conteúdo tem. */
+            completion?: components["schemas"]["ContentText"];
             stageKey: string;
             title: components["schemas"]["ContentText"];
             versionId: string;
