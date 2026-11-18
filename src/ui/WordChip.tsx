@@ -27,6 +27,8 @@ export type WordChipProps = {
   onPress?: () => void;
   /** Resposta travada (depois de Verificar): sem toque. */
   disabled?: boolean;
+  /** Rótulo do leitor de tela no lugar da palavra (a lacuna: "Lacuna 1: am"); o estado vem depois. */
+  accessibilityLabel?: string;
   testID?: string;
 };
 
@@ -35,12 +37,19 @@ export type WordChipProps = {
  * `used` não responde nem afunda; `right`/`wrong` mostram ✓/✕ e dizem o estado
  * ao leitor de tela; `placed` é anunciado como selecionado.
  */
-export function WordChip({ label, state = 'idle', onPress, disabled = false, testID }: WordChipProps) {
+export function WordChip({
+  label,
+  state = 'idle',
+  onPress,
+  disabled = false,
+  accessibilityLabel,
+  testID,
+}: WordChipProps) {
   const look = WORD_CHIP_STATES[state];
   const stateWord = state === 'right' || state === 'wrong' || state === 'used' ? state : undefined;
   return (
     <Pressable3D
-      accessibilityLabel={withState(label, stateWord)}
+      accessibilityLabel={withState(accessibilityLabel ?? label, stateWord)}
       accessibilityState={{ selected: state === 'placed' }}
       disabled={disabled}
       flat={state === 'used'}

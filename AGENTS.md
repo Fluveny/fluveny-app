@@ -38,7 +38,7 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 
 ## Kit de UI
 
-- Telas usam as peças de `src/ui` (importe de `src/ui/index.ts`): `Button`, `Card`, `WordChip`, `XpChip`, `ProgressBar`, `ModeTag`, `SpeechBubble`, `SceneFrame`, `AlexAvatar`, `TextField`, `ChoiceCard`, `MatchCard`, `StatusBanner`, `ExpressionCard`, `ExpressionSheet`, `MicButton`, `TextLink`, `NoticeSheet`. Nada de estilo de botão, cartão ou chip solto numa tela nem `Pressable` com `solid()`/`sunk()` à mão; peça nova do kit usa `Pressable3D`. Regras, variantes e copy em `src/ui/README.md`; catálogo em `/kit` (só com `__DEV__`).
+- Telas usam as peças de `src/ui` (importe de `src/ui/index.ts`): `Button`, `Card`, `WordChip`, `XpChip`, `ProgressBar`, `ModeTag`, `SpeechBubble`, `SceneFrame`, `AlexAvatar`, `TextField`, `ChoiceCard`, `MatchCard`, `GapSlot`, `StatusBanner`, `ExpressionCard`, `ExpressionSheet`, `MicButton`, `TextLink`, `NoticeSheet`. Nada de estilo de botão, cartão ou chip solto numa tela nem `Pressable` com `solid()`/`sunk()` à mão; peça nova do kit usa `Pressable3D`. Regras, variantes e copy em `src/ui/README.md`; catálogo em `/kit` (só com `__DEV__`).
 
 ## Build do EAS só sob pedido
 
@@ -63,6 +63,11 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 - `useSpeechRecognition` (`src/player`): `en-US`, sem gravar, só resultado final, no aparelho no Android quando suportado; 7 s sem ouvir som nem fala volta ao início; eventos de sessão abortada são descartados; sem o modelo en-US no aparelho, tenta de novo online. O módulo é requerido na primeira chamada: sem o nativo no APK, o microfone fica indisponível em vez de quebrar.
 - Antes de enviar, `tokenizeVariables` (`src/renderer/tokenize.ts`) troca `name` e `country` da transcrição pelos tokens (sem caixa nem acento, palavra inteira). Faz o possível: um nome ouvido com outra grafia ainda vai como veio. Quando o valor também é palavra literal da frase-alvo (nome "Alex"), as ocorrências que o alvo tem ficam e só as outras viram token.
 - O aviso de privacidade é o flag `seen('speech-privacy')`/`markSeen` da loja do Visitante (tabela `seen` no nativo, `fluveny:visitor:seen` no web), não uma Variável do Aluno.
+
+## Lacunas (1.17)
+
+- `GapFill` (`src/player/GapFill.tsx`) é a mecânica das lacunas (linhas, `GapSlot`, banco e campos), sem rede nem avaliação; o `GapsActivity` e o Extra Help (1.18) montam a Atividade em volta dele. No banco, a Answer leva o texto da palavra na variante do pronome, com os tokens; digitada, o texto passa pelo `tokenizeVariables` antes de sair.
+- Campo de texto no meio do conteúdo do player chama `useRevealField()` (de `PlayerFrame`) no `onFocus`: com o teclado aberto, a moldura rola até o campo caber acima dele. Quando o teclado abre, ela faz o mesmo com o campo focado (`TextInput.State.currentlyFocusedInput`); sem campo focado, rola até o fim.
 
 ## Renderizador do conteúdo (1.10)
 

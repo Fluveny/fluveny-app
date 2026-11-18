@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
-import { AccessibilityInfo, Animated, Keyboard, ScrollView, StyleSheet, Text } from 'react-native';
+import { AccessibilityInfo, Animated, Keyboard, ScrollView, StyleSheet, Text, TextInput } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import openapi from '../../api/openapi.json';
@@ -7,7 +7,15 @@ import { styleOf } from '../../test-utils/kit';
 import { color, size, spacing } from '../../ui/tokens';
 import { ActivityTransition } from '../ActivityTransition';
 import { PendingActivity } from '../PendingActivity';
-import { CLOSE_LABEL, OFFLINE_LABEL, PlayerFrame, type PlayerFrameProps } from '../PlayerFrame';
+import {
+  CLOSE_LABEL,
+  OFFLINE_LABEL,
+  PlayerFrame,
+  revealDelta,
+  useRevealField,
+  type PlayerFrameProps,
+  type RevealField,
+} from '../PlayerFrame';
 import { PENDING, registry, resolveActivity, type ActivityProps } from '../registry';
 import { ChoiceActivity } from '../types/ChoiceActivity';
 import { DialogueActivity } from '../types/DialogueActivity';
@@ -109,7 +117,7 @@ describe('PlayerFrame', () => {
 });
 
 describe('PlayerFrame com teclado', () => {
-  it('no nativo, conteúdo e rodapé ficam no KeyboardAvoidingView, e o teclado aberto rola até o fim', async () => {
+  it('no nativo, conteúdo e rodapé ficam no KeyboardAvoidingView, e o teclado aberto sem campo focado rola até o fim', async () => {
     const listeners: Record<string, () => void> = {};
     jest.spyOn(Keyboard, 'addListener').mockImplementation(((event: string, handler: () => void) => {
       listeners[event] = handler;
@@ -126,6 +134,177 @@ describe('PlayerFrame com teclado', () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
     expect(scrollToEnd).toHaveBeenCalledWith({ animated: true });
+  });
+});
+
+describe('campo focado acima do teclado (1.17)', () => {
+  // Área visível de 100 a 400 na janela; folga de 16.
+  it.each([
+    ['já visível', 200, 0],
+    ['atrás do teclado', 420, 420 + 40 - (400 - 16)],
+    ['acima do topo', 90, 90 - (100 + 16)],
+    ['maior que a área: o topo fica visível', 150, 150 - (100 + 16)],
+  ])('%s', (_case, y, delta) => {
+    const height = _case.startsWith('maior') ? 400 : 40;
+    expect(revealDelta({ y, height }, 100, 400)).toBe(delta);
+  });
+
+  function withKeyboard() {
+    const listeners: Record<string, (event?: unknown) => void> = {};
+    jest.spyOn(Keyboard, 'addListener').mockImplementation(((event: string, handler: () => void) => {
+      listeners[event] = handler;
+      return { remove: jest.fn() };
+    }) as never);
+    // O espião do protótipo sobrevive ao restoreAllMocks com as chamadas do teste anterior.
+    const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(() => {});
+    const scrollToEnd = jest.spyOn(ScrollView.prototype, 'scrollToEnd').mockImplementation(() => {});
+    scrollTo.mockClear();
+    scrollToEnd.mockClear();
+    // A rolagem ocupa de 100 a 500 na janela; o teclado começa em 400.
+    const proto = ScrollView.prototype as unknown as { measureInWindow?: unknown };
+    const previous = proto.measureInWindow;
+    proto.measureInWindow = (callback: (x: number, y: number, w: number, h: number) => void) =>
+      callback(0, 100, 360, 400);
+    const restore = () => {
+      proto.measureInWindow = previous;
+    };
+    return { listeners, scrollTo, scrollToEnd, restore };
+  }
+
+  const field = (y: number) => ({
+    measureInWindow: (callback: (x: number, y: number, w: number, h: number) => void) => callback(0, y, 128, 44),
+  });
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+  it('o teclado abre com um campo focado no meio: rola só até ele caber acima do teclado', async () => {
+    const { listeners, scrollTo, scrollToEnd, restore } = withKeyboard();
+    jest.spyOn(TextInput.State, 'currentlyFocusedInput').mockReturnValue(field(380) as never);
+    try {
+      await render(frame());
+      await act(async () => {
+        listeners.keyboardDidShow!({ endCoordinates: { screenY: 400 } });
+        await tick();
+      });
+      expect(scrollTo).toHaveBeenCalledWith({ y: 380 + 44 - (400 - 16), animated: true });
+      expect(scrollToEnd).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it('com o teclado aberto, o foco em outro campo o traz para a área visível; fechado, nada', async () => {
+    const { listeners, scrollTo, restore } = withKeyboard();
+    let reveal: RevealField = () => {};
+    function Probe() {
+      reveal = useRevealField();
+      return null;
+    }
+    try {
+      await render(
+        <SafeAreaProvider initialMetrics={METRICS}>
+          <PlayerFrame
+            stageNumber={1}
+            stageTitle="Meet & Greet"
+            position={1}
+            total={1}
+            xp={0}
+            online
+            footer={null}
+            onClose={jest.fn()}
+            contentKey="gaps"
+          >
+            <Probe />
+          </PlayerFrame>
+        </SafeAreaProvider>,
+      );
+      await act(async () => {
+        reveal(field(450));
+        await tick();
+      });
+      expect(scrollTo).not.toHaveBeenCalled();
+      jest.spyOn(TextInput.State, 'currentlyFocusedInput').mockReturnValue(null as never);
+      await act(async () => {
+        listeners.keyboardDidShow!({ endCoordinates: { screenY: 400 } });
+        await tick();
+      });
+      await act(async () => {
+        reveal(field(150));
+        await tick();
+      });
+      expect(scrollTo).not.toHaveBeenCalled();
+      await act(async () => {
+        reveal(field(450));
+        await tick();
+      });
+      expect(scrollTo).toHaveBeenCalledWith({ y: 450 + 44 - (400 - 16), animated: true });
+      await act(async () => {
+        listeners.keyboardDidHide!();
+        reveal(field(600));
+        await tick();
+      });
+      expect(scrollTo).toHaveBeenCalledTimes(1);
+    } finally {
+      restore();
+    }
+  });
+
+  /** A moldura com a sonda do `reveal`, na Atividade `contentKey`. */
+  function probed(contentKey: string, onReveal: (reveal: RevealField) => void) {
+    function Probe() {
+      onReveal(useRevealField());
+      return null;
+    }
+    return (
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <PlayerFrame
+          stageNumber={1}
+          stageTitle="Meet & Greet"
+          position={1}
+          total={2}
+          xp={0}
+          online
+          footer={null}
+          onClose={jest.fn()}
+          contentKey={contentKey}
+        >
+          <Probe />
+        </PlayerFrame>
+      </SafeAreaProvider>
+    );
+  }
+
+  it('a rolagem parte do deslocamento atual, e uma Atividade nova volta a base para 0', async () => {
+    const { listeners, scrollTo, restore } = withKeyboard();
+    jest.spyOn(TextInput.State, 'currentlyFocusedInput').mockReturnValue(null as never);
+    let reveal: RevealField = () => {};
+    const keep = (next: RevealField) => {
+      reveal = next;
+    };
+    try {
+      const view = await render(probed('a1', keep));
+      await act(async () => {
+        listeners.keyboardDidShow!({ endCoordinates: { screenY: 400 } });
+        await tick();
+      });
+      await fireEvent.scroll(screen.getByTestId('player-content'), {
+        nativeEvent: { contentOffset: { x: 0, y: 120 } },
+      });
+      await act(async () => {
+        reveal(field(450));
+        await tick();
+      });
+      const delta = 450 + 44 - (400 - 16);
+      expect(scrollTo).toHaveBeenLastCalledWith({ y: 120 + delta, animated: true });
+
+      await view.rerender(probed('a2', keep));
+      await act(async () => {
+        reveal(field(450));
+        await tick();
+      });
+      expect(scrollTo).toHaveBeenLastCalledWith({ y: delta, animated: true });
+    } finally {
+      restore();
+    }
   });
 });
 

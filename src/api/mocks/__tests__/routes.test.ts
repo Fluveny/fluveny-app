@@ -492,7 +492,8 @@ describe('recibos do mock (1.12)', () => {
     });
 
     it('o Estágio tem um Associar antes da Fala, com um distrator, {name} numa resposta e sem gabarito', () => {
-      expect(STAGE.activities.indexOf(MATCH)).toBe(STAGE.activities.indexOf(SPEECH) - 1);
+      // Entre o Associar e a Fala ficam as duas Lacunas (1.17).
+      expect(STAGE.activities.indexOf(MATCH)).toBe(STAGE.activities.indexOf(SPEECH) - 3);
       expect(MATCH.responses.length - MATCH.items.length).toBe(1);
       expect(MATCH.responses.some((response) => String(response.text).includes('{name}'))).toBe(true);
       expect(Object.keys(MATCH.items[0]!).sort()).toEqual(['itemKey', 'line']);
@@ -560,6 +561,125 @@ describe('recibos do mock (1.12)', () => {
           status: 409,
           code: 'COMPLETION_NOT_ALLOWED',
         });
+      }
+    });
+  });
+
+  describe('Lacunas (1.17)', () => {
+    type Gaps = Extract<StageActivity, { type: 'gaps' }>;
+    const ALL = STAGE.activities.filter((activity): activity is Gaps => activity.type === 'gaps');
+    const BANK = ALL.find((activity) => activity.mode === 'bank')!;
+    const TYPED = ALL.find((activity) => activity.mode === 'typed')!;
+    const fill = (activity: Gaps, values: unknown) => ({
+      attemptId: randomUUID(),
+      deviceId: DEVICE,
+      versionId: STAGE.versionId,
+      activityKey: activity.activityKey,
+      type: 'gaps',
+      answer: {
+        type: 'gaps',
+        items: Array.isArray(values)
+          ? values.map((value, i) => ({ itemKey: activity.items[i]?.itemKey ?? 'nope', value }))
+          : values,
+      },
+      studyTimeMs: 1000,
+    });
+
+    it('o Estágio tem as Lacunas do banco e as digitadas antes da Fala, sem gabarito', () => {
+      expect(STAGE.activities.indexOf(TYPED)).toBe(STAGE.activities.indexOf(SPEECH) - 1);
+      expect(STAGE.activities.indexOf(BANK)).toBe(STAGE.activities.indexOf(TYPED) - 1);
+      // Um distrator no banco; nada de banco no digitado.
+      expect(BANK.bank!.length - BANK.items.length).toBe(1);
+      expect(TYPED).not.toHaveProperty('bank');
+      expect(Object.keys(BANK.items[0]!)).toEqual(['itemKey']);
+      expect(TYPED.lines.some((line) => String(line).includes('{name}'))).toBe(true);
+    });
+
+    it('Acerto no banco: 100, xp 6, expected com a primeira aceita e recibo', async () => {
+      const right = await send('/api/v1/visitor/attempts', fill(BANK, ['am', 'meet']));
+      expect(right).toMatchObject({ outcome: 'GRADED', resultPct: 100, xpAwarded: 6 });
+      expect(right.expected).toEqual({
+        type: 'gaps',
+        items: [
+          { itemKey: 'gaps-bank-am', value: 'am' },
+          { itemKey: 'gaps-bank-meet', value: 'meet' },
+        ],
+      });
+      expect(right.items.filter((item) => item.justification !== undefined)).toHaveLength(1);
+      expect(right.receipt).toEqual(expect.any(String));
+      expect([...resultKeys(right)].filter((key) => secretFields().has(key))).toEqual([]);
+    });
+
+    it.each([
+      ["I'm", true],
+      ['i am', true],
+      ["I'm.", true],
+      ['I’m', true],
+      ['Im', false],
+      ['I', false],
+    ])('digitado: "%s" na primeira lacuna é certo? %s', async (value, correct) => {
+      const result = await send('/api/v1/visitor/attempts', fill(TYPED, [value, '{name}']));
+      expect(result.items[0]!.correct).toBe(correct);
+      expect(result.items[1]!.correct).toBe(true);
+    });
+
+    it('o token vale como palavra: {name} é certo, o nome literal não', async () => {
+      const wrong = await send('/api/v1/visitor/attempts', fill(TYPED, ["I'm", 'Ana']));
+      expect(wrong).toMatchObject({ resultPct: 50, xpAwarded: 3 });
+      expect(wrong.expected).toBeUndefined();
+      const revealed = await send('/api/v1/visitor/attempts/reveal', fill(TYPED, ["I'm", 'Ana']));
+      expect(revealed).toMatchObject({
+        xpAwarded: 0,
+        expected: {
+          type: 'gaps',
+          items: [
+            { itemKey: 'gaps-typed-im', value: "I'm" },
+            { itemKey: 'gaps-typed-name', value: '{name}' },
+          ],
+        },
+      });
+    });
+
+    it.each([
+      ['item faltando', ['am']],
+      [
+        'item repetido',
+        [
+          { itemKey: 'gaps-bank-am', value: 'am' },
+          { itemKey: 'gaps-bank-am', value: 'am' },
+        ],
+      ],
+      [
+        'item desconhecido',
+        [
+          { itemKey: 'gaps-bank-am', value: 'am' },
+          { itemKey: 'nope', value: 'meet' },
+        ],
+      ],
+      ['valor em branco', ['am', '  ']],
+      ['valor longo demais', ['am', 'a'.repeat(101)]],
+      ['sem lista', undefined],
+    ])('%s é 400 INVALID_ANSWER', async (_case, values) => {
+      const body = fill(BANK, values);
+      if (Array.isArray(values) && typeof values[0] === 'object') body.answer.items = values;
+      await expect(send('/api/v1/visitor/attempts', body)).rejects.toMatchObject({
+        status: 400,
+        code: 'INVALID_ANSWER',
+      });
+    });
+
+    it('as Lacunas não aceitam conclusão', async () => {
+      for (const outcome of ['VIEWED', 'SKIPPED']) {
+        await expect(
+          complete({
+            attemptId: randomUUID(),
+            deviceId: DEVICE,
+            versionId: STAGE.versionId,
+            activityKey: BANK.activityKey,
+            outcome,
+            studyTimeMs: 0,
+          }),
+        ).rejects.toMatchObject({ status: 409, code: 'COMPLETION_NOT_ALLOWED' });
       }
     });
   });

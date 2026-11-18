@@ -5,7 +5,7 @@ Peças visuais do App do Aluno (histórias 1.8 e 1.9). A fonte é o DESIGN.md e 
 Importe sempre do barrel:
 
 ```tsx
-import { Button, Card, ChoiceCard, MatchCard, ModeTag, SceneFrame, SpeechBubble, TextField } from '../src/ui';
+import { Button, Card, ChoiceCard, GapSlot, MatchCard, ModeTag, SceneFrame, SpeechBubble, TextField } from '../src/ui';
 ```
 
 Em desenvolvimento, a rota `/kit` mostra todas as peças e estados (`npx expo start --web` e abra `/kit`). No release, ela redireciona para `/`.
@@ -70,6 +70,18 @@ Chip de palavra de 44 dp de face, com área de toque estendida a 48 dp. Bancos d
 | `placed`          | Escolhido ou colocado na frase. Anunciado como selecionado.                                                      |
 | `used`            | Fantasma no banco depois de usado: sem sombra, não tocável, anunciado como "usado".                              |
 | `right` / `wrong` | Depois de Verificar: ✓ ou ✕, e "certo" ou "errado" no rótulo. Passe `disabled` enquanto a resposta está travada. |
+
+### `GapSlot`
+
+Lacuna do Completar lacunas (UX-DR83, UX-DR84, história 1.17). Com `kind="bank"`, vazia é um espaço do tamanho do chip (44 dp de face mais a sombra, 72 dp de largura mínima) com borda tracejada `line-dk`, sem toque; preenchida, é o `WordChip` `placed`, e o toque a esvazia. Com `kind="typed"`, é um campo curto (128 dp) sem correção nem maiúscula automática, até 100 caracteres, com o anel de foco do `TextField`. O leitor ouve "Lacuna 2: your" ou "Lacuna 2, vazia", e o estado depois de Verificar.
+
+| `state`           | Quando usar                                                       |
+| ----------------- | ----------------------------------------------------------------- |
+| `empty`           | Sem valor.                                                        |
+| `filled`          | Com valor, antes de Verificar.                                    |
+| `wrong` / `right` | Depois de Verificar: as cores do `WordChip`, "errado" ou "certo". |
+
+Depois de Verificar, e na lacuna certa mantida por TENTAR DE NOVO, passe `locked`. Quem monta as linhas, o banco e a regra da primeira lacuna vazia é o `GapFill` (`src/player/GapFill.tsx`), que o Extra Help (1.18) reaproveita.
 
 ### `ModeTag`
 

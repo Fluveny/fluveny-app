@@ -26,6 +26,10 @@
 // Associar (1.16): antes da Fala, um `match` de três pares com um distrator e
 // `{name}` numa resposta; o corretor segue o `Grader.match` da API. Sem
 // conclusão: o Associar só termina corrigido.
+//
+// Lacunas (1.17): antes da Fala, um `gaps` do banco (com um distrator) e um
+// digitado (com `{name}` numa resposta aceita); o corretor segue o
+// `Grader.gaps` da API. Sem conclusão, como o Associar.
 import type { components, paths } from '../schema';
 
 export const MOCK_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
@@ -80,9 +84,9 @@ export function problemBody(problem: MockProblem) {
 const VERSION_ID = 'sha256:0000000000000000000000000000000000000000000000000000000000000001';
 
 // Uma Unidade com um Estágio de um Diálogo, os Cartões, a Expressão Útil, três
-// Escolhas, o Associar e a Fala (o player percorre 1 de 8 a 8 de 8), e a Unit 2
-// "em breve" (sem Estágios). A primeira Escolha tem 3 itens (Resultado "n de 3
-// itens"); as outras, um só.
+// Escolhas, o Associar, as duas Lacunas e a Fala (o player percorre 1 de 10 a
+// 10 de 10), e a Unit 2 "em breve" (sem Estágios). A primeira Escolha tem 3
+// itens (Resultado "n de 3 itens"); as outras, um só.
 const unit1 = { unitKey: 'unit-1', order: 1, title: 'Unit 1', comingSoon: false, versionId: VERSION_ID };
 const unit2 = {
   unitKey: 'unit-2',
@@ -99,7 +103,8 @@ type CardsView = components['schemas']['CardsActivityStudentView'];
 type ExpressionView = components['schemas']['ExpressionActivityStudentView'];
 type SpeechView = components['schemas']['SpeechActivityStudentView'];
 type MatchView = components['schemas']['MatchActivityStudentView'];
-type ActivityView = ChoiceView | DialogueView | CardsView | ExpressionView | SpeechView | MatchView;
+type GapsView = components['schemas']['GapsActivityStudentView'];
+type ActivityView = ChoiceView | DialogueView | CardsView | ExpressionView | SpeechView | MatchView | GapsView;
 type UsefulExpression = components['schemas']['UsefulExpressionStudentView'];
 type AttemptResult = components['schemas']['AttemptResult'];
 type CompletionResult = components['schemas']['CompletionResult'];
@@ -352,6 +357,71 @@ const speechBubbles = match(
   ],
 );
 
+/** Uma lacuna no mock: as respostas aceitas (a primeira vai no `expected`) e a justificativa. */
+type MockGap = { itemKey: string; accepted: string[]; justification?: ContentText };
+
+/** Gabarito das Lacunas no mock, privado a este módulo: as lacunas, na ordem. */
+const gapsKey = new Map<string, { xp: number; items: MockGap[] }>();
+
+function gaps(
+  activityKey: string,
+  title: string,
+  prompt: string,
+  lines: ContentText[],
+  items: MockGap[],
+  bank?: [string, ContentText][],
+): GapsView {
+  const xp = 6;
+  gapsKey.set(activityKey, { xp, items });
+  return {
+    activityKey,
+    type: 'gaps',
+    title,
+    prompt,
+    mode: bank ? 'bank' : 'typed',
+    lines,
+    items: items.map((item) => ({ itemKey: item.itemKey })),
+    ...(bank ? { bank: bank.map(([wordKey, text]) => ({ wordKey, text })) } : {}),
+    xp,
+  };
+}
+
+/** As Lacunas do banco (1.17): duas lacunas e um distrator ("is"). */
+const gapsBank = gaps(
+  'gaps-bank',
+  'Complete the Gaps',
+  'Toque nas palavras para completar.',
+  ['Hi! I ___ Alex.', 'Nice to ___ you!'],
+  [
+    { itemKey: 'gaps-bank-am', accepted: ['am'], justification: 'Com **I**, usamos **am**.' },
+    { itemKey: 'gaps-bank-meet', accepted: ['meet'] },
+  ],
+  [
+    ['am', 'am'],
+    ['meet', 'meet'],
+    ['is', 'is'],
+  ],
+);
+
+/** As Lacunas digitadas (1.17), com o nome do aluno numa resposta aceita. */
+const gapsTyped = gaps(
+  'gaps-typed',
+  'Complete the Gaps',
+  'Digite as palavras que faltam.',
+  ['Hi Alex! ___ {name}.', 'My name is ___.'],
+  [
+    { itemKey: 'gaps-typed-im', accepted: ["I'm", 'I am'], justification: "Para dizer o nome, use **I'm**." },
+    { itemKey: 'gaps-typed-name', accepted: ['{name}'], justification: 'Aqui vai o seu nome.' },
+  ],
+);
+
+/** As palavras de uma lacuna: a normalização da Fala, mas os tokens (`{name}`) ficam como palavras. */
+function gapWords(text: string): string[] {
+  return text
+    .split(/(\{[^{}\s]+\})/)
+    .flatMap((piece) => (/^\{[^{}\s]+\}$/.test(piece) ? [piece.toLowerCase()] : speechWords(piece)));
+}
+
 /** A Fala (1.15) que fecha o Estágio, com o alvo da API (`s1-your-turn`). */
 const yourTurn = speech('your-turn-speech', "It's your turn", 'Se apresente para o Alex.', "Hi Alex, I'm {name}.", [
   'Hello Alex, my name is {name}.',
@@ -419,6 +489,8 @@ const stage1Activities: ActivityView[] = [
     },
   ]),
   speechBubbles,
+  gapsBank,
+  gapsTyped,
   yourTurn,
 ];
 
@@ -486,6 +558,8 @@ async function gradeAttempt(request: Request, reveal: boolean): Promise<{ data: 
   const deviceId = deviceIdOf(body.deviceId);
   const spoken = speechKey.get(body.activityKey);
   if (spoken) return gradeSpeech(body, deviceId, spoken, reveal);
+  const blanks = gapsKey.get(body.activityKey);
+  if (blanks) return gradeGaps(body, deviceId, blanks, reveal);
   const pairs = matchKey.get(body.activityKey);
   if (pairs) return gradeMatch(body, deviceId, pairs, reveal);
   if (!key) throw new MockProblem(404, 'NOT_FOUND');
@@ -515,7 +589,7 @@ async function gradeAttempt(request: Request, reveal: boolean): Promise<{ data: 
   return gradedResult(body, deviceId, reveal, key.xp, items, expected);
 }
 
-/** O Resultado de uma correção por itens (Escolha e Associar), com as regras de recibo e reveal da API. */
+/** O Resultado de uma correção por itens (Escolha, Associar e Lacunas), com as regras de recibo e reveal da API. */
 function gradedResult(
   body: { attemptId?: unknown; activityKey?: unknown },
   deviceId: string | undefined,
@@ -586,6 +660,47 @@ function gradeMatch(
   const expected = {
     type: 'match' as const,
     items: [...key.items].map(([itemKey, { correct }]) => ({ itemKey, responseKey: correct })),
+  };
+  return gradedResult(body, deviceId, reveal, key.xp, items, expected);
+}
+
+/**
+ * As Lacunas no corretor do mock, como o `Grader.gaps` da API: um valor por
+ * lacuna, sem repetir nem faltar, de 1 a 100 caracteres e não em branco; fora
+ * disso, `400 INVALID_ANSWER`. Certo quando o valor tem as mesmas palavras de
+ * uma resposta aceita. O `expected` é a primeira resposta aceita de cada item.
+ */
+function gradeGaps(
+  body: { attemptId?: unknown; activityKey?: unknown; type?: unknown; answer?: { type?: unknown; items?: unknown } },
+  deviceId: string | undefined,
+  key: { xp: number; items: MockGap[] },
+  reveal: boolean,
+): { data: AttemptResult } {
+  const answers = body.answer?.items;
+  if (body.type !== 'gaps' || body.answer?.type !== 'gaps' || !Array.isArray(answers)) {
+    throw new MockProblem(400, 'INVALID_ANSWER');
+  }
+  const known = new Set(key.items.map((item) => item.itemKey));
+  const given = new Map<string, string>();
+  for (const item of answers as { itemKey?: unknown; value?: unknown }[]) {
+    if (typeof item?.itemKey !== 'string' || typeof item.value !== 'string')
+      throw new MockProblem(400, 'INVALID_ANSWER');
+    if (!known.has(item.itemKey) || given.has(item.itemKey)) throw new MockProblem(400, 'INVALID_ANSWER');
+    if (!item.value.trim() || [...item.value].length > 100) throw new MockProblem(400, 'INVALID_ANSWER');
+    given.set(item.itemKey, item.value);
+  }
+  if (given.size !== key.items.length) throw new MockProblem(400, 'INVALID_ANSWER');
+  const items = key.items.map(({ itemKey, accepted, justification }) => {
+    const value = gapWords(given.get(itemKey)!).join(' ');
+    return {
+      itemKey,
+      correct: value !== '' && accepted.some((form) => gapWords(form).join(' ') === value),
+      ...(justification === undefined ? {} : { justification }),
+    };
+  });
+  const expected = {
+    type: 'gaps' as const,
+    items: key.items.map(({ itemKey, accepted }) => ({ itemKey, value: accepted[0]! })),
   };
   return gradedResult(body, deviceId, reveal, key.xp, items, expected);
 }
