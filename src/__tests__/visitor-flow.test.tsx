@@ -24,6 +24,7 @@ import { CONTINUE_LABEL, PendingActivity, PENDING_TITLE } from '../player/Pendin
 import { NEXT_BLOCK_LABEL } from '../player/types/CardsActivity';
 import { ChoiceActivity } from '../player/types/ChoiceActivity';
 import { NAME_LABEL } from '../player/types/DialogueActivity';
+import { ANSWER_LABEL, EXTRA_HELP_LABEL, SEND_LABEL, YOU_WROTE } from '../player/types/FreeActivity';
 import { PRIVACY_OK_LABEL, SKIP_LABEL as SPEECH_SKIP } from '../player/types/SpeechActivity';
 import { PENDING, registry, type ActivityProps, type ActivityRegistry } from '../player/registry';
 import { OFFLINE_TEXT } from '../network/text';
@@ -806,6 +807,24 @@ describe('Expressões Úteis no player (1.14)', () => {
     expect(JSON.stringify(typed).toLowerCase()).not.toContain('julia');
     await fireEvent.press(button(CONTINUE_SHEET));
 
+    // A Resposta Livre (1.18): ENVIAR conclui com VIEWED sem o texto e mostra a resposta-modelo com o nome.
+    const [free] = of('free');
+    expect(await screen.findByText(position(free))).toBeTruthy();
+    const written = "I'm Júlia, <b>from</b> Brazil";
+    await fireEvent.changeText(screen.getByLabelText(ANSWER_LABEL), written);
+    await fireEvent.press(button(SEND_LABEL));
+    expect(await screen.findByText(YOU_WROTE)).toBeTruthy();
+    expect(screen.getByTestId('free-you-wrote')).toHaveTextContent(written, { exact: true });
+    expect(screen.getByTestId('free-model-answer')).toHaveTextContent("Hi Alex! I'm Júlia. I'm from Brazil.", {
+      exact: true,
+    });
+    const viewed = completions.find((body) => body.activityKey === free!.activityKey)!;
+    expect(viewed).toMatchObject({ outcome: 'VIEWED' });
+    expect(Object.keys(viewed).sort()).toEqual(
+      ['activityKey', 'attemptId', 'deviceId', 'outcome', 'studyTimeMs', 'versionId'].sort(),
+    );
+    await fireEvent.press(button(CONTINUE_SHEET));
+
     // A Fala (1.15) fecha o Estágio: o aviso de privacidade, e "Não posso falar agora" pula.
     expect(await screen.findByText(position(of('speech')[0]))).toBeTruthy();
     expect(await screen.findByTestId('speech-privacy')).toBeTruthy();
@@ -817,6 +836,7 @@ describe('Expressões Úteis no player (1.14)', () => {
       [dialogue!.activityKey, 'VIEWED'],
       [cards!.activityKey, 'VIEWED'],
       [expression!.activityKey, 'VIEWED'],
+      [free!.activityKey, 'VIEWED'],
       [MOCK_STAGE.activities.find((activity) => activity.type === 'speech')!.activityKey, 'SKIPPED'],
     ]);
     const receipts = await visitorStore.receipts();
@@ -827,8 +847,38 @@ describe('Expressões Úteis no player (1.14)', () => {
       expect.arrayContaining([
         { activityKey: cards!.activityKey, outcome: 'viewed', xp: 0 },
         { activityKey: expression!.activityKey, outcome: 'viewed', xp: 0 },
+        { activityKey: free!.activityKey, outcome: 'viewed', xp: 0 },
       ]),
     );
+    // O texto da Resposta Livre nunca vai à API (FR-7, NFR4).
+    const sentBodies = (global.fetch as jest.Mock).mock.calls
+      .map(([, init]: [unknown, RequestInit | undefined]) => init?.body)
+      .filter((body): body is string => typeof body === 'string');
+    expect(sentBodies.length).toBeGreaterThan(0);
+    for (const body of sentBodies) expect(body).not.toContain('<b>from</b>');
+  });
+});
+
+describe('Resposta Livre no player (1.18)', () => {
+  const FREE = MOCK_STAGE.activities.find((activity) => activity.type === 'free')!;
+
+  beforeEach(() => {
+    servedStage = { ...MOCK_STAGE, activities: [FREE] };
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
+    jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it('ENVIAR falha: messageFor no rodapé; depois de EXTRA HELP, a mensagem some do VERIFICAR', async () => {
+    apiResponds({ completion: () => json({ code: 'INTERNAL_ERROR' }, 500) });
+    await startTrying(1);
+    await fireEvent.changeText(screen.getByLabelText(ANSWER_LABEL), "I'm Ana");
+    await fireEvent.press(button(SEND_LABEL));
+    expect(await screen.findByText(messageFor('INTERNAL_ERROR'))).toBeTruthy();
+    expect(button(SEND_LABEL)).toBeEnabled();
+    await fireEvent.press(button(EXTRA_HELP_LABEL));
+    expect(await screen.findByRole('button', { name: CHECK_LABEL })).toBeTruthy();
+    expect(screen.queryByText(messageFor('INTERNAL_ERROR'))).toBeNull();
   });
 });
 

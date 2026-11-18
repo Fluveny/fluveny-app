@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ComponentRef, type Ref } from 'react';
 import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { color, overlay, rounded, size, spacing, typography } from './tokens';
@@ -9,6 +9,8 @@ export type TextFieldProps = Omit<
 > & {
   /** Rótulo visível acima do campo, em português; é também o rótulo do leitor de tela. */
   label: string;
+  /** O nó do campo (para levá-lo acima do teclado no player, `useRevealField`). */
+  inputRef?: Ref<ComponentRef<typeof TextInput>>;
 };
 
 /** Anel de foco do `text-field`: `0 0 0 4px` azul a 14%, sem desfoque. */
@@ -19,7 +21,15 @@ export const FOCUS_RING = `0px 0px 0px ${size.focusRing}px ${overlay.focusRing}`
  * `line`, texto `item` em `ink`, placeholder `muted`. Com foco, borda `blue` e
  * anel de 4 dp. A altura é mínima: com a fonte ampliada, o campo cresce.
  */
-export function TextField({ label, onFocus, onBlur, multiline, testID = 'text-field', ...input }: TextFieldProps) {
+export function TextField({
+  label,
+  onFocus,
+  onBlur,
+  multiline,
+  inputRef,
+  testID = 'text-field',
+  ...input
+}: TextFieldProps) {
   const [focused, setFocused] = useState(false);
   return (
     <View style={styles.wrap}>
@@ -28,6 +38,7 @@ export function TextField({ label, onFocus, onBlur, multiline, testID = 'text-fi
       </Text>
       <TextInput
         {...input}
+        ref={inputRef}
         multiline={multiline}
         testID={testID}
         accessibilityLabel={label}

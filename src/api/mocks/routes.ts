@@ -30,6 +30,12 @@
 // Lacunas (1.17): antes da Fala, um `gaps` do banco (com um distrator) e um
 // digitado (com `{name}` numa resposta aceita); o corretor segue o
 // `Grader.gaps` da API. Sem conclusão, como o Associar.
+//
+// Resposta Livre (1.18): depois das Lacunas, um `free` com `{name}` na
+// resposta-modelo. A conclusão `VIEWED` devolve a `modelAnswer` (também na
+// repetição, sem recibo); a Tentativa é o Extra Help, corrigido pelas lacunas
+// do banco, com `extraHelp: true`. O gabarito (resposta-modelo e respostas
+// aceitas) fica só aqui.
 import type { components, paths } from '../schema';
 
 export const MOCK_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
@@ -84,9 +90,9 @@ export function problemBody(problem: MockProblem) {
 const VERSION_ID = 'sha256:0000000000000000000000000000000000000000000000000000000000000001';
 
 // Uma Unidade com um Estágio de um Diálogo, os Cartões, a Expressão Útil, três
-// Escolhas, o Associar, as duas Lacunas e a Fala (o player percorre 1 de 10 a
-// 10 de 10), e a Unit 2 "em breve" (sem Estágios). A primeira Escolha tem 3
-// itens (Resultado "n de 3 itens"); as outras, um só.
+// Escolhas, o Associar, as duas Lacunas, a Resposta Livre e a Fala (o player
+// percorre 1 de 11 a 11 de 11), e a Unit 2 "em breve" (sem Estágios). A
+// primeira Escolha tem 3 itens (Resultado "n de 3 itens"); as outras, um só.
 const unit1 = { unitKey: 'unit-1', order: 1, title: 'Unit 1', comingSoon: false, versionId: VERSION_ID };
 const unit2 = {
   unitKey: 'unit-2',
@@ -104,7 +110,9 @@ type ExpressionView = components['schemas']['ExpressionActivityStudentView'];
 type SpeechView = components['schemas']['SpeechActivityStudentView'];
 type MatchView = components['schemas']['MatchActivityStudentView'];
 type GapsView = components['schemas']['GapsActivityStudentView'];
-type ActivityView = ChoiceView | DialogueView | CardsView | ExpressionView | SpeechView | MatchView | GapsView;
+type FreeView = components['schemas']['FreeActivityStudentView'];
+type ActivityView =
+  ChoiceView | DialogueView | CardsView | ExpressionView | SpeechView | MatchView | GapsView | FreeView;
 type UsefulExpression = components['schemas']['UsefulExpressionStudentView'];
 type AttemptResult = components['schemas']['AttemptResult'];
 type CompletionResult = components['schemas']['CompletionResult'];
@@ -232,6 +240,7 @@ const ALLOWED_COMPLETION: Partial<Record<ActivityView['type'], string>> = {
   cards: 'VIEWED',
   expression: 'VIEWED',
   speech: 'SKIPPED',
+  free: 'VIEWED',
 };
 
 /** Gabarito da Fala no mock: as formas aceitas (alvo e alternativas) e o XP. */
@@ -415,6 +424,54 @@ const gapsTyped = gaps(
   ],
 );
 
+/** Gabarito da Resposta Livre no mock, privado a este módulo: a resposta-modelo e o Extra Help. */
+const freeKey = new Map<string, { modelAnswer: ContentText; xp: number; items: MockGap[] }>();
+
+function free(
+  activityKey: string,
+  title: string,
+  prompt: string,
+  modelAnswer: ContentText,
+  extraHelp: { prompt?: string; lines: ContentText[]; items: MockGap[]; bank: [string, ContentText][] },
+): FreeView {
+  const xp = 6;
+  freeKey.set(activityKey, { modelAnswer, xp, items: extraHelp.items });
+  return {
+    activityKey,
+    type: 'free',
+    title,
+    prompt,
+    extraHelp: {
+      ...(extraHelp.prompt ? { prompt: extraHelp.prompt } : {}),
+      lines: extraHelp.lines,
+      items: extraHelp.items.map((item) => ({ itemKey: item.itemKey })),
+      bank: extraHelp.bank.map(([wordKey, text]) => ({ wordKey, text })),
+    },
+    xp,
+  };
+}
+
+/** A Resposta Livre (1.18), com o nome do aluno na resposta-modelo e o Extra Help de duas lacunas. */
+const aboutYou = free(
+  'about-you-free',
+  'Your answer',
+  "Hi! I'm Alex. What's your name, and where are you from?",
+  "Hi Alex! I'm {name}. I'm from {country}.",
+  {
+    prompt: 'Toque nas palavras para completar.',
+    lines: ['Hi Alex! ___ {name}.', "I'm ___ {country}."],
+    items: [
+      { itemKey: 'about-you-im', accepted: ["I'm", 'I am'], justification: "Para dizer o nome, use **I'm**." },
+      { itemKey: 'about-you-from', accepted: ['from'], justification: 'Para dizer o país, use **from**.' },
+    ],
+    bank: [
+      ['im', "I'm"],
+      ['from', 'from'],
+      ['is', 'is'],
+    ],
+  },
+);
+
 /** As palavras de uma lacuna: a normalização da Fala, mas os tokens (`{name}`) ficam como palavras. */
 function gapWords(text: string): string[] {
   return text
@@ -491,6 +548,7 @@ const stage1Activities: ActivityView[] = [
   speechBubbles,
   gapsBank,
   gapsTyped,
+  aboutYou,
   yourTurn,
 ];
 
@@ -560,6 +618,8 @@ async function gradeAttempt(request: Request, reveal: boolean): Promise<{ data: 
   if (spoken) return gradeSpeech(body, deviceId, spoken, reveal);
   const blanks = gapsKey.get(body.activityKey);
   if (blanks) return gradeGaps(body, deviceId, blanks, reveal);
+  const helped = freeKey.get(body.activityKey);
+  if (helped) return gradeGaps(body, deviceId, helped, reveal, 'free');
   const pairs = matchKey.get(body.activityKey);
   if (pairs) return gradeMatch(body, deviceId, pairs, reveal);
   if (!key) throw new MockProblem(404, 'NOT_FOUND');
@@ -665,7 +725,8 @@ function gradeMatch(
 }
 
 /**
- * As Lacunas no corretor do mock, como o `Grader.gaps` da API: um valor por
+ * As Lacunas (e o Extra Help da Resposta Livre, `type` `free`) no corretor do
+ * mock, como o `Grader.gaps` da API: um valor por
  * lacuna, sem repetir nem faltar, de 1 a 100 caracteres e não em branco; fora
  * disso, `400 INVALID_ANSWER`. Certo quando o valor tem as mesmas palavras de
  * uma resposta aceita. O `expected` é a primeira resposta aceita de cada item.
@@ -675,9 +736,10 @@ function gradeGaps(
   deviceId: string | undefined,
   key: { xp: number; items: MockGap[] },
   reveal: boolean,
+  type: 'gaps' | 'free' = 'gaps',
 ): { data: AttemptResult } {
   const answers = body.answer?.items;
-  if (body.type !== 'gaps' || body.answer?.type !== 'gaps' || !Array.isArray(answers)) {
+  if (body.type !== type || body.answer?.type !== type || !Array.isArray(answers)) {
     throw new MockProblem(400, 'INVALID_ANSWER');
   }
   const known = new Set(key.items.map((item) => item.itemKey));
@@ -698,11 +760,16 @@ function gradeGaps(
       ...(justification === undefined ? {} : { justification }),
     };
   });
-  const expected = {
-    type: 'gaps' as const,
-    items: key.items.map(({ itemKey, accepted }) => ({ itemKey, value: accepted[0]! })),
-  };
-  return gradedResult(body, deviceId, reveal, key.xp, items, expected);
+  // No Extra Help, o reveal exige uma Tentativa corrigida: a conclusão `VIEWED` não basta (como na API).
+  if (reveal && type === 'free' && firstRecords.get(`${deviceId}|${body.activityKey}`)?.outcome !== 'GRADED') {
+    throw new MockProblem(409, 'ATTEMPT_REQUIRED');
+  }
+  const values = key.items.map(({ itemKey, accepted }) => ({ itemKey, value: accepted[0]! }));
+  const expected =
+    type === 'free' ? { type: 'free' as const, items: values } : { type: 'gaps' as const, items: values };
+  const graded = gradedResult(body, deviceId, reveal, key.xp, items, expected);
+  // O Extra Help da Resposta Livre leva a marca no Resultado, como na API.
+  return type === 'free' ? { data: { ...graded.data, extraHelp: true } } : graded;
 }
 
 /**
@@ -768,7 +835,16 @@ async function complete(request: Request): Promise<{ data: CompletionResult }> {
   if (!activity) throw new MockProblem(404, 'NOT_FOUND');
   if (ALLOWED_COMPLETION[activity.type] !== body.outcome) throw new MockProblem(409, 'COMPLETION_NOT_ALLOWED');
   const receipt = receiptFor(deviceId, activityKey, body.attemptId, body.outcome, 0);
-  return { data: { outcome: body.outcome, xpAwarded: 0, ...(receipt ? { receipt } : {}) } };
+  // A Resposta Livre: a resposta-modelo vem na conclusão, também na repetição.
+  const model = freeKey.get(activityKey)?.modelAnswer;
+  return {
+    data: {
+      outcome: body.outcome,
+      xpAwarded: 0,
+      ...(receipt ? { receipt } : {}),
+      ...(model === undefined ? {} : { modelAnswer: model }),
+    },
+  };
 }
 
 export const mockRoutes: MockRoutes = {

@@ -8,7 +8,7 @@ import { messageFor } from '../../src/api/errors';
 import { useOnline } from '../../src/network/useOnline';
 import { captureError } from '../../src/observability/sentry';
 import { ActivityTransition } from '../../src/player/ActivityTransition';
-import { needsCompletion, useCompletion } from '../../src/player/completion';
+import { needsCompletion, useCompletion, type UngradedOutcome } from '../../src/player/completion';
 import { PlayerFooter, PlayerFrame, PlayerTop } from '../../src/player/PlayerFrame';
 import { resolveActivity, type ActivityResult, type FooterAction, type SheetSpec } from '../../src/player/registry';
 import { useStage } from '../../src/player/useStage';
@@ -84,6 +84,7 @@ export default function Player() {
   const { store } = visitor;
   const {
     complete,
+    clearError: clearCompletionError,
     completing,
     error: completionError,
   } = useCompletion(store, activity?.activityKey, stage?.versionId);
@@ -93,7 +94,7 @@ export default function Player() {
         let xp = result.xp;
         if (needsCompletion(result.outcome)) {
           // A tela fica na falha (com a mensagem) e quando o player já saiu.
-          if ((await complete(result.outcome)) !== 'done') return;
+          if (!result.recorded && (await complete(result.outcome)).status !== 'done') return;
           xp = 0;
         }
         try {
@@ -111,6 +112,14 @@ export default function Player() {
   );
   // A Atividade pode esperar o fim (a Fala trava o microfone enquanto o pular está no ar).
   const onAdvance = useCallback((result?: ActivityResult) => advance(result), [advance]);
+  // Concluir sem avançar (a Resposta Livre, 1.18): a falha fica no rodapé, como no avançar.
+  const onComplete = useCallback(
+    async (outcome: UngradedOutcome) => {
+      const { status, result } = await complete(outcome);
+      return status === 'done' && result ? result : null;
+    },
+    [complete],
+  );
 
   // A conclusão em curso ou com falha aparece por cima da ação que a Atividade definiu.
   const shownFooter = useMemo<FooterAction | null>(() => {
@@ -177,6 +186,8 @@ export default function Player() {
             setFooter,
             setSheet,
             advance: onAdvance,
+            complete: onComplete,
+            clearCompletionError,
           })}
         </ActivityTransition>
       </PlayerFrame>

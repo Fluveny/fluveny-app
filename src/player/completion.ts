@@ -64,6 +64,9 @@ export async function completeActivity({
 /** Como terminou `complete`: registrado, falhou (a tela fica), ocupado ou o player saiu. */
 export type CompletionStatus = 'done' | 'failed' | 'busy' | 'gone';
 
+/** O fim de `complete`, com o Resultado da API quando registrou (a `modelAnswer` da Resposta Livre, 1.18). */
+export type Completed = { status: CompletionStatus; result?: CompletionResult };
+
 /** O `code` da falha da API; outra falha vai ao Sentry e vira o genérico. */
 function codeOf(failure: unknown): string {
   if (failure instanceof ApiError) return failure.code;
@@ -95,16 +98,17 @@ export function useCompletion(store: VisitorStore, activityKey: string | undefin
   }, [activityKey]);
 
   const complete = useCallback(
-    async (outcome: UngradedOutcome): Promise<CompletionStatus> => {
+    async (outcome: UngradedOutcome): Promise<Completed> => {
       // Sem a Atividade ou o `versionId` do Estágio, não há o que registrar.
-      if (running.current || !activityKey || !versionId) return 'busy';
+      if (running.current || !activityKey || !versionId) return { status: 'busy' };
       running.current = true;
       setCompleting(true);
       setFailure(null);
       const key = `${activityKey}:${outcome}`;
       if (pending.current?.key !== key) pending.current = { key, attemptId: randomUUID() };
+      let result: CompletionResult;
       try {
-        await completeActivity({
+        result = await completeActivity({
           store,
           activityKey,
           versionId,
@@ -116,19 +120,23 @@ export function useCompletion(store: VisitorStore, activityKey: string | undefin
       } catch (error) {
         const code = codeOf(error);
         if (alive.current) setFailure({ activityKey, code });
-        return alive.current ? 'failed' : 'gone';
+        return { status: alive.current ? 'failed' : 'gone' };
       } finally {
         running.current = false;
         if (alive.current) setCompleting(false);
       }
       // Saiu durante o envio: o recibo ficou, o Progresso não (como o ✕ depois do Resultado).
-      return alive.current ? 'done' : 'gone';
+      return alive.current ? { status: 'done', result } : { status: 'gone' };
     },
     [store, activityKey, versionId],
   );
 
+  /** Esquece a falha (a Resposta Livre trocou pelo Extra Help, 1.18: a mensagem do ENVIAR não vale mais). */
+  const clearError = useCallback(() => setFailure(null), []);
+
   return {
     complete,
+    clearError,
     completing,
     /** O código da última falha, só enquanto a Atividade em que ela aconteceu está na tela. */
     error: failure && failure.activityKey === activityKey ? failure.code : null,
