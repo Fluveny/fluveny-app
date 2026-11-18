@@ -16,14 +16,17 @@ describe('números do Resumo do Estágio (1.20)', () => {
     expect(summarizeStage(progress, KEYS)).toEqual({ xp: 16, resultPct: 84, minutes: 2, skipped: 1 });
   });
 
-  it('Progresso antigo, sem Resultado nem tempo: calcula com o que há', () => {
+  it('Progresso antigo, sem Resultado nem tempo: calcula com o que há, e sem nenhum tempo os minutos são null', () => {
     const progress: ProgressEntry[] = [
       { activityKey: 'a1', outcome: 'completed', xp: 10 },
       { activityKey: 'a2', outcome: 'completed', xp: 5, resultPct: 50 },
       { activityKey: 'a3', outcome: 'viewed', xp: 0 },
     ];
-    expect(summarizeStage(progress, KEYS)).toEqual({ xp: 15, resultPct: 50, minutes: 0, skipped: 0 });
-    expect(summarizeStage([], KEYS)).toEqual({ xp: 0, resultPct: null, minutes: 0, skipped: 0 });
+    expect(summarizeStage(progress, KEYS)).toEqual({ xp: 15, resultPct: 50, minutes: null, skipped: 0 });
+    expect(summarizeStage([], KEYS)).toEqual({ xp: 0, resultPct: null, minutes: null, skipped: 0 });
+    // Com algum tempo gravado, as antigas contam como zero.
+    const mixed: ProgressEntry[] = [...progress, { activityKey: 'a4', outcome: 'viewed', xp: 0, studyTimeMs: 90_000 }];
+    expect(summarizeStage(mixed, KEYS).minutes).toBe(2);
   });
 
   it('com algum tempo, no mínimo 1 minuto', () => {

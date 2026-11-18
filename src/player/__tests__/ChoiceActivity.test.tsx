@@ -250,6 +250,36 @@ describe('Escolha (Vocab Mode)', () => {
     expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 7, resultPct: 67 });
   });
 
+  it('a primeira Tentativa sem resultPct: o Resultado não vem de uma Tentativa posterior', async () => {
+    let first = true;
+    api({
+      attempt: () => {
+        if (!first) return undefined;
+        first = false;
+        return new Response(
+          JSON.stringify({
+            data: {
+              outcome: 'GRADED',
+              xpAwarded: 7,
+              items: THREE.items.map((item, i) => ({ itemKey: item.itemKey, correct: i !== 0 })),
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      },
+    });
+    const { advance } = await open();
+    await answerThree(['B', 'B', 'B']);
+    await verify();
+    expect(await screen.findByText(FEEDBACK_TITLES.wrong)).toBeTruthy();
+    await fireEvent.press(button(RETRY_LABEL));
+    await pick(THREE, 0, 'A');
+    await verify();
+    expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
+    await fireEvent.press(button(CONTINUE_LABEL));
+    expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 7 });
+  });
+
   it('Ver resposta (1/3): reveal falha e volta; depois, folha azul com a certa em right; grava xp 3', async () => {
     let failing = true;
     api({ reveal: () => (failing ? problem(500, 'INTERNAL_ERROR') : undefined) });

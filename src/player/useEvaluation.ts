@@ -206,7 +206,8 @@ export function useEvaluation({
           result,
           attempts: s.attempts + 1,
           firstXp: s.firstXp ?? Math.max(0, result.xpAwarded),
-          firstPct: s.firstPct ?? result.resultPct ?? null,
+          // Só a primeira Tentativa: sem `resultPct` nela, fica sem Resultado.
+          firstPct: s.attempts === 0 ? (result.resultPct ?? null) : s.firstPct,
           lastAnswer: sent,
         }));
       } catch (error) {

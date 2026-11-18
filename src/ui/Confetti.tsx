@@ -44,14 +44,19 @@ export function Confetti({ height = size.confettiFall, testID = 'confetti' }: { 
 
   useEffect(() => {
     let alive = true;
+    // A mudança que chega antes da leitura inicial é a mais nova: a leitura, então, é ignorada.
+    let changed = false;
     AccessibilityInfo.isReduceMotionEnabled()
       .then((value) => {
-        if (alive) setReduced(value);
+        if (alive && !changed) setReduced(value);
       })
       .catch(() => {
-        if (alive) setReduced(true);
+        if (alive && !changed) setReduced(true);
       });
-    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', (value) => setReduced(value));
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', (value) => {
+      changed = true;
+      setReduced(value);
+    });
     return () => {
       alive = false;
       subscription.remove();

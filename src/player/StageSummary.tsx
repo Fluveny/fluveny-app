@@ -1,4 +1,5 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { AccessibilityInfo, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RenderedText, useRenderVars, type ContentText } from '../renderer';
@@ -20,8 +21,8 @@ type Props = {
   stageNumber: number;
   /** O título do Estágio já em texto puro, com as Variáveis do Aluno. */
   stageTitle: string;
-  /** A frase do `completion` do Estágio, crua; sem ela, a linha não aparece. */
-  completion: ContentText | undefined;
+  /** A frase do `completion` do Estágio, crua, como vem na visão do Estágio; sem ela (ausente ou `null`), a linha não aparece. */
+  completion: ContentText | null | undefined;
   summary: Summary;
   online: boolean;
   onClose: () => void;
@@ -45,11 +46,20 @@ function Stat({ label, value, spoken, tone }: { label: string; value: string; sp
  * Resumo do fim do Estágio do Visitante (UX-DR104, UX-DR115): Alex `cheer` e
  * confete (sem confete com "remover animações"), "{Estágio}: check!", a frase
  * do conteúdo, XP, Resultado médio, minutos e as puladas; no lugar do
- * CONTINUAR, o convite ouro. O ✕ (e o voltar) leva à boas-vindas.
+ * CONTINUAR, o convite ouro. O ✕ (e o voltar) leva à boas-vindas. Ao abrir,
+ * o título é anunciado ao leitor de tela.
  */
 export function StageSummary({ stageNumber, stageTitle, completion, summary, online, onClose, onSignUp }: Props) {
   const { vars, pronoun } = useRenderVars();
   const skipped = skippedLine(summary.skipped);
+  const title = stageDoneTitle(stageTitle);
+  // O fim do Estágio é anunciado, como as outras trocas do player; uma vez, ao abrir.
+  const announced = useRef(false);
+  useEffect(() => {
+    if (announced.current) return;
+    announced.current = true;
+    AccessibilityInfo.announceForAccessibility(title);
+  }, [title]);
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom', 'left', 'right']} testID="stage-summary">
       <PlayerTop onClose={onClose} online={online} />
@@ -61,7 +71,7 @@ export function StageSummary({ stageNumber, stageTitle, completion, summary, onl
           <View style={styles.heading}>
             <Text style={styles.eyebrow}>{stageDoneLabel(stageNumber)}</Text>
             <Text style={styles.title} accessibilityRole="header">
-              {stageDoneTitle(stageTitle)}
+              {title}
             </Text>
             {completion === undefined || completion === null ? null : (
               <RenderedText
@@ -84,12 +94,14 @@ export function StageSummary({ stageNumber, stageTitle, completion, summary, onl
                 tone={color.tealDk}
               />
             )}
-            <Stat
-              label={MINUTES_STAT}
-              value={String(summary.minutes)}
-              spoken={`${summary.minutes} ${summary.minutes === 1 ? 'minuto' : 'minutos'}`}
-              tone={color.blue}
-            />
+            {summary.minutes === null ? null : (
+              <Stat
+                label={MINUTES_STAT}
+                value={String(summary.minutes)}
+                spoken={`${summary.minutes} ${summary.minutes === 1 ? 'minuto' : 'minutos'}`}
+                tone={color.blue}
+              />
+            )}
           </View>
           {skipped ? (
             <Text style={styles.skipped} testID="stage-skipped">

@@ -1,19 +1,16 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { captureError } from '../../src/observability/sentry';
 import { PRIVACY_LINK, PRIVACY_PATH, TERMS_LINK, TERMS_PATH } from '../../src/legal/paths';
 import { useOnline } from '../../src/network/useOnline';
 import { OFFLINE_TEXT } from '../../src/network/text';
-import { isStageComplete } from '../../src/player/stageStats';
-import { fetchVisitorActivityKeys } from '../../src/player/useStage';
+import { checkVisitorStageComplete } from '../../src/player/stageComplete';
 import { AlexWave, Button, Room, StatusBanner, sceneHeight, TextLink } from '../../src/ui';
 import { color, size, spacing, typography } from '../../src/ui/tokens';
 import { openPlayer } from '../../src/visitor/events';
-import { visitorStore } from '../../src/visitor/store';
 
 // Copy da boas-vindas (EXPERIENCE.md, Voice and Tone).
 export const WELCOME_TITLE = 'Seu primeiro dia na universidade. Em inglês.';
@@ -31,13 +28,22 @@ export const INVITE_PATH = '/convite';
  * Para onde o EXPERIMENTAR AGORA leva: com o Estágio 1 completo no aparelho, ao
  * convite (o "Estágio 2" do Visitante, 1.20); senão, ao player. Sem rede, direto
  * ao player (que mostra o aviso). Se a API falhar, ao player, que mostra o erro
- * e o TENTAR DE NOVO; se a loja falhar, também, e a falha vai ao Sentry.
+ * e o TENTAR DE NOVO; se a loja falhar, também, e a falha vai ao Sentry. A
+ * conferência tem um prazo único (`REQUEST_TIMEOUT_MS`); estourado, ao player.
+ * Se a boas-vindas sair da tela no meio, não faz nada.
  */
 function useTryNow(online: boolean) {
   const router = useRouter();
   const client = useQueryClient();
   const [busy, setBusy] = useState(false);
   const running = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const tryNow = useCallback(async () => {
     if (running.current) return;
     if (!online) {
@@ -46,17 +52,11 @@ function useTryNow(online: boolean) {
     }
     running.current = true;
     setBusy(true);
-    const [keys, progress] = await Promise.all([
-      // Falha da API: o player refaz a busca e mostra a falha.
-      fetchVisitorActivityKeys(client).catch(() => null),
-      visitorStore.progress().catch((failure: unknown) => {
-        captureError(failure);
-        return null;
-      }),
-    ]);
+    const done = await checkVisitorStageComplete(client);
     running.current = false;
+    if (!mounted.current) return;
     setBusy(false);
-    if (keys && progress && isStageComplete(progress, keys)) router.navigate(INVITE_PATH);
+    if (done) router.navigate(INVITE_PATH);
     else openPlayer(router);
   }, [client, router, online]);
   return { tryNow, busy };

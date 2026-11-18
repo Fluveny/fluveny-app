@@ -18,6 +18,7 @@ import { useStage } from '../../src/player/useStage';
 import { ExpressionsProvider, renderPlain, toRenderContext } from '../../src/renderer';
 import { color, spacing, typography } from '../../src/ui/tokens';
 import { sendVisitorEvent } from '../../src/visitor/events';
+import type { ProgressEntry } from '../../src/visitor/types';
 import { useVisitor } from '../../src/visitor/useVisitor';
 
 export const RETRY_LABEL = 'TENTAR DE NOVO';
@@ -120,23 +121,35 @@ export default function Player() {
     sendVisitorEvent(store, { type: 'ACTIVITY_STARTED', versionId, activityKey: shownKey }, onlineNow.current);
   }, [store, shownKey, versionId]);
 
-  /** Fecha o Estágio: os números do Resumo saem do Progresso já gravado. */
-  const finishStage = useCallback(async () => {
-    let progress = visitor.progress;
-    try {
-      progress = await store.progress();
-    } catch (failure) {
-      captureError(failure);
-    }
-    setSummary(
-      summarizeStage(
-        progress,
-        activities.map((entry) => entry.activityKey),
-      ),
-    );
-  }, [store, visitor.progress, activities]);
+  /**
+   * Fecha o Estágio: os números do Resumo saem do Progresso já gravado. Se a
+   * leitura falhar, usa o Progresso em memória com a entrada que acabou de ser
+   * gravada (ele foi lido antes dela).
+   */
+  const finishStage = useCallback(
+    async (recorded?: ProgressEntry) => {
+      let progress = visitor.progress;
+      try {
+        progress = await store.progress();
+      } catch (failure) {
+        captureError(failure);
+        // O Progresso guarda só a primeira conclusão de cada Atividade.
+        if (recorded && !progress.some((entry) => entry.activityKey === recorded.activityKey)) {
+          progress = [...progress, recorded];
+        }
+      }
+      setSummary(
+        summarizeStage(
+          progress,
+          activities.map((entry) => entry.activityKey),
+        ),
+      );
+    },
+    [store, visitor.progress, activities],
+  );
   const advance = useCallback(
     async (result?: ActivityResult) => {
+      let recorded: ProgressEntry | undefined;
       if (result && activity) {
         // O tempo de estudo vai até o toque, sem a espera da conclusão.
         const studyTimeMs = elapsedMs();
@@ -146,16 +159,15 @@ export default function Player() {
           if (!result.recorded && (await complete(result.outcome)).status !== 'done') return;
           xp = 0;
         }
+        recorded = {
+          activityKey: activity.activityKey,
+          outcome: result.outcome,
+          xp,
+          ...(result.outcome === 'completed' && result.resultPct !== undefined ? { resultPct: result.resultPct } : {}),
+          studyTimeMs,
+        };
         try {
-          await store.recordProgress({
-            activityKey: activity.activityKey,
-            outcome: result.outcome,
-            xp,
-            ...(result.outcome === 'completed' && result.resultPct !== undefined
-              ? { resultPct: result.resultPct }
-              : {}),
-            studyTimeMs,
-          });
+          await store.recordProgress(recorded);
         } catch (failure) {
           captureError(failure);
         }
@@ -163,7 +175,7 @@ export default function Player() {
       setFooter(null);
       setSheet(null);
       if (position + 1 < total) setIndex(position + 1);
-      else await finishStage();
+      else await finishStage(recorded);
     },
     [activity, position, total, store, complete, elapsedMs, finishStage],
   );

@@ -9,8 +9,11 @@ export type StageSummary = {
   xp: number;
   /** Média dos Resultados das Atividades avaliadas, arredondada; `null` sem nenhuma. */
   resultPct: number | null;
-  /** Minutos de estudo (a soma dos tempos), arredondados; com algum tempo, no mínimo 1. */
-  minutes: number;
+  /**
+   * Minutos de estudo (a soma dos tempos), arredondados; com algum tempo, no
+   * mínimo 1. `null` sem nenhum tempo gravado (Progresso de antes da 1.20).
+   */
+  minutes: number | null;
   /** Atividades puladas ("Não posso falar agora"). */
   skipped: number;
 };
@@ -35,11 +38,12 @@ export function summarizeStage(progress: readonly ProgressEntry[], activityKeys:
   const graded = entries.flatMap((entry) =>
     entry.outcome === 'completed' && entry.resultPct !== undefined ? [entry.resultPct] : [],
   );
-  const timeMs = entries.reduce((sum, entry) => sum + (entry.studyTimeMs ?? 0), 0);
+  const timed = entries.filter((entry) => entry.studyTimeMs !== undefined);
+  const timeMs = timed.reduce((sum, entry) => sum + (entry.studyTimeMs ?? 0), 0);
   return {
     xp: entries.reduce((sum, entry) => sum + entry.xp, 0),
     resultPct: graded.length > 0 ? Math.round(graded.reduce((sum, pct) => sum + pct, 0) / graded.length) : null,
-    minutes: timeMs > 0 ? Math.max(1, Math.round(timeMs / MINUTE_MS)) : 0,
+    minutes: timed.length === 0 ? null : timeMs > 0 ? Math.max(1, Math.round(timeMs / MINUTE_MS)) : 0,
     skipped: entries.filter((entry) => entry.outcome === 'skipped').length,
   };
 }
