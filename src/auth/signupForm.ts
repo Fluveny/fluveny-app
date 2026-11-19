@@ -20,7 +20,6 @@ export const PASSWORD_PROBLEM =
   'A senha precisa ter de 8 a 64 caracteres, com pelo menos uma letra e um número. Senhas com muitos acentos ou emoji podem precisar ser mais curtas.';
 export const PASSWORD_HINT = 'De 8 a 64 caracteres, com pelo menos uma letra e um número.';
 export const AGE_BELOW_TEXT = 'O Fluveny é para quem tem 12 anos ou mais.';
-export const GUARDIAN_TEXT = 'Menor de 18: pediremos o e-mail de um responsável para confirmar o consentimento.';
 export const ADULT_ONLY_TEXT = 'Por enquanto, o cadastro é só para quem tem 18 anos ou mais.';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
