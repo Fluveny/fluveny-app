@@ -10,7 +10,6 @@ import {
   ADULT_ONLY_TEXT,
   ageBand,
   AGE_BELOW_TEXT,
-  GUARDIAN_TEXT,
   isoDate,
   maskBirthDate,
   NAME_MAX,
@@ -253,7 +252,6 @@ function SignUpForm({ fromInvite, onCreated }: { fromInvite: boolean; onCreated:
       />
       {band === 'teen' ? (
         <View style={styles.teen} testID="signup-teen">
-          <StatusBanner tone="notice" text={GUARDIAN_TEXT} testID="signup-guardian" />
           <StatusBanner tone="notice" text={ADULT_ONLY_TEXT} testID="signup-adult-only" />
         </View>
       ) : null}

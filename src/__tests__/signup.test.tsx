@@ -31,7 +31,7 @@ import { mockResponse } from '../api/mocks/handlers';
 import { MOCK_CREATED, mockRoutes, resetMockStudents } from '../api/mocks/routes';
 import { AppProviders, createQueryClient } from '../AppProviders';
 import { forgetCachedSession } from '../auth/session';
-import { ADULT_ONLY_TEXT, AGE_BELOW_TEXT, DATE_PROBLEM, GUARDIAN_TEXT, PASSWORD_PROBLEM } from '../auth/signupForm';
+import { ADULT_ONLY_TEXT, AGE_BELOW_TEXT, DATE_PROBLEM, PASSWORD_PROBLEM } from '../auth/signupForm';
 import { HOME_STUDY, studentGreeting } from '../auth/StudentHome';
 import { PRIVACY_LINK, TERMS_LINK } from '../legal/paths';
 import { PRIVACY_POLICY } from '../legal/privacy';
@@ -342,12 +342,12 @@ describe('cadastro do Aluno adulto (2.1)', () => {
     expect(ofRoute('POST', '/api/v1/auth/signup')).toHaveLength(0);
   });
 
-  it('de 12 a 17: os dois avisos, e não envia', async () => {
+  it('de 12 a 17: só o aviso de 18+, sem prometer consentimento, e não envia', async () => {
     for (const date of [birthDate(12), birthDate(18, 1)]) {
       await openApp('/cadastro');
       await fill({ birthDate: date });
-      expect(screen.getByText(GUARDIAN_TEXT)).toBeTruthy();
       expect(screen.getByText(ADULT_ONLY_TEXT)).toBeTruthy();
+      expect(screen.queryByText(/responsável/)).toBeNull();
       await fireEvent.press(button(CREATE_LABEL));
       expect(ofRoute('POST', '/api/v1/auth/signup')).toHaveLength(0);
     }
