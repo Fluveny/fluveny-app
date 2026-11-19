@@ -27,6 +27,7 @@ import {
   SceneFrame,
   SpeechBubble,
   StatusBanner,
+  Checkbox,
   TextField,
   TextLink,
   WordChip,
@@ -94,6 +95,7 @@ function KitCatalog() {
   const [listening, setListening] = useState(false);
   const [notice, setNotice] = useState(false);
   const [confetti, setConfetti] = useState(0);
+  const [accepted, setAccepted] = useState(false);
   const progress = PROGRESS_STEPS[step % PROGRESS_STEPS.length] ?? 0;
 
   return (
@@ -185,6 +187,13 @@ function KitCatalog() {
             autoCapitalize="words"
           />
           <TextField label="Sua resposta" placeholder="Type your answer…" multiline testID="text-field-multiline" />
+          <TextField label="Campo com dica" hint="De 8 a 64 caracteres." testID="text-field-hint" />
+          <TextField label="Campo com erro" error="Confira o e-mail." testID="text-field-error" />
+        </Section>
+
+        <Section title="CAIXA DE SELEÇÃO">
+          <Checkbox label="Aceito os termos" checked={accepted} onChange={setAccepted} testID="kit-checkbox" />
+          <Checkbox label="Desabilitada" checked disabled onChange={() => {}} testID="kit-checkbox-disabled" />
         </Section>
 
         <Section title="ALTERNATIVAS">

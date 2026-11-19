@@ -193,6 +193,10 @@ export const size = {
   confettiRadius: 3,
   /** Quanto o confete cai, do topo da caixa [ASSUMPTION: 420, como no protótipo]. */
   confettiFall: 420,
+  /** Caixa de seleção do aceite (2.1) [ASSUMPTION: 28; o DESIGN.md não tem `checkbox`]. */
+  checkbox: 28,
+  /** ✓ dentro da caixa de seleção [ASSUMPTION: 18]. */
+  checkboxIcon: 18,
 } as const;
 
 /** Altura da cena do Diálogo (DESIGN.md, Layout & Spacing): cerca de 46% da tela, entre 300 e 420 dp. */

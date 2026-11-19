@@ -35,6 +35,10 @@ declare global {
     /** Volta ao padrão: disponível, permissão concedida, nada ouvido. */
     reset: () => void;
   };
+  /** O armazenamento seguro simulado (expo-secure-store, 2.1). */
+  var __secureStore: Map<string, string>;
+  /** Esvazia o armazenamento seguro simulado. */
+  var __resetSecureStore: () => void;
 }
 
 export {};

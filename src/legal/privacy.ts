@@ -1,17 +1,20 @@
-// Política de privacidade provisória (1.21). Descreve só o que o código faz hoje,
-// no modo Visitante (Épico 1). Mudou o que o App, a API ou o Worker tratam: mude este texto,
-// a versão e a data no mesmo PR.
+// Política de privacidade provisória (1.21). Descreve só o que o código faz hoje:
+// o modo Visitante (Épico 1) e o cadastro do Aluno adulto (2.1). Mudou o que o
+// App, a API ou o Worker tratam: mude este texto, a versão (`versions.ts`) e a
+// data no mesmo PR.
 import type { LegalDocument } from './types';
+import { PRIVACY_VERSION } from './versions';
 
 export const PRIVACY_POLICY: LegalDocument = {
   title: 'Política de privacidade',
-  version: '0.2',
-  date: '2026-11-18',
+  version: PRIVACY_VERSION,
+  date: '2026-11-19',
   sections: [
     {
       title: 'Sobre esta política',
       paragraphs: [
-        'Aqui a gente explica quais dados o Fluveny trata quando você usa o App ou o site sem conta (o modo Visitante), para que servem, onde ficam e com quem passam. Hoje o Fluveny só tem o modo Visitante: não há cadastro, login nem e-mail.',
+        'Aqui a gente explica quais dados o Fluveny trata quando você usa o App ou o site sem conta (o modo Visitante) e quando você cria uma conta, para que servem, onde ficam e com quem passam.',
+        'Por enquanto, só quem tem 18 anos ou mais pode criar conta. O Fluveny ainda não envia e-mails, e o seu Progresso continua só no aparelho, mesmo com conta.',
         'O Fluveny é um projeto de extensão da UNIFAL-MG. Quem é o controlador dos dados e qual é o canal de contato para assuntos de privacidade ainda estão sendo definidos com a coordenação do projeto. Os dois entram na versão final desta política.',
       ],
     },
@@ -32,6 +35,18 @@ export const PRIVACY_POLICY: LegalDocument = {
         'O texto que você escreve na Resposta Livre nunca sai do aparelho.',
         'Para a equipe medir o uso do Fluveny, o App avisa o servidor quando você abre o Estágio e cada Atividade, só com o deviceId e qual Atividade foi (sem nome, país, respostas, resultado ou tempo). O servidor também registra quando o deviceId conclui o Estágio 1. Cada aviso é gravado com a hora do servidor. O prazo de guarda desses avisos ainda está sendo definido e entra na versão final desta política.',
         'O servidor guarda a primeira tentativa de cada Atividade (com o deviceId, o resultado, o XP e o tempo de estudo, mas sem a resposta) por até 90 dias. Depois disso, ela é apagada.',
+      ],
+    },
+    {
+      title: 'Quando você cria uma conta',
+      paragraphs: [
+        'No cadastro, o Fluveny pede o seu e-mail, uma senha e a sua data de nascimento, e você pode dizer como quer ser chamado. Logo depois, você pode escolher os pronomes que o Alex usa nas histórias (she/her, he/him ou they/them); sem escolha, vale they/them.',
+        'Esses dados ficam no nosso servidor, na sua conta. A senha nunca é guardada como você digitou: o servidor guarda só um resumo dela (hash), que não dá para desfazer. A data de nascimento serve para conferir a idade mínima.',
+        'A conta também guarda a versão destes termos e da Política de privacidade que você aceitou e a data do aceite.',
+        'Para você continuar conectado, o servidor cria uma sessão, que vale 30 dias e se renova enquanto você usa o Fluveny. No site, ela fica num cookie que o próprio navegador guarda e que o código do site não consegue ler (HttpOnly). No App Android, ela fica no armazenamento seguro do aparelho. O servidor guarda só um resumo (hash) da sessão, que ele apaga quando ela vence.',
+        'Quando a conta é criada, o servidor registra esse fato para a equipe medir o uso, com a hora do servidor e um identificador aleatório da conta, sem e-mail, nome, data de nascimento ou qualquer outro dado pessoal.',
+        'O nome e o pronome da conta aparecem nas Atividades no lugar dos do modo Visitante. O nome e o país que você digita no Diálogo, o seu Progresso e o XP continuam só no aparelho, como no modo Visitante.',
+        'Ainda não dá para mudar os dados nem apagar a conta pelo App. O canal para pedir isso entra na versão final desta política, junto com o controlador.',
       ],
     },
     {
@@ -66,7 +81,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       paragraphs: [
         'Pela Lei Geral de Proteção de Dados (LGPD, art. 18), você tem direito a confirmar se tratamos dados seus, acessar esses dados, corrigi-los, pedir a anonimização, o bloqueio ou a eliminação de dados desnecessários ou tratados em desacordo com a lei, pedir a portabilidade, pedir que sejam apagados, saber com quem são compartilhados, saber o que acontece se você não der o consentimento, revogar o consentimento e se opor a um tratamento. Você também pode reclamar à Autoridade Nacional de Proteção de Dados (ANPD).',
         'A base legal de cada tratamento e as regras para dados de crianças e adolescentes (LGPD, art. 14) entram na versão final desta política.',
-        'Os dados do modo Visitante ficam quase todos no seu aparelho, e você mesmo pode apagá-los, como explicado abaixo. O canal para pedir o resto entra na versão final desta política, junto com o controlador.',
+        'Os dados do modo Visitante ficam quase todos no seu aparelho, e você mesmo pode apagá-los, como explicado abaixo. Os dados da conta ficam no servidor. O canal para pedir o resto entra na versão final desta política, junto com o controlador.',
       ],
     },
     {
@@ -80,7 +95,7 @@ export const PRIVACY_POLICY: LegalDocument = {
     {
       title: 'Mudanças nesta política',
       paragraphs: [
-        'Esta política muda quando o Fluveny passar a tratar outros dados (por exemplo, quando chegar o cadastro) e quando sair a versão final. Cada versão traz o número e a data no topo.',
+        'Esta política muda quando o Fluveny passar a tratar outros dados (por exemplo, quando o Progresso passar a ser salvo na conta) e quando sair a versão final. Cada versão traz o número e a data no topo.',
       ],
     },
   ],

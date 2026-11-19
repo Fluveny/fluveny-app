@@ -24,12 +24,19 @@ type Common = {
 };
 
 export type CardProps =
-  | (Common & { onPress?: undefined; accessibilityLabel?: undefined; disabled?: undefined })
+  | (Common & {
+      onPress?: undefined;
+      accessibilityLabel?: undefined;
+      accessibilityRole?: undefined;
+      disabled?: undefined;
+    })
   | (Common & {
       /** Cartão tocável: afunda como o botão. */
       onPress: () => void;
       /** Obrigatório quando tocável; o estado (certo/errado) é somado aqui. */
       accessibilityLabel: string;
+      /** `radio` para uma escolha única num grupo (os pronomes do cadastro, 2.1); padrão `button`. */
+      accessibilityRole?: 'button' | 'radio';
       disabled?: boolean;
     });
 
@@ -84,6 +91,7 @@ export function Card(props: CardProps) {
   return (
     <Pressable3D
       accessibilityLabel={withState(props.accessibilityLabel, state)}
+      accessibilityRole={props.accessibilityRole ?? 'button'}
       accessibilityState={{ selected: tone === 'selected' }}
       disabled={props.disabled}
       onPress={props.onPress}

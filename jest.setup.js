@@ -159,3 +159,20 @@ jest.mock('expo-speech-recognition', () => {
 // Carrega a simulação já agora: o App só a requer ao abrir a Fala, e os testes
 // precisam do `global.__speech` antes disso.
 require('expo-speech-recognition');
+
+// expo-secure-store (2.1): o armazenamento seguro do Android, num Map em memória
+// que dura o arquivo de teste inteiro ("reabrir o App" acha o mesmo token).
+// `global.__secureStore` é o Map; `global.__resetSecureStore()` o esvazia.
+jest.mock('expo-secure-store', () => {
+  const items = new Map();
+  global.__secureStore = items;
+  global.__resetSecureStore = () => items.clear();
+  return {
+    getItem: jest.fn((key) => items.get(key) ?? null),
+    getItemAsync: jest.fn(async (key) => items.get(key) ?? null),
+    setItem: jest.fn((key, value) => void items.set(key, value)),
+    setItemAsync: jest.fn(async (key, value) => void items.set(key, value)),
+    deleteItemAsync: jest.fn(async (key) => void items.delete(key)),
+    isAvailableAsync: jest.fn(async () => true),
+  };
+});

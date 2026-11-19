@@ -7,6 +7,7 @@ export { Room } from './art/Room';
 export { Button, BUTTON_VARIANTS, type ButtonProps, type ButtonVariant } from './Button';
 export { Card, CARD_TONES, type CardProps, type CardTone } from './Card';
 export { CHOICE_LETTERS, ChoiceCard, choiceLetter, type ChoiceCardProps, type ChoiceState } from './ChoiceCard';
+export { Checkbox, type CheckboxProps } from './Checkbox';
 export { Column } from './Column';
 export { CONFETTI_PIECES, Confetti } from './Confetti';
 export { EXPRESSION_EYEBROW, ExpressionCard, type ExpressionCardProps, type ExpressionEntry } from './ExpressionCard';

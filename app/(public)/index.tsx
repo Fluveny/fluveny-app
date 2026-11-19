@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { StudentHome } from '../../src/auth/StudentHome';
+import { mayHaveSession, useCachedStudent, useStudent } from '../../src/auth/student';
 import { PRIVACY_LINK, PRIVACY_PATH, TERMS_LINK, TERMS_PATH } from '../../src/legal/paths';
 import { useOnline } from '../../src/network/useOnline';
 import { OFFLINE_TEXT } from '../../src/network/text';
@@ -23,6 +25,8 @@ export const SIGN_UP = 'CRIAR CONTA';
 export const SIGN_IN = 'ENTRAR';
 /** O convite ao cadastro, no lugar do Estágio 2 (1.20). */
 export const INVITE_PATH = '/convite';
+/** O cadastro (2.1). */
+export const SIGN_UP_PATH = '/cadastro';
 
 /**
  * Para onde o EXPERIMENTAR AGORA leva: com o Estágio 1 completo no aparelho, ao
@@ -63,11 +67,29 @@ function useTryNow(online: boolean) {
 }
 
 /**
+ * A raiz (2.1): com sessão, a tela inicial do Aluno; sem sessão (401, ou o
+ * Android sem token), a boas-vindas. No web, enquanto pergunta à API, só o fundo
+ * azul da boas-vindas; qualquer falha da pergunta mostra a boas-vindas.
+ */
+export default function Root() {
+  // O cache acorda a raiz logo depois do cadastro (o token acabou de ser guardado).
+  const cached = useCachedStudent();
+  return cached || mayHaveSession() ? <SessionRoot /> : <Welcome />;
+}
+
+function SessionRoot() {
+  const student = useStudent();
+  if (student.isPending) return <View style={styles.screen} testID="root-checking" />;
+  if (student.data) return <StudentHome student={student.data} />;
+  return <Welcome />;
+}
+
+/**
  * Boas-vindas, a raiz do Visitante (FR-1): o quarto com Alex acenando e a
  * folha branca com o título, o objetivo da Unit 1 e as três ações. Rola com a
  * fonte ampliada.
  */
-export default function Welcome() {
+export function Welcome() {
   const router = useRouter();
   const online = useOnline();
   const { height } = useWindowDimensions();
@@ -101,9 +123,10 @@ export default function Welcome() {
               label={SIGN_UP}
               variant="ghost"
               disabled={busy}
-              onPress={() => router.navigate('/em-breve')}
+              onPress={() => router.navigate(SIGN_UP_PATH)}
               fullWidth
             />
+            {/* ENTRAR chega na 2.3. */}
             <Button
               label={SIGN_IN}
               variant="ghost"

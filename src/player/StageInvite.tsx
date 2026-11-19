@@ -7,8 +7,8 @@ import { color, spacing, typography } from '../ui/tokens';
 export const INVITE_TITLE = 'Seu progresso está só neste aparelho';
 export const INVITE_BODY = 'Crie uma conta grátis para guardar o Estágio 1 e continuar no Estágio 2.';
 export const INVITE_SIGN_UP = 'CRIAR CONTA';
-/** Destino de CRIAR CONTA enquanto o cadastro (Épico 2) não chega. */
-export const SIGN_UP_PATH = '/em-breve';
+/** Destino de CRIAR CONTA: o cadastro, com o cartão ouro e o nome do Visitante (2.1, UX-DR98). */
+export const SIGN_UP_PATH = { pathname: '/cadastro', params: { de: 'convite' } } as const;
 
 /**
  * O cartão ouro do convite ao cadastro (UX-DR115): no Resumo do Estágio 1, no

@@ -44,7 +44,8 @@
           "microphonePermission": "O Fluveny usa o microfone para conferir a sua fala nas atividades. O áudio não é gravado nem guardado.",
           "speechRecognitionPermission": "O Fluveny usa o reconhecimento de voz do sistema para transcrever a sua fala nas atividades; ele pode enviar o áudio ao Google ou à Apple. O Fluveny não grava nem guarda o áudio."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true

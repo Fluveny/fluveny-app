@@ -36,6 +36,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/signup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Cria a conta do Aluno adulto, já ativa, e entra. Exige X-Fluveny-Client: web ou android (senão 400 CLIENT_HEADER_REQUIRED). No web, a sessão vai só no cookie fluveny_session (HttpOnly; Secure; SameSite=Lax; Path=/api; 30 dias); no Android, só no sessionToken do corpo. Senha fora da regra, aceite vazio ou data de nascimento inválida dão 400 VALIDATION_FAILED; menor de 12, 422 AGE_BELOW_MINIMUM; de 12 a 17, 422 GUARDIAN_CONSENT_REQUIRED; e-mail já cadastrado, 409 EMAIL_ALREADY_REGISTERED. */
+        post: operations["signup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/meta": {
         parameters: {
             query?: never;
@@ -50,6 +67,24 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description O perfil do Aluno da sessão: nome, e-mail e pronomes (nulo vale como THEY). Sem sessão, 401. */
+        get: operations["getMyStudentProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Grava os pronomes do Aluno da sessão; nulo volta ao padrão they/them. Campo desconhecido dá 400. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. */
+        patch: operations["updateMyPronouns"];
         trace?: never;
     };
     "/api/v1/units": {
@@ -201,8 +236,16 @@ export interface components {
             data: components["schemas"]["Meta"];
             message?: string;
         };
+        ApiResponseSignupResponse: {
+            data: components["schemas"]["SignupResponse"];
+            message?: string;
+        };
         ApiResponseStageStudentView: {
             data: components["schemas"]["StageStudentView"];
+            message?: string;
+        };
+        ApiResponseStudentProfile: {
+            data: components["schemas"]["StudentProfile"];
             message?: string;
         };
         ApiResponseUnitStudentView: {
@@ -651,6 +694,22 @@ export interface components {
             she: string;
             they: string;
         };
+        SignupRequest: {
+            acceptedPrivacyVersion: string;
+            acceptedTermsVersion: string;
+            /** Format: date */
+            birthDate: string;
+            /** Format: email */
+            email: string;
+            name?: string;
+            /** @description De 8 a 64 caracteres, com pelo menos uma letra e um número. Senhas com muitos acentos ou emoji podem precisar ser mais curtas (o limite é de 72 bytes em UTF-8). */
+            password: string;
+        };
+        SignupResponse: {
+            /** @description Só no Android (X-Fluveny-Client: android). No web, o token vai só no cookie fluveny_session. */
+            sessionToken?: string;
+            student: components["schemas"]["StudentProfile"];
+        };
         SpeechActivity: {
             activityKey: string;
             /** @description Outras formas aceitas da frase-alvo. */
@@ -711,6 +770,15 @@ export interface components {
             stageKey: string;
             title: components["schemas"]["ContentText"];
         };
+        StudentProfile: {
+            email: string;
+            name?: string | null;
+            /**
+             * @description Nulo vale como THEY (they/them).
+             * @enum {string|null}
+             */
+            pronounSet?: "HE" | "SHE" | "THEY" | null;
+        };
         UnitBundleContent: {
             media: {
                 [key: string]: components["schemas"]["MediaContent"];
@@ -761,6 +829,10 @@ export interface components {
             created: boolean;
             published: boolean;
             versionId: string;
+        };
+        UpdatePronouns: {
+            /** @enum {string|null} */
+            pronounSet: "HE" | "SHE" | "THEY" | null;
         };
         UsefulExpressionContent: {
             examples: components["schemas"]["ContentText"][];
@@ -852,6 +924,32 @@ export interface operations {
             };
         };
     };
+    signup: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Fluveny-Client": "web" | "android";
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignupRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseSignupResponse"];
+                };
+            };
+        };
+    };
     getMeta: {
         parameters: {
             query?: never;
@@ -868,6 +966,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseMeta"];
+                };
+            };
+        };
+    };
+    getMyStudentProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseStudentProfile"];
+                };
+            };
+        };
+    };
+    updateMyPronouns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePronouns"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseStudentProfile"];
                 };
             };
         };

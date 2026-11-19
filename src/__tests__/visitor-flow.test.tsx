@@ -5,14 +5,8 @@ import { AccessibilityInfo, BackHandler, StyleSheet, Text } from 'react-native';
 
 import { RootStack } from '../../app/_layout';
 import ComingSoon, { SOON_BACK, SOON_BODY, SOON_TITLE } from '../../app/(public)/em-breve';
-import Welcome, {
-  SIGN_IN,
-  SIGN_UP,
-  TRY_NOW,
-  WELCOME_BODY,
-  WELCOME_GOAL,
-  WELCOME_TITLE,
-} from '../../app/(public)/index';
+import Root, { SIGN_IN, SIGN_UP, TRY_NOW, WELCOME_BODY, WELCOME_GOAL, WELCOME_TITLE } from '../../app/(public)/index';
+import SignUp, { BACK_LABEL as SIGNUP_BACK, INVITE_NOTICE, SIGNUP_TITLE } from '../../app/(student)/cadastro';
 import StageTwoInvite, { REDO_LABEL } from '../../app/(student)/convite';
 import Player, { RETRY_LABEL } from '../../app/(student)/player';
 import UpdateRequired from '../../app/atualize';
@@ -20,6 +14,7 @@ import { messageFor, NETWORK_ERROR } from '../api/errors';
 import { mockResponse } from '../api/mocks/handlers';
 import { mockRoutes, resetMockVisitorRecords } from '../api/mocks/routes';
 import { AppProviders, createQueryClient } from '../AppProviders';
+import { STUDENT_QUERY_KEY, type StudentProfile } from '../auth/student';
 import * as sentry from '../observability/sentry';
 import { CONTINUE_LABEL, PendingActivity, PENDING_TITLE } from '../player/PendingActivity';
 import { NEXT_BLOCK_LABEL } from '../player/types/CardsActivity';
@@ -29,7 +24,14 @@ import { ANSWER_LABEL, EXTRA_HELP_LABEL, SEND_LABEL, YOU_WROTE } from '../player
 import { GRAMMAR_TABS, NEXT_LABEL as GRAMMAR_NEXT } from '../player/types/GrammarActivity';
 import { PRIVACY_OK_LABEL, SKIP_LABEL as SPEECH_SKIP } from '../player/types/SpeechActivity';
 import { INVITE_BODY, INVITE_SIGN_UP, INVITE_TITLE } from '../player/StageInvite';
-import { MINUTES_STAT, RESULT_STAT, stageDoneLabel, stageDoneTitle, XP_STAT } from '../player/StageSummary';
+import {
+  MINUTES_STAT,
+  RESULT_STAT,
+  stageDoneLabel,
+  stageDoneTitle,
+  SUMMARY_CONTINUE,
+  XP_STAT,
+} from '../player/StageSummary';
 import { ApiError, REQUEST_TIMEOUT_MS } from '../api/client';
 import { PENDING, registry, type ActivityProps, type ActivityRegistry } from '../player/registry';
 import { OFFLINE_TEXT } from '../network/text';
@@ -117,9 +119,11 @@ function apiResponds(
   }) as jest.Mock;
 }
 
-async function openApp(initialUrl = '/') {
+/** Abre o App; com `student`, o Aluno da sessão (2.1) já está no cache. */
+async function openApp(initialUrl = '/', student?: StudentProfile) {
   const client = createQueryClient();
   client.setDefaultOptions({ queries: { retry: false } });
+  if (student) client.setQueryData(STUDENT_QUERY_KEY, student);
   return renderRouter(
     {
       _layout: () => (
@@ -127,10 +131,11 @@ async function openApp(initialUrl = '/') {
           <RootStack />
         </AppProviders>
       ),
-      '(public)/index': Welcome,
+      '(public)/index': Root,
       '(public)/em-breve': ComingSoon,
       '(student)/player': Player,
       '(student)/convite': StageTwoInvite,
+      '(student)/cadastro': SignUp,
       atualize: UpdateRequired,
     },
     { initialUrl },
@@ -435,16 +440,21 @@ describe('boas-vindas e player do Visitante (1.10)', () => {
     expect(button(CONTINUE_LABEL)).toBeEnabled();
   });
 
-  it('CRIAR CONTA e ENTRAR levam a "Em breve", e VOLTAR retorna', async () => {
+  it('CRIAR CONTA abre o cadastro (2.1); ENTRAR leva a "Em breve", e VOLTAR retorna', async () => {
     await openApp();
     await fireEvent.press(await screen.findByRole('button', { name: SIGN_UP }));
+    expect(await screen.findByRole('header', { name: SIGNUP_TITLE })).toBeTruthy();
+    expect(screen).toHavePathname('/cadastro');
+    // Da boas-vindas, sem o cartão do convite.
+    expect(screen.queryByText(INVITE_NOTICE)).toBeNull();
+    await fireEvent.press(button(SIGNUP_BACK));
+    expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
+    await fireEvent.press(button(SIGN_IN));
     expect(await screen.findByRole('header', { name: SOON_TITLE })).toBeTruthy();
     expect(screen.getByText(SOON_BODY)).toBeTruthy();
     expect(screen).toHavePathname('/em-breve');
     await fireEvent.press(button(SOON_BACK));
     expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
-    await fireEvent.press(button(SIGN_IN));
-    expect(await screen.findByText(SOON_TITLE)).toBeTruthy();
   });
 
   it('versão antiga: o player fica atrás do guard', async () => {
@@ -1025,10 +1035,13 @@ describe('fim do Estágio, convite e eventos do Visitante (1.20)', () => {
   });
   afterEach(() => jest.restoreAllMocks());
 
-  /** Joga o Estágio de Escolhas com o Tipo de teste até o Resumo. */
-  async function finishScripted() {
+  /** Joga o Estágio de Escolhas com o Tipo de teste até o Resumo; com `student`, pelo link do player, já com conta. */
+  async function finishScripted(student?: StudentProfile) {
     await withChoice(ScriptedActivity, async () => {
-      await startTrying();
+      if (student) {
+        await openApp('/player', student);
+        await screen.findByText(`1 DE ${TOTAL}`);
+      } else await startTrying();
       for (let position = 1; position <= TOTAL; position += 1) {
         await screen.findByText(`${position} DE ${TOTAL}`);
         await fireEvent.press(button(DONE_LABEL));
@@ -1036,6 +1049,22 @@ describe('fim do Estágio, convite e eventos do Visitante (1.20)', () => {
       await screen.findByTestId('stage-summary');
     });
   }
+
+  it('Aluno com conta (2.1): o resumo mostra CONTINUAR no lugar do convite, e ele volta à raiz', async () => {
+    await finishScripted({ email: 'ana@exemplo.test', name: 'Ana', pronounSet: null });
+    expect(screen.queryByTestId('stage-invite')).toBeNull();
+    expect(screen.queryByRole('button', { name: INVITE_SIGN_UP })).toBeNull();
+    await fireEvent.press(button(SUMMARY_CONTINUE));
+    expect(await screen.findByRole('header', { name: 'Hi, Ana!' })).toBeTruthy();
+    expect(screen).toHavePathname('/');
+  });
+
+  it('Aluno com conta (2.1): /convite volta à raiz, sem o convite', async () => {
+    await openApp('/convite', { email: 'ana@exemplo.test', name: 'Ana', pronounSet: null });
+    expect(await screen.findByRole('header', { name: 'Hi, Ana!' })).toBeTruthy();
+    expect(screen).toHavePathname('/');
+    expect(screen.queryByText(INVITE_TITLE)).toBeNull();
+  });
 
   it('fim do Estágio: título "…: check!", frase com o nome, XP, Resultado médio, minutos, confete e o convite ouro', async () => {
     await visitorStore.setVariable('name', 'Zoraide');
@@ -1075,10 +1104,10 @@ describe('fim do Estágio, convite e eventos do Visitante (1.20)', () => {
       })),
     );
 
-    // CRIAR CONTA leva ao "Em breve".
+    // CRIAR CONTA abre o cadastro, com o cartão ouro do convite (2.1).
     await fireEvent.press(button(INVITE_SIGN_UP));
-    expect(await screen.findByText(SOON_TITLE)).toBeTruthy();
-    expect(screen).toHavePathname('/em-breve');
+    expect(await screen.findByText(INVITE_NOTICE)).toBeTruthy();
+    expect(screen).toHavePathname('/cadastro');
   });
 
   it('tempo de estudo: o Progresso guarda o tempo de cada Atividade na tela, e o resumo soma os minutos', async () => {
@@ -1359,12 +1388,13 @@ describe('fim do Estágio, convite e eventos do Visitante (1.20)', () => {
       await act(async () => {});
       expect(events).toEqual([]);
 
-      // ✕ volta à boas-vindas; CRIAR CONTA leva ao "Em breve".
+      // ✕ volta à boas-vindas; CRIAR CONTA abre o cadastro com o cartão do convite (2.1).
       await fireEvent.press(button(CLOSE_LABEL));
       expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
       await fireEvent.press(button(TRY_NOW));
       await fireEvent.press(await screen.findByRole('button', { name: INVITE_SIGN_UP }));
-      expect(await screen.findByText(SOON_TITLE)).toBeTruthy();
+      expect(await screen.findByText(INVITE_NOTICE)).toBeTruthy();
+      expect(screen).toHavePathname('/cadastro');
     });
 
     it('Refazer: "Refazer o Estágio 1" abre o player do início e manda VISITOR_SESSION_STARTED', async () => {
