@@ -120,6 +120,12 @@ Os desenhos ficam em `art/alexSvg.ts` e `art/roomSvg.ts` (o único lugar, além 
 
 Campo de texto (`text-field`): face mínima de 54 dp, borda de 2 em `line`, cantos de 16, texto `item` em `ink`, placeholder em `muted`. Com foco, borda `blue` e anel de 4 dp azul a 14% (`FOCUS_RING`). `label` é obrigatório: aparece acima do campo e é o rótulo do leitor de tela. Aceita as props do `TextInput` (`value`, `onChangeText`, `multiline`, `autoCapitalize`…), menos `style`. Use `multiline` na Resposta Livre ("Type your answer…").
 
+### `Checkbox`
+
+Caixa de seleção (2.1, aceite dos termos no cadastro): caixa de 28 dp com borda de 2 em `line-dk`, marcada em `blue` com o ✓ branco, e o texto ao lado em `body-strong`. A linha toda é a área de toque (48 dp), com papel `checkbox` e o estado `checked`; sem sombra, porque não é um botão. Links do texto (termos, política) ficam fora dela, como `TextLink`, para o leitor de tela chegar a cada um.
+
+O `TextField` aceita `hint` (texto fixo abaixo, em `muted-strong`) e `error` (o que falta no campo, em `red-dk`, com a borda em `red`); os dois vão para o leitor como dica.
+
 ### `ChoiceCard`
 
 Alternativa A–D: o `Card` tocável com a letra num selo à esquerda e o texto em `item`. `index` vai de 0 (A) a 3 (D); fora disso é erro em desenvolvimento (máximo de 4 alternativas). O leitor de tela ouve a letra, o texto e o estado: "B, I'm from Brazil., errado".

@@ -25,6 +25,11 @@ export const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   ATTEMPT_REQUIRED: 'Responda a Atividade antes de ver a resposta.',
   COMPLETION_NOT_ALLOWED: 'Não deu para concluir esta Atividade assim. Volte e abra de novo.',
   TOO_MANY_REQUESTS: 'Muitas tentativas seguidas. Espere um pouco e tente de novo.',
+  // Cadastro (2.1). [ASSUMPTION] Textos propostos na 2.1, a revisar com UX.
+  EMAIL_ALREADY_REGISTERED: 'Este e-mail já tem uma conta. Você pode entrar ou recuperar a senha.',
+  AGE_BELOW_MINIMUM: 'O Fluveny é para quem tem 12 anos ou mais.',
+  GUARDIAN_CONSENT_REQUIRED: 'Por enquanto, o cadastro é só para quem tem 18 anos ou mais.',
+  CLIENT_HEADER_REQUIRED: GENERIC_MESSAGE,
   METHOD_NOT_ALLOWED: GENERIC_MESSAGE,
   NOT_ACCEPTABLE: GENERIC_MESSAGE,
   UNSUPPORTED_MEDIA_TYPE: GENERIC_MESSAGE,

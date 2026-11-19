@@ -1,7 +1,14 @@
 import openapi from '../../openapi.json';
 import { randomUUID } from 'node:crypto';
 
-import { MOCK_METHODS, MockProblem, mockRoutes, resetMockVisitorRecords } from '../routes';
+import {
+  MOCK_CREATED,
+  MOCK_METHODS,
+  MockProblem,
+  mockRoutes,
+  resetMockStudents,
+  resetMockVisitorRecords,
+} from '../routes';
 
 type Schema = {
   $ref?: string;
@@ -110,9 +117,23 @@ describe('mocks da API', () => {
     expect(extra).toEqual([]);
   });
 
+  it('as rotas só 201 (sem 200) do contrato estão em MOCK_CREATED, e só elas', () => {
+    const created = Object.entries(openapi.paths as Record<string, Record<string, { responses?: object }>>).flatMap(
+      ([path, item]) =>
+        MOCK_METHODS.filter(
+          (method) =>
+            item[method]?.responses && '201' in item[method].responses! && !('200' in item[method].responses!),
+        ).map((method) => `${method.toUpperCase()} ${path}`),
+    );
+    expect([...MOCK_CREATED].sort()).toEqual(created.sort());
+  });
+
   it('só trazem a visão do aluno, sem campos secretos', async () => {
     const secrets = secretFields();
     const leaked: string[] = [];
+    // As rotas do Aluno pedem uma sessão do mock: um cadastro antes.
+    resetMockStudents();
+    await signupMock({ ...ADULT, email: 'antes@exemplo.test' });
     for (const [path, operations] of Object.entries(routes)) {
       for (const [method, resolve] of Object.entries(operations)) {
         if (path.startsWith('/api/v1/visitor/attempts')) continue;
@@ -137,13 +158,98 @@ describe('mocks da API', () => {
                     deviceId: '0b6a3f0e-4c1d-4e2a-9b3c-5d6e7f809a1b',
                   }),
                 }
-              : undefined;
+              : path === '/api/v1/auth/signup'
+                ? { method: 'POST', headers: { 'X-Fluveny-Client': 'web' }, body: JSON.stringify(ADULT) }
+                : path === '/api/v1/students/me' && method === 'patch'
+                  ? { method: 'PATCH', body: JSON.stringify({ pronounSet: 'SHE' }) }
+                  : undefined;
         for (const key of keysOf(await resolve?.(new Request(`http://mock${path}`, init)))) {
           if (secrets.has(key)) leaked.push(`${method.toUpperCase()} ${path}: ${key}`);
         }
       }
     }
     expect(leaked).toEqual([]);
+  });
+});
+
+/** Um cadastro de adulto válido para o mock (2.1). */
+const ADULT = {
+  email: 'ana@exemplo.test',
+  password: 'segredo123',
+  birthDate: '1990-05-20',
+  name: 'Ana',
+  acceptedTermsVersion: '0.2',
+  acceptedPrivacyVersion: '0.3',
+};
+
+function signupMock(body: unknown, client: string | null = 'web') {
+  const headers: Record<string, string> = client ? { 'X-Fluveny-Client': client } : {};
+  return Promise.resolve(
+    mockRoutes['/api/v1/auth/signup'].post(
+      new Request('http://mock/api/v1/auth/signup', { method: 'POST', headers, body: JSON.stringify(body) }),
+    ),
+  );
+}
+
+async function problemOf(promise: Promise<unknown>): Promise<string> {
+  try {
+    await promise;
+  } catch (error) {
+    if (error instanceof MockProblem) return `${error.status} ${error.code}`;
+    throw error;
+  }
+  return 'sem erro';
+}
+
+describe('mock do cadastro e da sessão (2.1)', () => {
+  beforeEach(() => resetMockStudents());
+  const me = (headers: Record<string, string> = {}) =>
+    Promise.resolve().then(() => mockRoutes['/api/v1/students/me'].get(new Request('http://mock', { headers })));
+
+  it('web: 201 sem token, e o perfil da sessão; e-mail repetido (em outra caixa) é 409', async () => {
+    const created = await signupMock(ADULT);
+    expect(created.data).toEqual({ student: { email: ADULT.email, name: 'Ana', pronounSet: null } });
+    expect((await me()).data.email).toBe(ADULT.email);
+    expect(await problemOf(signupMock({ ...ADULT, email: 'ANA@exemplo.test' }))).toBe('409 EMAIL_ALREADY_REGISTERED');
+  });
+
+  it('Android: token de 43 caracteres, e o perfil só com o Bearer dele', async () => {
+    const { data } = await signupMock(ADULT, 'android');
+    expect(data.sessionToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(await problemOf(me())).toBe('401 UNAUTHENTICATED');
+    expect((await me({ Authorization: `Bearer ${data.sessionToken}` })).data.name).toBe('Ana');
+  });
+
+  it('as regras da API: cabeçalho, campo desconhecido, senha, data, 12 e 18 anos', async () => {
+    const today = new Date();
+    const yearsAgo = (years: number, days = 0) => {
+      const date = new Date(today.getFullYear() - years, today.getMonth(), today.getDate() + days);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    };
+    expect(await problemOf(signupMock(ADULT, null))).toBe('400 CLIENT_HEADER_REQUIRED');
+    expect(await problemOf(signupMock({ ...ADULT, extra: 1 }))).toBe('400 VALIDATION_FAILED');
+    expect(await problemOf(signupMock({ ...ADULT, password: 'semnumero' }))).toBe('400 VALIDATION_FAILED');
+    expect(await problemOf(signupMock({ ...ADULT, password: 'a1'.repeat(33) }))).toBe('400 VALIDATION_FAILED');
+    expect(await problemOf(signupMock({ ...ADULT, birthDate: '2001-02-30' }))).toBe('400 VALIDATION_FAILED');
+    expect(await problemOf(signupMock({ ...ADULT, birthDate: yearsAgo(12, 1) }))).toBe('422 AGE_BELOW_MINIMUM');
+    expect(await problemOf(signupMock({ ...ADULT, birthDate: yearsAgo(12) }))).toBe('422 GUARDIAN_CONSENT_REQUIRED');
+    expect(await problemOf(signupMock({ ...ADULT, birthDate: yearsAgo(18, 1) }))).toBe('422 GUARDIAN_CONSENT_REQUIRED');
+    expect((await signupMock({ ...ADULT, birthDate: yearsAgo(18) })).data.student.email).toBe(ADULT.email);
+  });
+
+  it('PATCH /students/me grava os pronomes; sem sessão, 401; valor de fora, 400', async () => {
+    const patchMe = (body: unknown) =>
+      Promise.resolve(
+        mockRoutes['/api/v1/students/me'].patch(
+          new Request('http://mock', { method: 'PATCH', body: JSON.stringify(body) }),
+        ),
+      );
+    expect(await problemOf(patchMe({ pronounSet: 'SHE' }))).toBe('401 UNAUTHENTICATED');
+    await signupMock(ADULT);
+    expect(await problemOf(patchMe({ pronounSet: 'IT' }))).toBe('400 VALIDATION_FAILED');
+    expect((await patchMe({ pronounSet: 'SHE' })).data.pronounSet).toBe('SHE');
+    expect((await me()).data.pronounSet).toBe('SHE');
   });
 });
 

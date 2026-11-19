@@ -11,6 +11,10 @@ export type TextFieldProps = Omit<
   label: string;
   /** O nó do campo (para levá-lo acima do teclado no player, `useRevealField`). */
   inputRef?: Ref<ComponentRef<typeof TextInput>>;
+  /** Dica fixa abaixo do campo, em `muted-strong` ("8 a 64 caracteres…"). */
+  hint?: string;
+  /** O que falta no campo, abaixo dele, em `red-dk`, com a borda em `red`; o leitor ouve como dica. */
+  error?: string;
 };
 
 /** Anel de foco do `text-field`: `0 0 0 4px` azul a 14%, sem desfoque. */
@@ -27,10 +31,13 @@ export function TextField({
   onBlur,
   multiline,
   inputRef,
+  hint,
+  error,
   testID = 'text-field',
   ...input
 }: TextFieldProps) {
   const [focused, setFocused] = useState(false);
+  const help = [error, hint].filter(Boolean).join(' ');
   return (
     <View style={styles.wrap}>
       <Text style={styles.label} importantForAccessibility="no" aria-hidden>
@@ -42,6 +49,7 @@ export function TextField({
         multiline={multiline}
         testID={testID}
         accessibilityLabel={label}
+        accessibilityHint={help || undefined}
         placeholderTextColor={color.muted}
         onFocus={(event) => {
           setFocused(true);
@@ -51,8 +59,23 @@ export function TextField({
           setFocused(false);
           onBlur?.(event);
         }}
-        style={[styles.field, multiline ? styles.multiline : null, focused ? styles.focused : null]}
+        style={[
+          styles.field,
+          multiline ? styles.multiline : null,
+          error ? styles.invalid : null,
+          focused ? styles.focused : null,
+        ]}
       />
+      {error ? (
+        <Text style={styles.error} testID={`${testID}-error`} accessibilityLiveRegion="polite">
+          {error}
+        </Text>
+      ) : null}
+      {hint ? (
+        <Text style={styles.hint} importantForAccessibility="no" aria-hidden>
+          {hint}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -72,6 +95,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[3],
   },
   multiline: { textAlignVertical: 'top' },
+  invalid: { borderColor: color.red },
+  error: { ...typography.meta, color: color.redDk },
+  hint: { ...typography.caption, color: color.mutedStrong },
   // No web, o anel azul é o indicador de foco; o contorno do navegador sairia por cima dele.
   focused: { borderColor: color.blue, boxShadow: FOCUS_RING, outlineWidth: 0 },
 });

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { BackHandler, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useCachedStudent } from '../../src/auth/student';
 import { useOnline } from '../../src/network/useOnline';
 import { PlayerTop } from '../../src/player/PlayerFrame';
 import { SIGN_UP_PATH, StageInvite } from '../../src/player/StageInvite';
@@ -28,8 +29,14 @@ export default function StageTwoInvite() {
   const online = useOnline();
   const client = useQueryClient();
   const [confirmed, setConfirmed] = useState(false);
+  // O convite é do Visitante: o Aluno com conta (2.1) volta à raiz.
+  const student = useCachedStudent();
 
   useEffect(() => {
+    if (student) {
+      router.replace('/');
+      return;
+    }
     let alive = true;
     void checkVisitorStageComplete(client).then((done) => {
       if (!alive) return;
@@ -39,7 +46,7 @@ export default function StageTwoInvite() {
     return () => {
       alive = false;
     };
-  }, [client, router]);
+  }, [client, router, student]);
   const leave = useCallback(() => {
     if (router.canGoBack()) router.back();
     else router.replace('/');

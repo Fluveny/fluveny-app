@@ -1,5 +1,5 @@
 import { mockResponse, mswPath } from '../handlers';
-import { mockRoutes } from '../routes';
+import { MOCK_CREATED, mockRoutes, resetMockStudents } from '../routes';
 import { start } from '../start';
 
 describe('mswPath()', () => {
@@ -47,5 +47,29 @@ describe('mockResponse()', () => {
     );
     expect(response.status).toBe(202);
     await expect(response.text()).resolves.toBe('');
+  });
+});
+
+describe('mockResponse() com status (2.1)', () => {
+  it('o cadastro responde 201 com o corpo', async () => {
+    resetMockStudents();
+    expect(MOCK_CREATED.has('POST /api/v1/auth/signup')).toBe(true);
+    const response = await mockResponse(
+      mockRoutes['/api/v1/auth/signup'].post,
+      new Request('http://mock/api/v1/auth/signup', {
+        method: 'POST',
+        headers: { 'X-Fluveny-Client': 'web' },
+        body: JSON.stringify({
+          email: 'ana@exemplo.test',
+          password: 'segredo123',
+          birthDate: '1990-05-20',
+          acceptedTermsVersion: '0.2',
+          acceptedPrivacyVersion: '0.3',
+        }),
+      }),
+      201,
+    );
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({ data: { student: { email: 'ana@exemplo.test' } } });
   });
 });

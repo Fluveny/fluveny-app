@@ -3,7 +3,7 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { META_SPLASH_TIMEOUT_MS, queryClient, RootLayout } from '../../app/_layout';
-import Welcome, { WELCOME_TITLE } from '../../app/(public)/index';
+import Root, { WELCOME_TITLE } from '../../app/(public)/index';
 import UpdateRequired, { UPDATE_TITLE } from '../../app/atualize';
 import KitScreen from '../../app/kit';
 import { ApiError } from '../api/client';
@@ -30,7 +30,7 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
 const openApp = () =>
-  renderRouter({ _layout: RootLayout, '(public)/index': Welcome, atualize: UpdateRequired }, { initialUrl: '/' });
+  renderRouter({ _layout: RootLayout, '(public)/index': Root, atualize: UpdateRequired }, { initialUrl: '/' });
 
 const originalApiUrl = process.env.EXPO_PUBLIC_API_URL;
 let warn: jest.SpyInstance;
@@ -187,7 +187,7 @@ describe('RootLayout', () => {
   it('minAppVersion 99.0.0: /kit fica atrás do guard e leva a /atualize', async () => {
     global.fetch = jest.fn().mockResolvedValue(json({ data: { minAppVersion: '99.0.0', activityTypes: [] } }));
     await renderRouter(
-      { _layout: RootLayout, '(public)/index': Welcome, atualize: UpdateRequired, kit: KitScreen },
+      { _layout: RootLayout, '(public)/index': Root, atualize: UpdateRequired, kit: KitScreen },
       { initialUrl: '/kit' },
     );
     expect(await screen.findByText(UPDATE_TITLE)).toBeTruthy();

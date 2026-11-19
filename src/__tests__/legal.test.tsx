@@ -3,7 +3,7 @@ import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testi
 import { useFonts } from 'expo-font';
 
 import { META_SPLASH_TIMEOUT_MS, queryClient, RootLayout } from '../../app/_layout';
-import Welcome, { WELCOME_TITLE } from '../../app/(public)/index';
+import Root, { WELCOME_TITLE } from '../../app/(public)/index';
 import PrivacyPolicy from '../../app/(public)/privacidade';
 import TermsOfUse from '../../app/(public)/termos';
 import UpdateRequired, { UPDATE_TITLE } from '../../app/atualize';
@@ -38,7 +38,7 @@ const meta = (minAppVersion: string) =>
 
 const routes = {
   _layout: RootLayout,
-  '(public)/index': Welcome,
+  '(public)/index': Root,
   '(public)/privacidade': PrivacyPolicy,
   '(public)/termos': TermsOfUse,
   atualize: UpdateRequired,

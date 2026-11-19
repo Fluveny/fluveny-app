@@ -43,6 +43,13 @@
 // Fim do Estágio (1.20): o Estágio traz a frase `completion` com `{name}`, e a
 // rota dos eventos do Visitante responde 202 sem corpo, com as validações da
 // API (corpo fechado, `deviceId` UUID, Atividade do Estágio no ACTIVITY_STARTED).
+//
+// Cadastro (2.1): `POST /auth/signup` responde 201 (`MOCK_CREATED`) com as
+// regras da API (corpo fechado, senha, data, 12 e 18 anos, e-mail repetido) e
+// abre uma sessão só na memória do mock: some ao recarregar, porque o mock não
+// grava cookie. No Android (`X-Fluveny-Client: android`), devolve um
+// `sessionToken` falso e confere o Bearer; no web, a sessão vale para qualquer
+// requisição. `GET`/`PATCH /students/me` sem sessão dão 401.
 import type { components, paths } from '../schema';
 
 export const MOCK_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
@@ -924,6 +931,118 @@ async function recordEvent(request: Request): Promise<undefined> {
   return undefined;
 }
 
+/** As rotas que só respondem `201 Created` no contrato (sem 200), por `MÉTODO caminho`. */
+export const MOCK_CREATED: ReadonlySet<string> = new Set(['POST /api/v1/auth/signup']);
+
+type MockStudent = components['schemas']['StudentProfile'];
+
+/** As contas do mock, por e-mail em minúsculas. */
+const mockAccounts = new Set<string>();
+/** A sessão do mock: o Aluno e, no Android, o token esperado no Bearer. */
+let mockSession: { student: MockStudent; token: string | null } | null = null;
+
+/** Esquece as contas e a sessão do mock (testes). */
+export function resetMockStudents() {
+  mockAccounts.clear();
+  mockSession = null;
+}
+
+const SIGNUP_FIELDS = new Set([
+  'email',
+  'password',
+  'birthDate',
+  'name',
+  'acceptedTermsVersion',
+  'acceptedPrivacyVersion',
+]);
+const MOCK_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** A regra de senha da API (`PasswordPolicy`): 8 a 64, letra e número, até 72 bytes. */
+function mockPasswordOk(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  const length = [...value].length;
+  return (
+    length >= 8 &&
+    length <= 64 &&
+    /\p{L}/u.test(value) &&
+    /\p{Nd}/u.test(value) &&
+    new TextEncoder().encode(value).length <= 72
+  );
+}
+
+/** A idade em anos completos hoje, de `yyyy-MM-dd`; `null` se a data não existe, é futura ou antes de 1900. */
+function mockAge(value: unknown, today = new Date()): number | null {
+  if (typeof value !== 'string') return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  const [ty, tm, td] = [today.getFullYear(), today.getMonth() + 1, today.getDate()];
+  if (year < 1900 || year > ty || (year === ty && (month > tm || (month === tm && day > td)))) return null;
+  return ty - year - (tm < month || (tm === month && td < day) ? 1 : 0);
+}
+
+/** Cadastro do Aluno adulto, como o `SignupController` e o `RegisterStudent` da API. */
+async function mockSignup(request: Request) {
+  const client = request.headers.get('X-Fluveny-Client');
+  if (client !== 'web' && client !== 'android') throw new MockProblem(400, 'CLIENT_HEADER_REQUIRED');
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!body || typeof body !== 'object' || Object.keys(body).some((key) => !SIGNUP_FIELDS.has(key))) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  const email = typeof body.email === 'string' ? body.email.trim() : '';
+  const name = typeof body.name === 'string' ? body.name.trim() : undefined;
+  const versions = [body.acceptedTermsVersion, body.acceptedPrivacyVersion];
+  if (
+    !MOCK_EMAIL.test(email) ||
+    email.length > 254 ||
+    (name !== undefined && name.length > 60) ||
+    versions.some((version) => typeof version !== 'string' || !version.trim() || version.length > 16) ||
+    !mockPasswordOk(body.password)
+  ) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  const age = mockAge(body.birthDate);
+  if (age === null) throw new MockProblem(400, 'VALIDATION_FAILED');
+  if (age < 12) throw new MockProblem(422, 'AGE_BELOW_MINIMUM');
+  if (age < 18) throw new MockProblem(422, 'GUARDIAN_CONSENT_REQUIRED');
+  const key = email.toLowerCase();
+  if (mockAccounts.has(key)) throw new MockProblem(409, 'EMAIL_ALREADY_REGISTERED');
+  mockAccounts.add(key);
+  const student: MockStudent = { email: key, name: name || null, pronounSet: null };
+  // 43 caracteres base64url, o formato do token da API; falso.
+  const token = client === 'android' ? `mock${Date.now().toString(36)}`.padEnd(43, '0').slice(0, 43) : null;
+  mockSession = { student, token };
+  return { data: token ? { student, sessionToken: token } : { student } };
+}
+
+/** O Aluno da sessão do mock; sem sessão (ou com outro Bearer), `401`. */
+function mockStudentOf(request: Request): MockStudent {
+  const bearer = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
+  if (!mockSession || (mockSession.token !== null && bearer !== mockSession.token)) {
+    throw new MockProblem(401, 'UNAUTHENTICATED');
+  }
+  return mockSession.student;
+}
+
+/** `PATCH /students/me`: só `pronounSet`, um dos três ou nulo. */
+async function mockUpdatePronouns(request: Request) {
+  const student = mockStudentOf(request);
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  if (
+    !body ||
+    typeof body !== 'object' ||
+    Object.keys(body).some((key) => key !== 'pronounSet') ||
+    !(body.pronounSet === null || ['HE', 'SHE', 'THEY'].includes(body.pronounSet as string))
+  ) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  const updated: MockStudent = { ...student, pronounSet: body.pronounSet as MockStudent['pronounSet'] };
+  mockSession = { ...mockSession!, student: updated };
+  return { data: updated };
+}
+
 export const mockRoutes: MockRoutes = {
   '/api/v1/meta': {
     get: () => ({ data: { minAppVersion: '0.0.0', activityTypes: [] } }),
@@ -962,6 +1081,13 @@ export const mockRoutes: MockRoutes = {
   },
   '/api/v1/visitor/events': {
     post: (request) => recordEvent(request),
+  },
+  '/api/v1/auth/signup': {
+    post: (request) => mockSignup(request),
+  },
+  '/api/v1/students/me': {
+    get: (request) => ({ data: mockStudentOf(request) }),
+    patch: (request) => mockUpdatePronouns(request),
   },
   // Rotas do job de publicação: o App não as chama, mas o tipo exige um mock por rota.
   '/api/v1/admin/content/units/{unitKey}/versions': {

@@ -3,7 +3,7 @@ import { AccessibilityInfo, ScrollView, StyleSheet, Text, View } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RenderedText, useRenderVars, type ContentText } from '../renderer';
-import { Alex, Card, Confetti } from '../ui';
+import { Alex, Button, Card, Confetti } from '../ui';
 import { color, size, spacing, typography } from '../ui/tokens';
 import { PlayerTop } from './PlayerFrame';
 import { StageInvite } from './StageInvite';
@@ -16,6 +16,8 @@ export const stageDoneTitle = (title: string) => (title ? `${title}: check!` : '
 export const XP_STAT = 'XP';
 export const RESULT_STAT = 'Resultado';
 export const MINUTES_STAT = 'Minutos';
+/** A ação do Aluno com conta no fim do Estágio (2.1), no lugar do convite. */
+export const SUMMARY_CONTINUE = 'CONTINUAR';
 
 type Props = {
   stageNumber: number;
@@ -27,6 +29,8 @@ type Props = {
   online: boolean;
   onClose: () => void;
   onSignUp: () => void;
+  /** Aluno com conta (2.1): CONTINUAR primário no lugar do convite ao cadastro. */
+  onContinue?: () => void;
 };
 
 function Stat({ label, value, spoken, tone }: { label: string; value: string; spoken: string; tone: string }) {
@@ -46,10 +50,19 @@ function Stat({ label, value, spoken, tone }: { label: string; value: string; sp
  * Resumo do fim do Estágio do Visitante (UX-DR104, UX-DR115): Alex `cheer` e
  * confete (sem confete com "remover animações"), "{Estágio}: check!", a frase
  * do conteúdo, XP, Resultado médio, minutos e as puladas; no lugar do
- * CONTINUAR, o convite ouro. O ✕ (e o voltar) leva à boas-vindas. Ao abrir,
+ * CONTINUAR, o convite ouro (o Aluno com conta, 2.1, vê o CONTINUAR, que volta à raiz). O ✕ (e o voltar) leva à boas-vindas. Ao abrir,
  * o título é anunciado ao leitor de tela.
  */
-export function StageSummary({ stageNumber, stageTitle, completion, summary, online, onClose, onSignUp }: Props) {
+export function StageSummary({
+  stageNumber,
+  stageTitle,
+  completion,
+  summary,
+  online,
+  onClose,
+  onSignUp,
+  onContinue,
+}: Props) {
   const { vars, pronoun } = useRenderVars();
   const skipped = skippedLine(summary.skipped);
   const title = stageDoneTitle(stageTitle);
@@ -109,7 +122,11 @@ export function StageSummary({ stageNumber, stageTitle, completion, summary, onl
             </Text>
           ) : null}
           <View style={styles.grow} />
-          <StageInvite onSignUp={onSignUp} />
+          {onContinue ? (
+            <Button label={SUMMARY_CONTINUE} onPress={onContinue} fullWidth testID="stage-summary-continue" />
+          ) : (
+            <StageInvite onSignUp={onSignUp} />
+          )}
         </ScrollView>
         {/* Depois da rolagem: o confete cai por cima dos cartões. */}
         <Confetti />

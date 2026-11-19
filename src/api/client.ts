@@ -1,15 +1,30 @@
 // Cliente HTTP da API (AD-11). Toda requisição leva `X-App-Version` (versão do
-// app.json). Sucesso sai de `{data}`; erro vira `ApiError{status, code}` a partir
-// do problem+json. O `detail` e a mensagem crua nunca chegam à tela: o texto
-// vem de `messageFor(code)` (errors.ts).
+// app.json) e `X-Fluveny-Client` (`web` ou `android`, AD-12). Sucesso sai de
+// `{data}`; erro vira `ApiError{status, code}` a partir do problem+json. O
+// `detail` e a mensagem crua nunca chegam à tela: o texto vem de
+// `messageFor(code)` (errors.ts).
+//
+// Sessão (2.1): no web, o cookie `HttpOnly` da API vai com `credentials:
+// 'include'` e o App nunca vê o token; no Android, o token do `expo-secure-store`
+// vai como `Authorization: Bearer`.
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 import appConfig from '../../app.json';
+import { storedSessionToken } from '../auth/session';
 import { captureError } from '../observability/sentry';
 import { messageFor, NETWORK_ERROR, UNKNOWN_ERROR } from './errors';
 import type { paths } from './schema';
 
 export const APP_VERSION_HEADER = 'X-App-Version';
+export const CLIENT_HEADER = 'X-Fluveny-Client';
+
+export type ClientKind = 'web' | 'android';
+
+/** Qual App faz a requisição: o build web ou o App Android (o único nativo). */
+export function clientKind(): ClientKind {
+  return Platform.OS === 'web' ? 'web' : 'android';
+}
 
 /** Versão do App, do `version` do app.json (a do binário, quando houver). */
 export function appVersion(): string {
@@ -61,17 +76,40 @@ type JsonOf<R> = R extends { content: { 'application/json': infer B } } ? B : ne
 export type GetData<P extends GetPaths> =
   JsonOf<paths[P]['get']['responses'][200]> extends { data: infer D } ? D : never;
 
+/** A resposta de sucesso com corpo de uma operação: a 200 ou, sem ela, a 201. */
+type SuccessOf<O> = O extends { responses: infer R }
+  ? R extends { 200: infer S }
+    ? S
+    : R extends { 201: infer S }
+      ? S
+      : never
+  : never;
+
 type PostPaths = {
   [P in keyof paths]: paths[P] extends {
-    post: { requestBody?: unknown; responses: { 200: unknown } };
+    post: { requestBody?: unknown; responses: { 200: unknown } | { 201: unknown } };
   }
     ? P
     : never;
 }[keyof paths];
 
-/** O `data` do envelope `{data, message?}` da resposta 200 de `POST path`. */
-export type PostData<P extends PostPaths> =
-  JsonOf<paths[P]['post']['responses'][200]> extends { data: infer D } ? D : never;
+/** O `data` do envelope `{data, message?}` da resposta 200 (ou 201) de `POST path`. */
+export type PostData<P extends PostPaths> = JsonOf<SuccessOf<paths[P]['post']>> extends { data: infer D } ? D : never;
+
+type PatchPaths = {
+  [P in keyof paths]: paths[P] extends { patch: { requestBody?: unknown; responses: { 200: unknown } } } ? P : never;
+}[keyof paths];
+
+/** O `data` do envelope `{data, message?}` da resposta 200 de `PATCH path`. */
+export type PatchData<P extends PatchPaths> =
+  JsonOf<paths[P]['patch']['responses'][200]> extends { data: infer D } ? D : never;
+
+/** O corpo JSON de `PATCH path`, como o contrato pede. */
+export type PatchBody<P extends PatchPaths> = paths[P]['patch'] extends {
+  requestBody: { content: { 'application/json': infer B } };
+}
+  ? B
+  : never;
 
 type AcceptedPaths = {
   [P in keyof paths]: paths[P] extends { post: { requestBody?: unknown; responses: { 202: unknown } } } ? P : never;
@@ -150,6 +188,16 @@ export async function request<T>(
   const headers = new Headers(init.headers);
   headers.set(APP_VERSION_HEADER, appVersion());
   if (!headers.has('Accept')) headers.set('Accept', 'application/json, application/problem+json');
+  const client = clientKind();
+  // Sempre, inclusive nas rotas do Visitante: com o cookie, escrita sem ele dá 403.
+  headers.set(CLIENT_HEADER, client);
+  let credentials: RequestCredentials | undefined = init.credentials;
+  if (client === 'web') {
+    credentials = 'include';
+  } else {
+    const token = storedSessionToken();
+    if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`);
+  }
 
   // Timeout próprio, somado ao `signal` de quem chamou, valendo até o fim da
   // leitura do corpo. Cancelamento de quem chamou sai como o AbortError
@@ -164,7 +212,12 @@ export async function request<T>(
   try {
     let response: Response;
     try {
-      response = await fetch(`${apiBaseUrl()}${path}`, { ...init, headers, signal: controller.signal });
+      response = await fetch(`${apiBaseUrl()}${path}`, {
+        ...init,
+        headers,
+        signal: controller.signal,
+        ...(credentials ? { credentials } : {}),
+      });
     } catch (error) {
       if (callerSignal?.aborted) throw error;
       throw new ApiError(0, NETWORK_ERROR);
@@ -208,7 +261,7 @@ export function get<P extends GetPaths>(path: P, init?: RequestInit): Promise<Ge
   return request<GetData<P>>(path, { ...init, method: 'GET' });
 }
 
-/** `POST` tipado pelo contrato: manda `body` como JSON e devolve o `data` da resposta 200. */
+/** `POST` tipado pelo contrato: manda `body` como JSON e devolve o `data` da resposta 200 (ou 201). */
 export function post<P extends PostPaths>(path: P, body: PostBody<P>, init?: RequestInit): Promise<PostData<P>> {
   const headers = new Headers(init?.headers);
   headers.set('Content-Type', 'application/json');
@@ -224,4 +277,11 @@ export function postAccepted<P extends AcceptedPaths>(
   const headers = new Headers(init?.headers);
   headers.set('Content-Type', 'application/json');
   return request<void>(path, { ...init, method: 'POST', headers, body: JSON.stringify(body) }, readNothing);
+}
+
+/** `PATCH` tipado pelo contrato: manda `body` como JSON e devolve o `data` da resposta 200. */
+export function patch<P extends PatchPaths>(path: P, body: PatchBody<P>, init?: RequestInit): Promise<PatchData<P>> {
+  const headers = new Headers(init?.headers);
+  headers.set('Content-Type', 'application/json');
+  return request<PatchData<P>>(path, { ...init, method: 'PATCH', headers, body: JSON.stringify(body) });
 }

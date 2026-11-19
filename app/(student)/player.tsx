@@ -4,6 +4,7 @@ import { ActivityIndicator, BackHandler, StyleSheet, Text, View } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError } from '../../src/api/client';
+import { useCachedStudent } from '../../src/auth/student';
 import { messageFor } from '../../src/api/errors';
 import { useOnline } from '../../src/network/useOnline';
 import { captureError } from '../../src/observability/sentry';
@@ -58,6 +59,8 @@ function useLeave() {
 export default function Player() {
   const router = useRouter();
   const leave = useLeave();
+  // Aluno com conta (2.1): no fim do Estágio, CONTINUAR volta à raiz, sem o convite ao cadastro.
+  const student = useCachedStudent();
   const online = useOnline();
   const visitor = useVisitor();
   const { stage, usefulExpressions, stageNumber, error, missingStage, loading, fetching, retry } = useStage();
@@ -218,6 +221,7 @@ export default function Player() {
         online={online}
         onClose={leave}
         onSignUp={() => router.navigate(SIGN_UP_PATH)}
+        onContinue={student ? () => router.dismissTo('/') : undefined}
       />
     );
   }

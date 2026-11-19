@@ -1,17 +1,20 @@
-// Termos de uso provisórios (1.21). Idade mínima e licença do conteúdo ficam
-// "a definir" até a versão final [ASSUMPTION: PRD §11 Q7 e Q13].
+// Termos de uso provisórios (1.21; conta na 2.1). A idade mínima para usar e a
+// licença do conteúdo ficam "a definir" até a versão final [ASSUMPTION: PRD §11
+// Q7 e Q13]; o texto só diz a regra que o cadastro aplica hoje (12 e 18 anos,
+// [ASSUMPTION] da API). Mudou o texto: mude a versão (`versions.ts`) e a data.
 import type { LegalDocument } from './types';
+import { TERMS_VERSION } from './versions';
 
 export const TERMS_OF_USE: LegalDocument = {
   title: 'Termos de uso',
-  version: '0.1',
-  date: '2026-11-17',
+  version: TERMS_VERSION,
+  date: '2026-11-19',
   sections: [
     {
       title: 'O que é o Fluveny',
       paragraphs: [
         'O Fluveny é um App e um site para aprender inglês com Atividades curtas: diálogos, fala, escrita e jogos. É um projeto de extensão da UNIFAL-MG.',
-        'Estes termos descrevem as regras de uso do Fluveny; a Política de privacidade explica como os dados são tratados. O aceite formal dos dois vem com o cadastro.',
+        'Estes termos descrevem as regras de uso do Fluveny; a Política de privacidade explica como os dados são tratados. Para criar uma conta, você aceita os dois, e a conta guarda as versões aceitas e a data do aceite.',
       ],
     },
     {
@@ -21,8 +24,14 @@ export const TERMS_OF_USE: LegalDocument = {
     {
       title: 'Modo Visitante',
       paragraphs: [
-        'Hoje você usa o Fluveny sem conta, no modo Visitante. O seu Progresso fica só no seu aparelho: se você limpar os dados do site ou do App, ou trocar de aparelho, ele se perde e não dá para recuperar.',
-        'Criar conta e entrar ainda não estão disponíveis.',
+        'Você pode usar o Fluveny sem conta, no modo Visitante. O seu Progresso fica só no seu aparelho: se você limpar os dados do site ou do App, ou trocar de aparelho, ele se perde e não dá para recuperar.',
+      ],
+    },
+    {
+      title: 'Sua conta',
+      paragraphs: [
+        'Para criar uma conta, você informa um e-mail que é seu, uma senha e a sua data de nascimento verdadeira. A senha é só sua: não a compartilhe.',
+        'Por enquanto, o seu Progresso continua só no aparelho, mesmo com conta. Entrar em outro aparelho, recuperar a senha, mudar os dados e apagar a conta pelo App ainda não estão disponíveis.',
       ],
     },
     {
@@ -47,7 +56,10 @@ export const TERMS_OF_USE: LegalDocument = {
     },
     {
       title: 'Idade mínima',
-      paragraphs: ['A idade mínima para usar o Fluveny será definida na versão final destes termos.'],
+      paragraphs: [
+        'Por enquanto, só quem tem 18 anos ou mais pode criar conta. Quem tem menos de 12 anos não pode criar conta.',
+        'A idade mínima para usar o Fluveny e o cadastro de quem tem de 12 a 17 anos, com a autorização de um responsável, serão definidos na versão final destes termos.',
+      ],
     },
     {
       title: 'Mudanças nestes termos',

@@ -1,9 +1,14 @@
+import { Platform } from 'react-native';
+
+import { forgetCachedSession, saveSessionToken } from '../../auth/session';
 import {
   ApiError,
   APP_VERSION_HEADER,
+  CLIENT_HEADER,
   appVersion,
   fillPath,
   get,
+  patch,
   post,
   postAccepted,
   request,
@@ -114,6 +119,15 @@ describe('catálogo de erros', () => {
       'INTERNAL_ERROR',
     ];
     for (const code of platform) expect(ERROR_MESSAGES[code]).toEqual(expect.any(String));
+  });
+
+  it('tem texto para os códigos do cadastro e da sessão (2.1)', () => {
+    expect(messageFor('EMAIL_ALREADY_REGISTERED')).toMatch(/entrar ou recuperar a senha/);
+    expect(messageFor('AGE_BELOW_MINIMUM')).toBe('O Fluveny é para quem tem 12 anos ou mais.');
+    expect(messageFor('GUARDIAN_CONSENT_REQUIRED')).toBe(
+      'Por enquanto, o cadastro é só para quem tem 18 anos ou mais.',
+    );
+    expect(ERROR_MESSAGES.CLIENT_HEADER_REQUIRED).toBe(GENERIC_MESSAGE);
   });
 
   it('nunca culpa o aluno nem usa "errado" ou "inválido"', () => {
@@ -305,5 +319,81 @@ describe('postAccepted() (1.20)', () => {
     expect((await caught(postAccepted('/api/v1/visitor/events', event))).code).toBe('INTERNAL_ERROR');
     global.fetch = jest.fn().mockRejectedValue(new TypeError('Network request failed'));
     expect((await caught(postAccepted('/api/v1/visitor/events', event))).code).toBe(NETWORK_ERROR);
+  });
+});
+
+describe('sessão e X-Fluveny-Client (2.1)', () => {
+  const PROFILE = { email: 'ana@exemplo.test', name: 'Ana', pronounSet: null };
+  const TOKEN = 'a'.repeat(43);
+  const os = Platform.OS;
+  afterEach(() => {
+    Platform.OS = os;
+    global.__resetSecureStore();
+    forgetCachedSession();
+  });
+
+  const sent = () => {
+    const [, init] = (global.fetch as jest.Mock).mock.calls[0] as [string, RequestInit];
+    return { init, headers: new Headers(init.headers) };
+  };
+
+  it('web: toda requisição leva X-Fluveny-Client: web e credentials include, sem Authorization nem token salvo', async () => {
+    Platform.OS = 'web';
+    const setItem = jest.fn();
+    Object.defineProperty(globalThis, 'localStorage', { value: { setItem, getItem: jest.fn() }, configurable: true });
+    global.fetch = respond(200, JSON.stringify({ data: PROFILE }));
+    await get('/api/v1/students/me');
+    const { init, headers } = sent();
+    expect(headers.get(CLIENT_HEADER)).toBe('web');
+    expect(init.credentials).toBe('include');
+    expect(headers.has('Authorization')).toBe(false);
+    expect(setItem).not.toHaveBeenCalled();
+    delete (globalThis as { localStorage?: unknown }).localStorage;
+  });
+
+  it('web: mesmo com um token no armazenamento seguro (que o web não usa), não manda Bearer', async () => {
+    global.__secureStore.set('fluveny.session', TOKEN);
+    Platform.OS = 'web';
+    global.fetch = respond(202, '');
+    await postAccepted('/api/v1/visitor/events', { type: 'VISITOR_SESSION_STARTED', deviceId: 'd' });
+    expect(sent().headers.get(CLIENT_HEADER)).toBe('web');
+    expect(sent().headers.has('Authorization')).toBe(false);
+  });
+
+  it('Android: X-Fluveny-Client: android; sem token, sem Authorization; com token, Bearer', async () => {
+    Platform.OS = 'android';
+    global.fetch = respond(200, JSON.stringify({ data: { minAppVersion: '0.0.0', activityTypes: [] } }));
+    await get('/api/v1/meta');
+    expect(sent().headers.get(CLIENT_HEADER)).toBe('android');
+    expect(sent().headers.has('Authorization')).toBe(false);
+    expect(sent().init.credentials).toBeUndefined();
+
+    await saveSessionToken(TOKEN);
+    global.fetch = respond(200, JSON.stringify({ data: PROFILE }));
+    await get('/api/v1/students/me');
+    expect(sent().headers.get('Authorization')).toBe(`Bearer ${TOKEN}`);
+  });
+
+  it('post() aceita 201 (cadastro) e devolve o data', async () => {
+    const body = {
+      email: 'ana@exemplo.test',
+      password: 'segredo123',
+      birthDate: '1990-05-20',
+      acceptedTermsVersion: '0.2',
+      acceptedPrivacyVersion: '0.3',
+    };
+    global.fetch = respond(201, JSON.stringify({ data: { student: PROFILE } }));
+    await expect(post('/api/v1/auth/signup', body)).resolves.toEqual({ student: PROFILE });
+  });
+
+  it('patch() manda PATCH com JSON e devolve o data; erro vira ApiError', async () => {
+    global.fetch = respond(200, JSON.stringify({ data: { ...PROFILE, pronounSet: 'SHE' } }));
+    await expect(patch('/api/v1/students/me', { pronounSet: 'SHE' })).resolves.toMatchObject({ pronounSet: 'SHE' });
+    const { init, headers } = sent();
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(String(init.body))).toEqual({ pronounSet: 'SHE' });
+    expect(headers.get('Content-Type')).toBe('application/json');
+    global.fetch = respond(401, problem('UNAUTHENTICATED'), 'application/problem+json');
+    expect((await caught(patch('/api/v1/students/me', { pronounSet: null }))).status).toBe(401);
   });
 });

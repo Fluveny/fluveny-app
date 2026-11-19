@@ -49,6 +49,9 @@ describe('rota /kit (catálogo do kit, Decisão 1)', () => {
       expect(screen.getByTestId(`gap-bank-${state}`)).toBeTruthy();
       expect(screen.getByTestId(`gap-typed-${state}`)).toBeTruthy();
     }
+    // Peças da 2.1.
+    expect(screen.getByRole('checkbox', { name: 'Aceito os termos' })).toBeTruthy();
+    expect(screen.getByTestId('text-field-error-error')).toBeTruthy();
     // Peças da 1.20.
     expect(await screen.findByTestId('kit-confetti', { includeHiddenElements: true })).toBeTruthy();
   });

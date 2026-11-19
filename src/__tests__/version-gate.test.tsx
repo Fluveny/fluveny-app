@@ -3,7 +3,7 @@ import { act, renderRouter, screen, waitFor } from 'expo-router/testing-library'
 import { AppState, type AppStateStatus } from 'react-native';
 
 import { RootStack } from '../../app/_layout';
-import Welcome, { WELCOME_TITLE } from '../../app/(public)/index';
+import Root, { WELCOME_TITLE } from '../../app/(public)/index';
 import UpdateRequired, { UPDATE_BODY, UPDATE_BUTTON, UPDATE_TITLE } from '../../app/atualize';
 import { appVersion } from '../api/client';
 import { AppProviders, createQueryClient } from '../AppProviders';
@@ -33,7 +33,7 @@ async function openApp() {
           <RootStack />
         </AppProviders>
       ),
-      '(public)/index': Welcome,
+      '(public)/index': Root,
       atualize: UpdateRequired,
     },
     { initialUrl: '/' },

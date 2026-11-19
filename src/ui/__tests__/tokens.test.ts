@@ -118,6 +118,8 @@ describe('tokens vs. DESIGN.md (design.yaml)', () => {
       confettiHeight: 16,
       confettiRadius: 3,
       confettiFall: 420,
+      checkbox: 28, // [ASSUMPTION] caixa do aceite (2.1)
+      checkboxIcon: 18,
     });
     expect(size.avatar).toBeGreaterThanOrEqual(58);
     expect(size.avatar).toBeLessThanOrEqual(64);

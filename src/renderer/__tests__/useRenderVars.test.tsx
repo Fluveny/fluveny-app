@@ -1,4 +1,7 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen } from '@testing-library/react-native';
+
+import { STUDENT_QUERY_KEY } from '../../auth/student';
 
 import type { VisitorStore } from '../../visitor/types';
 import { RenderedText } from '../RenderedText';
@@ -41,5 +44,39 @@ describe('useRenderVars()', () => {
     await render(<Title store={store} />);
     expect(screen.getByText('Hi, Ana!')).toBeTruthy();
     expect(screen.queryByText('Hi, {name}!')).toBeNull();
+  });
+});
+
+describe('useRenderVars() com o Aluno da sessão (2.1)', () => {
+  function Sentence({ store }: { store: VisitorStore }) {
+    const { vars, pronoun } = useRenderVars(store);
+    return (
+      <RenderedText
+        text={{ he: '{name}: he is here.', she: '{name}: she is here.', they: '{name}: they are here.' }}
+        vars={vars}
+        pronoun={pronoun}
+      />
+    );
+  }
+
+  it('o nome e o pronome da conta vencem os do aparelho; sem pronome na conta, they', async () => {
+    const { store } = fakeStore({ name: 'Zé', pronoun: 'he', country: 'BR' });
+    // Sem gc: o timer de coleta seguraria o jest aberto.
+    const client = new QueryClient({ defaultOptions: { queries: { gcTime: Infinity } } });
+    client.setQueryData(STUDENT_QUERY_KEY, { email: 'ana@exemplo.test', name: 'Ana', pronounSet: 'SHE' });
+    await render(
+      <QueryClientProvider client={client}>
+        <Sentence store={store} />
+      </QueryClientProvider>,
+    );
+    await act(async () => {});
+    expect(screen.getByText('Ana: she is here.')).toBeTruthy();
+
+    await act(async () => client.setQueryData(STUDENT_QUERY_KEY, { email: 'ana@exemplo.test', pronounSet: null }));
+    expect(screen.getByText('Zé: they are here.')).toBeTruthy();
+
+    await act(async () => client.setQueryData(STUDENT_QUERY_KEY, null));
+    expect(screen.getByText('Zé: he is here.')).toBeTruthy();
+    client.clear();
   });
 });
