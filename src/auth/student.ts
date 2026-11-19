@@ -63,12 +63,15 @@ const STUDENT_QUERY_HASH = JSON.stringify(STUDENT_QUERY_KEY);
  */
 export function useCachedStudent(): StudentProfile | null {
   const client = useContext(QueryClientContext);
-  // Só os eventos da consulta do Aluno: os outros não acordam os textos do player.
+  // Só quando os dados do Aluno mudam: os outros eventos não acordam os textos do
+  // player. Os de observador (`observerResultsUpdated`) saem durante o render de
+  // quem chama `useStudent` e fariam a raiz se atualizar no meio dele.
   const subscribe = useCallback(
     (notify: () => void) =>
       client
         ? client.getQueryCache().subscribe((event) => {
-            if (event.query.queryHash === STUDENT_QUERY_HASH) notify();
+            if (event.query.queryHash !== STUDENT_QUERY_HASH) return;
+            if (event.type === 'updated' || event.type === 'removed') notify();
           })
         : noSubscription(),
     [client],

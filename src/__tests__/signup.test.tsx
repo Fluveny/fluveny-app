@@ -179,9 +179,15 @@ beforeEach(() => {
   (openPlayer as jest.Mock).mockClear();
   apiResponds();
   jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
+  consoleError = jest.spyOn(console, 'error');
 });
 
+let consoleError: jest.SpyInstance;
+
 afterEach(() => {
+  // A raiz não pode se atualizar no meio do render da tela do Aluno (achado no Android).
+  const setStateInRender = consoleError.mock.calls.filter((args) => /Cannot update a component/.test(String(args[0])));
+  expect(setStateInRender).toEqual([]);
   Platform.OS = os;
   jest.restoreAllMocks();
 });
