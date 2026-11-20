@@ -5,6 +5,7 @@ import { AccessibilityInfo, BackHandler, StyleSheet, Text } from 'react-native';
 
 import { RootStack } from '../../app/_layout';
 import ComingSoon, { SOON_BACK, SOON_BODY, SOON_TITLE } from '../../app/(public)/em-breve';
+import ConfirmEmail from '../../app/(public)/confirmar-email';
 import Root, { SIGN_IN, SIGN_UP, TRY_NOW, WELCOME_BODY, WELCOME_GOAL, WELCOME_TITLE } from '../../app/(public)/index';
 import SignUp, { BACK_LABEL as SIGNUP_BACK, INVITE_NOTICE, SIGNUP_TITLE } from '../../app/(student)/cadastro';
 import StageTwoInvite, { REDO_LABEL } from '../../app/(student)/convite';
@@ -136,6 +137,7 @@ async function openApp(initialUrl = '/', student?: StudentProfile) {
       '(student)/player': Player,
       '(student)/convite': StageTwoInvite,
       '(student)/cadastro': SignUp,
+      '(public)/confirmar-email': ConfirmEmail,
       atualize: UpdateRequired,
     },
     { initialUrl },
@@ -1051,7 +1053,7 @@ describe('fim do Estágio, convite e eventos do Visitante (1.20)', () => {
   }
 
   it('Aluno com conta (2.1): o resumo mostra CONTINUAR no lugar do convite, e ele volta à raiz', async () => {
-    await finishScripted({ email: 'ana@exemplo.test', name: 'Ana', pronounSet: null });
+    await finishScripted({ email: 'ana@exemplo.test', name: 'Ana', pronounSet: null, emailConfirmed: true });
     expect(screen.queryByTestId('stage-invite')).toBeNull();
     expect(screen.queryByRole('button', { name: INVITE_SIGN_UP })).toBeNull();
     await fireEvent.press(button(SUMMARY_CONTINUE));
@@ -1060,7 +1062,7 @@ describe('fim do Estágio, convite e eventos do Visitante (1.20)', () => {
   });
 
   it('Aluno com conta (2.1): /convite volta à raiz, sem o convite', async () => {
-    await openApp('/convite', { email: 'ana@exemplo.test', name: 'Ana', pronounSet: null });
+    await openApp('/convite', { email: 'ana@exemplo.test', name: 'Ana', pronounSet: null, emailConfirmed: true });
     expect(await screen.findByRole('header', { name: 'Hi, Ana!' })).toBeTruthy();
     expect(screen).toHavePathname('/');
     expect(screen.queryByText(INVITE_TITLE)).toBeNull();

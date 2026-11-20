@@ -21,6 +21,7 @@ import SignUp, {
 } from '../../app/(student)/cadastro';
 import StageTwoInvite from '../../app/(student)/convite';
 import ComingSoon, { SOON_TITLE } from '../../app/(public)/em-breve';
+import ConfirmEmail from '../../app/(public)/confirmar-email';
 import Root, { SIGN_UP, WELCOME_TITLE } from '../../app/(public)/index';
 import Player from '../../app/(student)/player';
 import PrivacyPolicy from '../../app/(public)/privacidade';
@@ -109,6 +110,7 @@ async function openApp(initialUrl = '/') {
       '(student)/player': Player,
       '(student)/convite': StageTwoInvite,
       '(student)/cadastro': SignUp,
+      '(public)/confirmar-email': ConfirmEmail,
     },
     { initialUrl },
   );

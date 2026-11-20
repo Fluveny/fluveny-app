@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/v1/account/email-confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Confirma o e-mail com o token do link (uso único, vale 7 dias). Responde 200; token desconhecido, vencido ou já usado dá 410 CONFIRMATION_LINK_INVALID. Campo desconhecido dá 400. Acima do limite por IP, 429 TOO_MANY_REQUESTS com Retry-After. */
+        post: operations["confirmEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/content/units/{unitKey}/versions": {
         parameters: {
             query?: never;
@@ -76,7 +93,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description O perfil do Aluno da sessão: nome, e-mail e pronomes (nulo vale como THEY). Sem sessão, 401. */
+        /** @description O perfil do Aluno da sessão: nome, e-mail, pronomes (nulo vale como THEY) e se o e-mail já foi confirmado. Sem sessão, 401. */
         get: operations["getMyStudentProfile"];
         put?: never;
         post?: never;
@@ -85,6 +102,23 @@ export interface paths {
         head?: never;
         /** @description Grava os pronomes do Aluno da sessão; nulo volta ao padrão they/them. Campo desconhecido dá 400. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. */
         patch: operations["updateMyPronouns"];
+        trace?: never;
+    };
+    "/api/v1/students/me/email-confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Reenvia o e-mail de confirmação do Aluno da sessão: o link anterior deixa de valer. Responde 202 sem corpo; o e-mail sai pela fila, em até alguns minutos. Já confirmado: 409 EMAIL_ALREADY_CONFIRMED. Mais de 1 por minuto ou 5 por dia: 429 TOO_MANY_REQUESTS com Retry-After. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. */
+        post: operations["resendMyEmailConfirmation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/units": {
@@ -260,6 +294,10 @@ export interface components {
             data: components["schemas"]["UnitVersionPublication"];
             message?: string;
         };
+        ApiResponseVoid: {
+            data: unknown;
+            message?: string;
+        };
         Attempt: {
             activityKey: string;
             answer: components["schemas"]["Answer"];
@@ -394,6 +432,9 @@ export interface components {
             receipt?: string;
             /** Format: int32 */
             xpAwarded: number;
+        };
+        ConfirmEmail: {
+            token: string;
         };
         /** @description Texto do conteúdo: uma string ou as variantes {he, she, they}. */
         ContentText: string | components["schemas"]["PronounVariants"];
@@ -772,6 +813,8 @@ export interface components {
         };
         StudentProfile: {
             email: string;
+            /** @description Se o e-mail já foi confirmado. */
+            emailConfirmed: boolean;
             name?: string | null;
             /**
              * @description Nulo vale como THEY (they/them).
@@ -864,6 +907,30 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    confirmEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmEmail"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
     publishUnitVersion: {
         parameters: {
             query?: {
@@ -1011,6 +1078,24 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiResponseStudentProfile"];
                 };
+            };
+        };
+    };
+    resendMyEmailConfirmation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

@@ -41,13 +41,18 @@ export async function fetchStudent(signal?: AbortSignal): Promise<StudentProfile
   }
 }
 
-/** O Aluno da sessão, uma vez por abertura do App (a 2.3 cuida da sessão que acaba no meio). */
+/**
+ * O Aluno da sessão: uma vez por abertura do App e, enquanto o e-mail não está
+ * confirmado, de novo a cada volta ao primeiro plano (2.2: a faixa some depois
+ * de confirmar no navegador). A 2.3 cuida da sessão que acaba no meio.
+ */
 export function useStudent() {
   return useQuery({
     queryKey: STUDENT_QUERY_KEY,
     queryFn: ({ signal }) => fetchStudent(signal),
     retry: false,
     staleTime: Infinity,
+    refetchOnWindowFocus: (query) => (query.state.data?.emailConfirmed === false ? 'always' : false),
     // Sem rede, falha na hora (NETWORK_ERROR) em vez de pausar: a raiz cai na boas-vindas.
     networkMode: 'always',
   });

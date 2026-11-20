@@ -50,6 +50,13 @@
 // grava cookie. No Android (`X-Fluveny-Client: android`), devolve um
 // `sessionToken` falso e confere o Bearer; no web, a sessão vale para qualquer
 // requisição. `GET`/`PATCH /students/me` sem sessão dão 401.
+//
+// Confirmação de e-mail (2.2): o cadastro e o reenvio emitem um token de uso
+// único (`mockConfirmationToken()` devolve o último); `POST
+// /account/email-confirmation` confirma com ele, com ou sem sessão, e token
+// desconhecido ou já usado dá 410. O reenvio (`POST
+// /students/me/email-confirmation`) responde 202, ou 409 com o e-mail já
+// confirmado; `forceMockResend` força o 409 ou o 429.
 import type { components, paths } from '../schema';
 
 export const MOCK_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
@@ -940,11 +947,43 @@ type MockStudent = components['schemas']['StudentProfile'];
 const mockAccounts = new Set<string>();
 /** A sessão do mock: o Aluno e, no Android, o token esperado no Bearer. */
 let mockSession: { student: MockStudent; token: string | null } | null = null;
+/** Os e-mails confirmados no mock. */
+const confirmedEmails = new Set<string>();
+/** Os tokens de confirmação válidos, com o e-mail de cada um (um por conta: o reenvio troca). */
+const confirmationTokens = new Map<string, string>();
+let lastConfirmationToken: string | null = null;
+let confirmationSeq = 0;
+/** Resposta forçada do reenvio (testes e mock manual): `409` ou `429`. */
+let forcedResend: 'EMAIL_ALREADY_CONFIRMED' | 'TOO_MANY_REQUESTS' | null = null;
 
-/** Esquece as contas e a sessão do mock (testes). */
+/** Esquece as contas, a sessão e as confirmações do mock (testes). */
 export function resetMockStudents() {
   mockAccounts.clear();
   mockSession = null;
+  confirmedEmails.clear();
+  confirmationTokens.clear();
+  lastConfirmationToken = null;
+  forcedResend = null;
+}
+
+/** O token do último link de confirmação emitido pelo mock (cadastro ou reenvio). */
+export function mockConfirmationToken(): string | null {
+  return lastConfirmationToken;
+}
+
+/** Força a resposta do reenvio da confirmação: `409 EMAIL_ALREADY_CONFIRMED`, `429 TOO_MANY_REQUESTS` ou nada. */
+export function forceMockResend(code: 'EMAIL_ALREADY_CONFIRMED' | 'TOO_MANY_REQUESTS' | null) {
+  forcedResend = code;
+}
+
+/** Emite um token novo para o e-mail; o anterior deixa de valer, como na API. */
+function issueConfirmationToken(email: string): string {
+  for (const [token, owner] of confirmationTokens) if (owner === email) confirmationTokens.delete(token);
+  confirmationSeq += 1;
+  const token = `mock-confirmacao-${confirmationSeq}`;
+  confirmationTokens.set(token, email);
+  lastConfirmationToken = token;
+  return token;
 }
 
 const SIGNUP_FIELDS = new Set([
@@ -1010,7 +1049,8 @@ async function mockSignup(request: Request) {
   const key = email.toLowerCase();
   if (mockAccounts.has(key)) throw new MockProblem(409, 'EMAIL_ALREADY_REGISTERED');
   mockAccounts.add(key);
-  const student: MockStudent = { email: key, name: name || null, pronounSet: null };
+  const student: MockStudent = { email: key, name: name || null, pronounSet: null, emailConfirmed: false };
+  issueConfirmationToken(key);
   // 43 caracteres base64url, o formato do token da API; falso.
   const token = client === 'android' ? `mock${Date.now().toString(36)}`.padEnd(43, '0').slice(0, 43) : null;
   mockSession = { student, token };
@@ -1023,7 +1063,40 @@ function mockStudentOf(request: Request): MockStudent {
   if (!mockSession || (mockSession.token !== null && bearer !== mockSession.token)) {
     throw new MockProblem(401, 'UNAUTHENTICATED');
   }
-  return mockSession.student;
+  return { ...mockSession.student, emailConfirmed: confirmedEmails.has(mockSession.student.email) };
+}
+
+/** `POST /account/email-confirmation`: pública; token de uso único, desconhecido ou usado dá 410. */
+async function mockConfirmEmail(request: Request) {
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  if (
+    !body ||
+    typeof body !== 'object' ||
+    Object.keys(body).some((key) => key !== 'token') ||
+    typeof body.token !== 'string' ||
+    !body.token.trim() ||
+    body.token.length > 128
+  ) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  const email = confirmationTokens.get(body.token);
+  if (!email) throw new MockProblem(410, 'CONFIRMATION_LINK_INVALID');
+  confirmationTokens.delete(body.token);
+  confirmedEmails.add(email);
+  return { data: null, message: 'E-mail confirmado.' };
+}
+
+/** `POST /students/me/email-confirmation`: 202; já confirmado, 409; `forceMockResend` força 409 ou 429. */
+function mockResendConfirmation(request: Request): undefined {
+  const client = request.headers.get('X-Fluveny-Client');
+  if (client !== 'web' && client !== 'android') throw new MockProblem(403, 'CLIENT_HEADER_REQUIRED');
+  const student = mockStudentOf(request);
+  if (forcedResend === 'TOO_MANY_REQUESTS') throw new MockProblem(429, 'TOO_MANY_REQUESTS');
+  if (forcedResend === 'EMAIL_ALREADY_CONFIRMED' || student.emailConfirmed) {
+    throw new MockProblem(409, 'EMAIL_ALREADY_CONFIRMED');
+  }
+  issueConfirmationToken(student.email);
+  return undefined;
 }
 
 /** `PATCH /students/me`: só `pronounSet`, um dos três ou nulo. */
@@ -1088,6 +1161,12 @@ export const mockRoutes: MockRoutes = {
   '/api/v1/students/me': {
     get: (request) => ({ data: mockStudentOf(request) }),
     patch: (request) => mockUpdatePronouns(request),
+  },
+  '/api/v1/students/me/email-confirmation': {
+    post: (request) => mockResendConfirmation(request),
+  },
+  '/api/v1/account/email-confirmation': {
+    post: (request) => mockConfirmEmail(request),
   },
   // Rotas do job de publicação: o App não as chama, mas o tipo exige um mock por rota.
   '/api/v1/admin/content/units/{unitKey}/versions': {

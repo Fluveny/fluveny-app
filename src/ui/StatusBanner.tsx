@@ -20,8 +20,8 @@ export type StatusBannerProps = {
   tone: StatusBannerTone;
   /** Texto da faixa, em português (vem de quem usa). */
   text: string;
-  /** Ação opcional: botão pequeno ghost ("REENVIAR"). */
-  action?: { label: string; onPress: () => void };
+  /** Ação opcional: botão pequeno ghost ("REENVIAR"); `busy` desabilita e anuncia como ocupado. */
+  action?: { label: string; onPress: () => void; busy?: boolean };
   testID?: string;
 };
 
@@ -47,7 +47,7 @@ export function StatusBanner({ tone, text, action, testID = 'status-banner' }: S
       </Text>
       {action ? (
         <View style={styles.action}>
-          <Button label={action.label} small variant="ghost" onPress={action.onPress} />
+          <Button label={action.label} small variant="ghost" onPress={action.onPress} busy={action.busy} />
         </View>
       ) : null}
     </View>

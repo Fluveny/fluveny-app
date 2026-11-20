@@ -115,12 +115,17 @@ type AcceptedPaths = {
   [P in keyof paths]: paths[P] extends { post: { requestBody?: unknown; responses: { 202: unknown } } } ? P : never;
 }[keyof paths];
 
-/** O corpo JSON de `POST path` de uma rota que responde 202 sem corpo. */
+/** O corpo JSON de `POST path` de uma rota que responde 202 sem corpo; `never` se a rota não pede corpo. */
 export type AcceptedBody<P extends AcceptedPaths> = paths[P]['post'] extends {
   requestBody: { content: { 'application/json': infer B } };
 }
   ? B
   : never;
+
+/** Os argumentos de `postAccepted` depois do caminho: o corpo, se a rota pede um, e o `init`. */
+type AcceptedArgs<P extends AcceptedPaths> = [AcceptedBody<P>] extends [never]
+  ? [body?: undefined, init?: RequestInit]
+  : [body: AcceptedBody<P>, init?: RequestInit];
 
 /** O corpo JSON de `POST path`, como o contrato pede. */
 export type PostBody<P extends PostPaths> = paths[P]['post'] extends {
@@ -268,13 +273,14 @@ export function post<P extends PostPaths>(path: P, body: PostBody<P>, init?: Req
   return request<PostData<P>>(path, { ...init, method: 'POST', headers, body: JSON.stringify(body) });
 }
 
-/** `POST` de uma rota que responde `202` sem corpo (os eventos do Visitante, 1.20). */
-export function postAccepted<P extends AcceptedPaths>(
-  path: P,
-  body: AcceptedBody<P>,
-  init?: RequestInit,
-): Promise<void> {
+/**
+ * `POST` de uma rota que responde `202` sem corpo (os eventos do Visitante, 1.20).
+ * Rota sem corpo de requisição (o reenvio da confirmação, 2.2) vai sem corpo e
+ * sem `Content-Type`.
+ */
+export function postAccepted<P extends AcceptedPaths>(path: P, ...[body, init]: AcceptedArgs<P>): Promise<void> {
   const headers = new Headers(init?.headers);
+  if (body === undefined) return request<void>(path, { ...init, method: 'POST', headers }, readNothing);
   headers.set('Content-Type', 'application/json');
   return request<void>(path, { ...init, method: 'POST', headers, body: JSON.stringify(body) }, readNothing);
 }

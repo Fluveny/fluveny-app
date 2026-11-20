@@ -314,6 +314,16 @@ describe('postAccepted() (1.20)', () => {
     expect(new Headers(init.headers).get(APP_VERSION_HEADER)).toBe(appJson.expo.version);
   });
 
+  it('rota sem corpo de requisição (2.2): POST sem corpo e sem Content-Type', async () => {
+    global.fetch = jest.fn().mockResolvedValue(new Response(null, { status: 202 }));
+    await expect(postAccepted('/api/v1/students/me/email-confirmation')).resolves.toBeUndefined();
+    const [url, init] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url).toBe('https://api.exemplo.test/api/v1/students/me/email-confirmation');
+    expect(init.method).toBe('POST');
+    expect(init.body).toBeUndefined();
+    expect(new Headers(init.headers).has('Content-Type')).toBe(false);
+  });
+
   it('erro do problem+json: ApiError com o code; sem rede, NETWORK_ERROR', async () => {
     global.fetch = respond(500, problem('INTERNAL_ERROR'), 'application/problem+json');
     expect((await caught(postAccepted('/api/v1/visitor/events', event))).code).toBe('INTERNAL_ERROR');
@@ -323,7 +333,7 @@ describe('postAccepted() (1.20)', () => {
 });
 
 describe('sessão e X-Fluveny-Client (2.1)', () => {
-  const PROFILE = { email: 'ana@exemplo.test', name: 'Ana', pronounSet: null };
+  const PROFILE = { email: 'ana@exemplo.test', name: 'Ana', pronounSet: null, emailConfirmed: false };
   const TOKEN = 'a'.repeat(43);
   const os = Platform.OS;
   afterEach(() => {

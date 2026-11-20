@@ -55,6 +55,8 @@ export function RootStack() {
         <Stack.Screen name="(student)/convite" />
         {/* Cadastro do Aluno adulto e os pronomes (2.1). */}
         <Stack.Screen name="(student)/cadastro" />
+        {/* O link do e-mail de confirmação (2.2): pública, com ou sem sessão. */}
+        <Stack.Screen name="(public)/confirmar-email" />
         {/* Catálogo do kit (1.8): só abre com __DEV__; no release, redireciona para /. */}
         <Stack.Screen name="kit" />
       </Stack.Protected>
