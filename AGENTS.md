@@ -109,3 +109,11 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 - Antes da 2.4, o Progresso do Aluno segue só no aparelho (a loja do Visitante); o renderizador usa o nome e o pronome da conta (`useRenderVars`), e o resto das Variáveis segue do aparelho.
 - Mock (`EXPO_PUBLIC_API_MOCK=1`): o cadastro responde 201 (`MOCK_CREATED`) e abre uma sessão só na memória do mock, que some ao recarregar. Nos testes, `global.__secureStore` e `global.__resetSecureStore()` (jest.setup.js).
 - `expo-secure-store` é dependência nativa: o APK de desenvolvimento precisa ser gerado de novo, localmente (`npx expo run:android`).
+
+## Confirmação de e-mail (2.2)
+
+- `/confirmar-email?token=…` (`app/(public)/confirmar-email.tsx`): o link do e-mail, pública, com ou sem sessão, dentro do guard de versão. Lê o `token` uma vez, tira-o da URL com o `setParams` da própria tela (sem ficar no histórico) e o guarda só em memória em `src/auth/emailConfirmation.ts` (`confirmOnce`): o remonte não manda outro POST e o TENTAR DE NOVO reenvia o mesmo token. 200: "E-mail confirmado!" e o `['student', 'me']` invalidado (`refetchType: 'all'`); 410 ou sem token: "Este link não vale mais."; outro erro: `messageFor(code)`. CONTINUAR e IR PARA O INÍCIO esquecem o token e fazem `replace('/')`.
+- O link abre no navegador também no Android (sem App Links): o `useStudent` refaz o perfil sempre que o App volta ao primeiro plano (`refetchOnWindowFocus: 'always'`; `AppState` no nativo; no web, `visibilitychange` e foco/desfoco da janela, em `watchAppFocus`).
+- `StudentHome`: com `emailConfirmed: false`, a faixa `quiet` "Enviamos um link de confirmação para {email}." com REENVIAR (`resendConfirmation`, `postAccepted` sem corpo). 202 troca o texto da faixa; 409 refaz o perfil (a faixa some); 429 e outros, `messageFor`. A 2.8 troca o texto e o tom depois dos 7 dias.
+- `postAccepted` aceita rota 202 sem corpo de requisição (vai sem corpo e sem `Content-Type`). `StatusBanner` aceita `action.busy`.
+- Mock: o cadastro e o reenvio emitem um token de uso único (`mockConfirmationToken()`, o último); confirmar com token desconhecido ou usado dá 410. `forceMockResend('EMAIL_ALREADY_CONFIRMED' | 'TOO_MANY_REQUESTS' | null)` força o 409 ou o 429 do reenvio.

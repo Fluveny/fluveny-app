@@ -2,8 +2,10 @@ import openapi from '../../openapi.json';
 import { randomUUID } from 'node:crypto';
 
 import {
+  forceMockResend,
   MOCK_CREATED,
   MOCK_METHODS,
+  mockConfirmationToken,
   MockProblem,
   mockRoutes,
   resetMockStudents,
@@ -162,7 +164,11 @@ describe('mocks da API', () => {
                 ? { method: 'POST', headers: { 'X-Fluveny-Client': 'web' }, body: JSON.stringify(ADULT) }
                 : path === '/api/v1/students/me' && method === 'patch'
                   ? { method: 'PATCH', body: JSON.stringify({ pronounSet: 'SHE' }) }
-                  : undefined;
+                  : path === '/api/v1/students/me/email-confirmation'
+                    ? { method: 'POST', headers: { 'X-Fluveny-Client': 'web' } }
+                    : path === '/api/v1/account/email-confirmation'
+                      ? { method: 'POST', body: JSON.stringify({ token: mockConfirmationToken() }) }
+                      : undefined;
         for (const key of keysOf(await resolve?.(new Request(`http://mock${path}`, init)))) {
           if (secrets.has(key)) leaked.push(`${method.toUpperCase()} ${path}: ${key}`);
         }
@@ -208,7 +214,9 @@ describe('mock do cadastro e da sessão (2.1)', () => {
 
   it('web: 201 sem token, e o perfil da sessão; e-mail repetido (em outra caixa) é 409', async () => {
     const created = await signupMock(ADULT);
-    expect(created.data).toEqual({ student: { email: ADULT.email, name: 'Ana', pronounSet: null } });
+    expect(created.data).toEqual({
+      student: { email: ADULT.email, name: 'Ana', pronounSet: null, emailConfirmed: false },
+    });
     expect((await me()).data.email).toBe(ADULT.email);
     expect(await problemOf(signupMock({ ...ADULT, email: 'ANA@exemplo.test' }))).toBe('409 EMAIL_ALREADY_REGISTERED');
   });
@@ -250,6 +258,60 @@ describe('mock do cadastro e da sessão (2.1)', () => {
     expect(await problemOf(patchMe({ pronounSet: 'IT' }))).toBe('400 VALIDATION_FAILED');
     expect((await patchMe({ pronounSet: 'SHE' })).data.pronounSet).toBe('SHE');
     expect((await me()).data.pronounSet).toBe('SHE');
+  });
+});
+
+describe('mock da confirmação de e-mail (2.2)', () => {
+  beforeEach(() => resetMockStudents());
+  const me = () => Promise.resolve().then(() => mockRoutes['/api/v1/students/me'].get(new Request('http://mock')));
+  const confirm = (body: unknown) =>
+    Promise.resolve(
+      mockRoutes['/api/v1/account/email-confirmation'].post(
+        new Request('http://mock', { method: 'POST', body: JSON.stringify(body) }),
+      ),
+    );
+  const resend = (client: string | null = 'web') =>
+    Promise.resolve().then(() =>
+      mockRoutes['/api/v1/students/me/email-confirmation'].post(
+        new Request('http://mock', { method: 'POST', headers: client ? { 'X-Fluveny-Client': client } : {} }),
+      ),
+    );
+
+  it('o cadastro emite o token; confirmar dá 200 e o perfil passa a confirmado; o token é de uso único', async () => {
+    await signupMock(ADULT);
+    const token = mockConfirmationToken()!;
+    expect((await me()).data.emailConfirmed).toBe(false);
+    expect(await confirm({ token })).toEqual({ data: null, message: 'E-mail confirmado.' });
+    expect((await me()).data.emailConfirmed).toBe(true);
+    expect(await problemOf(confirm({ token }))).toBe('410 CONFIRMATION_LINK_INVALID');
+  });
+
+  it('token desconhecido dá 410; corpo fora do contrato, 400', async () => {
+    expect(await problemOf(confirm({ token: 'nao-existe' }))).toBe('410 CONFIRMATION_LINK_INVALID');
+    expect(await problemOf(confirm({ token: 'x', extra: 1 }))).toBe('400 VALIDATION_FAILED');
+    expect(await problemOf(confirm({}))).toBe('400 VALIDATION_FAILED');
+  });
+
+  it('reenvio: 202 com token novo (o anterior deixa de valer); sem sessão, 401; já confirmado, 409', async () => {
+    expect(await problemOf(resend())).toBe('401 UNAUTHENTICATED');
+    await signupMock(ADULT);
+    const first = mockConfirmationToken()!;
+    expect(await problemOf(resend(null))).toBe('403 CLIENT_HEADER_REQUIRED');
+    expect(await resend()).toBeUndefined();
+    expect(mockConfirmationToken()).not.toBe(first);
+    expect(await problemOf(confirm({ token: first }))).toBe('410 CONFIRMATION_LINK_INVALID');
+    await confirm({ token: mockConfirmationToken() });
+    expect(await problemOf(resend())).toBe('409 EMAIL_ALREADY_CONFIRMED');
+  });
+
+  it('forceMockResend força o 409 e o 429', async () => {
+    await signupMock(ADULT);
+    forceMockResend('TOO_MANY_REQUESTS');
+    expect(await problemOf(resend())).toBe('429 TOO_MANY_REQUESTS');
+    forceMockResend('EMAIL_ALREADY_CONFIRMED');
+    expect(await problemOf(resend())).toBe('409 EMAIL_ALREADY_CONFIRMED');
+    forceMockResend(null);
+    expect(await resend()).toBeUndefined();
   });
 });
 

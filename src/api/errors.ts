@@ -29,6 +29,9 @@ export const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   EMAIL_ALREADY_REGISTERED: 'Este e-mail já tem uma conta. Você pode entrar ou recuperar a senha.',
   AGE_BELOW_MINIMUM: 'O Fluveny é para quem tem 12 anos ou mais.',
   GUARDIAN_CONSENT_REQUIRED: 'Por enquanto, o cadastro é só para quem tem 18 anos ou mais.',
+  // Confirmação de e-mail (2.2). [ASSUMPTION] Textos propostos na 2.2, a revisar com UX.
+  CONFIRMATION_LINK_INVALID: 'Este link não vale mais. Peça um novo e-mail de confirmação na tela inicial do Fluveny.',
+  EMAIL_ALREADY_CONFIRMED: 'Seu e-mail já está confirmado.',
   CLIENT_HEADER_REQUIRED: GENERIC_MESSAGE,
   METHOD_NOT_ALLOWED: GENERIC_MESSAGE,
   NOT_ACCEPTABLE: GENERIC_MESSAGE,

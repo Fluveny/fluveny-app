@@ -41,10 +41,28 @@ export function reportMetaError(error: unknown): void {
 
 /**
  * No nativo, o TanStack Query não sabe quando o App volta ao primeiro plano:
- * o `AppState` avisa o `focusManager`. No web, ele já usa o `visibilitychange`.
+ * o `AppState` avisa o `focusManager`. No web, além do `visibilitychange` (troca
+ * de aba), o foco da janela (2.2: o Aluno confirma o e-mail em outra janela e
+ * volta).
  */
 export function watchAppFocus(): () => void {
-  if (Platform.OS === 'web') return () => {};
+  if (Platform.OS === 'web') {
+    if (typeof window === 'undefined' || !window.addEventListener) return () => {};
+    focusManager.setEventListener((handleFocus) => {
+      const onVisibility = () => handleFocus(typeof document === 'undefined' || document.visibilityState !== 'hidden');
+      const onFocus = () => handleFocus(true);
+      const onBlur = () => handleFocus(false);
+      window.addEventListener('visibilitychange', onVisibility, false);
+      window.addEventListener('focus', onFocus, false);
+      window.addEventListener('blur', onBlur, false);
+      return () => {
+        window.removeEventListener('visibilitychange', onVisibility);
+        window.removeEventListener('focus', onFocus);
+        window.removeEventListener('blur', onBlur);
+      };
+    });
+    return () => focusManager.setEventListener(() => () => {});
+  }
   focusManager.setEventListener((handleFocus) => {
     const subscription = AppState.addEventListener('change', (state) => handleFocus(state === 'active'));
     return () => subscription?.remove();
