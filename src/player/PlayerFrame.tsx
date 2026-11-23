@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { OFFLINE_TEXT } from '../network/text';
-import { Button, Icon, Pressable3D, ProgressBar, StatusBanner, TextLink, XpChip } from '../ui';
+import { Button, Icon, InteractionContext, Pressable3D, ProgressBar, StatusBanner, TextLink, XpChip } from '../ui';
 import { color, size, spacing, typography } from '../ui/tokens';
 import { PlayerSheet } from './PlayerSheet';
 import type { FooterAction, SheetSpec } from './registry';
@@ -120,13 +120,14 @@ export function PlayerTop({
 
 /**
  * Rodapé fixo com o único botão primário, ou com um link de texto (`variant:
- * 'link'`). Sem rede, vira "SEM CONEXÃO" desabilitado.
+ * 'link'`). Sem rede, vira "SEM CONEXÃO" desabilitado, e a mensagem some
+ * (menos a de `messageOffline`, o "salvar falhou" do Aluno, 2.4).
  */
 export function PlayerFooter({ footer, online }: { footer: FooterAction | null; online: boolean }) {
   if (!footer) return <View style={styles.footer} testID="player-footer" />;
   return (
     <View style={styles.footer} testID="player-footer">
-      {online && footer.message ? (
+      {(online || footer.messageOffline) && footer.message ? (
         <Text style={styles.message} accessibilityRole="alert" accessibilityLiveRegion="polite">
           {footer.message}
         </Text>
@@ -163,7 +164,8 @@ export type PlayerFrameProps = {
   /** Posição da Atividade, a partir de 1. */
   position: number;
   total: number;
-  xp: number;
+  /** O XP do chip; sem ele (o Aluno antes da primeira leitura do servidor, 2.4), o chip some. */
+  xp?: number;
   online: boolean;
   footer: FooterAction | null;
   /** A folha de feedback; aberta, ela entra no lugar do rodapé. */
@@ -173,8 +175,16 @@ export type PlayerFrameProps = {
   contentKey: string;
   /** Sem o recuo lateral do conteúdo (a cena do Diálogo, que tem o próprio recuo). */
   bleed?: boolean;
+  /**
+   * Uma interação do aluno, para o relógio de estudo (2.4): todo toque que
+   * começa na moldura (sem tomar o toque de ninguém) e toda mudança de texto
+   * num campo do kit dentro dela.
+   */
+  onInteraction?: () => void;
   children: ReactNode;
 };
+
+const noInteraction = () => {};
 
 /**
  * Moldura do player (EXPERIENCE.md, Moldura comum do player): topo fixo (✕,
@@ -198,6 +208,7 @@ export function PlayerFrame({
   onClose,
   contentKey,
   bleed = false,
+  onInteraction = noInteraction,
   children,
 }: PlayerFrameProps) {
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
@@ -247,36 +258,52 @@ export function PlayerFrame({
     };
   }, [reveal]);
   return (
-    <SafeAreaView style={styles.screen} edges={['top', 'bottom', 'left', 'right']}>
-      <PlayerTop onClose={onClose} online={online} progress={total > 0 ? position / total : 0} xp={xp} />
-      <View style={styles.positionRow}>
-        <Text style={[styles.position, styles.stage]}>{stageLine(stageNumber, stageTitle)}</Text>
-        <Text style={styles.position}>{positionLine(position, total)}</Text>
-      </View>
-      {/* No nativo (Android de ponta a ponta), o teclado não encolhe a janela: o
+    <SafeAreaView
+      style={styles.screen}
+      edges={['top', 'bottom', 'left', 'right']}
+      testID="player-frame"
+      // Na captura, todo toque passa por aqui antes do alvo; `false` deixa o toque seguir.
+      onStartShouldSetResponderCapture={() => {
+        onInteraction();
+        return false;
+      }}
+    >
+      <InteractionContext.Provider value={onInteraction}>
+        <PlayerTop onClose={onClose} online={online} progress={total > 0 ? position / total : 0} xp={xp} />
+        <View style={styles.positionRow}>
+          <Text style={[styles.position, styles.stage]}>{stageLine(stageNumber, stageTitle)}</Text>
+          <Text style={styles.position}>{positionLine(position, total)}</Text>
+        </View>
+        {/* No nativo (Android de ponta a ponta), o teclado não encolhe a janela: o
           conteúdo e o rodapé sobem com ele, e o campo focado vai para a área
           visível. No web, nada muda. */}
-      <KeyboardAvoidingView style={styles.grow} behavior="padding" enabled={KEYBOARD_AVOIDING} testID="player-keyboard">
-        <ScrollView
-          key={contentKey}
-          ref={scroll}
-          testID="player-content"
+        <KeyboardAvoidingView
           style={styles.grow}
-          contentContainerStyle={[styles.content, bleed ? styles.bleed : null]}
-          keyboardShouldPersistTaps="handled"
-          onScroll={(event) => {
-            offset.current = event.nativeEvent.contentOffset.y;
-          }}
-          scrollEventThrottle={16}
+          behavior="padding"
+          enabled={KEYBOARD_AVOIDING}
+          testID="player-keyboard"
         >
-          <RevealFieldContext.Provider value={reveal}>{children}</RevealFieldContext.Provider>
-        </ScrollView>
-        {sheet ? (
-          <PlayerSheet sheet={sheet} online={online} offlineLabel={OFFLINE_LABEL} />
-        ) : (
-          <PlayerFooter footer={footer} online={online} />
-        )}
-      </KeyboardAvoidingView>
+          <ScrollView
+            key={contentKey}
+            ref={scroll}
+            testID="player-content"
+            style={styles.grow}
+            contentContainerStyle={[styles.content, bleed ? styles.bleed : null]}
+            keyboardShouldPersistTaps="handled"
+            onScroll={(event) => {
+              offset.current = event.nativeEvent.contentOffset.y;
+            }}
+            scrollEventThrottle={16}
+          >
+            <RevealFieldContext.Provider value={reveal}>{children}</RevealFieldContext.Provider>
+          </ScrollView>
+          {sheet ? (
+            <PlayerSheet sheet={sheet} online={online} offlineLabel={OFFLINE_LABEL} />
+          ) : (
+            <PlayerFooter footer={footer} online={online} />
+          )}
+        </KeyboardAvoidingView>
+      </InteractionContext.Provider>
     </SafeAreaView>
   );
 }

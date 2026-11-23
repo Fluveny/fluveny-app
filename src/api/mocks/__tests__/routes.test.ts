@@ -11,6 +11,8 @@ import {
   mockConfirmationToken,
   MockProblem,
   mockRoutes,
+  expireMockSession,
+  resetMockStudentRecords,
   resetMockStudents,
   resetMockVisitorRecords,
 } from '../routes';
@@ -101,6 +103,10 @@ describe('segredos do contrato', () => {
   });
 });
 
+/** O `versionId` do Estágio do mock. */
+const MOCK_VERSION_ID = mockRoutes['/api/v1/units/{unitKey}/stages/{stageKey}'].get(new Request('http://mock')).data
+  .versionId;
+
 describe('mocks da API', () => {
   it('têm uma resposta para cada rota e método do openapi.json', () => {
     const missing: string[] = [];
@@ -141,45 +147,66 @@ describe('mocks da API', () => {
     await signupMock({ ...ADULT, email: 'antes@exemplo.test' });
     for (const [path, operations] of Object.entries(routes)) {
       for (const [method, resolve] of Object.entries(operations)) {
-        if (path.startsWith('/api/v1/visitor/attempts')) continue;
+        // As Tentativas trazem a exceção da API (`expected` e justificativas): o corretor tem os testes dele.
+        if (path.startsWith('/api/v1/visitor/attempts') || path.startsWith('/api/v1/students/me/attempts')) continue;
         const init =
-          path === '/api/v1/visitor/completions'
+          path === '/api/v1/students/me/completions'
             ? {
                 method: 'POST',
                 body: JSON.stringify({
                   attemptId: '6f1c2a4e-1b2c-4d3e-8f90-123456789abc',
-                  deviceId: '0b6a3f0e-4c1d-4e2a-9b3c-5d6e7f809a1b',
                   versionId: 'v',
                   activityKey: 'meet-alex-dialogue',
                   outcome: 'VIEWED',
                   studyTimeMs: 0,
                 }),
               }
-            : path === '/api/v1/visitor/events'
+            : path === '/api/v1/students/me/events'
               ? {
                   method: 'POST',
                   body: JSON.stringify({
-                    type: 'VISITOR_SESSION_STARTED',
-                    deviceId: '0b6a3f0e-4c1d-4e2a-9b3c-5d6e7f809a1b',
+                    type: 'ACTIVITY_STARTED',
+                    versionId: MOCK_VERSION_ID,
+                    activityKey: 'meet-alex-dialogue',
                   }),
                 }
-              : path === '/api/v1/auth/signup'
-                ? { method: 'POST', headers: { 'X-Fluveny-Client': 'web' }, body: JSON.stringify(ADULT) }
-                : path === '/api/v1/students/me' && method === 'patch'
-                  ? { method: 'PATCH', body: JSON.stringify({ pronounSet: 'SHE' }) }
-                  : path === '/api/v1/students/me/email-confirmation'
-                    ? { method: 'POST', headers: { 'X-Fluveny-Client': 'web' } }
-                    : path === '/api/v1/account/email-confirmation'
-                      ? { method: 'POST', body: JSON.stringify({ token: mockConfirmationToken() }) }
-                      : path === '/api/v1/auth/login'
-                        ? {
-                            method: 'POST',
-                            headers: { 'X-Fluveny-Client': 'web' },
-                            body: JSON.stringify({ email: 'antes@exemplo.test', password: ADULT.password }),
-                          }
-                        : path === '/api/v1/auth/logout'
-                          ? { method: 'POST', headers: { 'X-Fluveny-Client': 'web' } }
-                          : undefined;
+              : path === '/api/v1/visitor/completions'
+                ? {
+                    method: 'POST',
+                    body: JSON.stringify({
+                      attemptId: '6f1c2a4e-1b2c-4d3e-8f90-123456789abc',
+                      deviceId: '0b6a3f0e-4c1d-4e2a-9b3c-5d6e7f809a1b',
+                      versionId: 'v',
+                      activityKey: 'meet-alex-dialogue',
+                      outcome: 'VIEWED',
+                      studyTimeMs: 0,
+                    }),
+                  }
+                : path === '/api/v1/visitor/events'
+                  ? {
+                      method: 'POST',
+                      body: JSON.stringify({
+                        type: 'VISITOR_SESSION_STARTED',
+                        deviceId: '0b6a3f0e-4c1d-4e2a-9b3c-5d6e7f809a1b',
+                      }),
+                    }
+                  : path === '/api/v1/auth/signup'
+                    ? { method: 'POST', headers: { 'X-Fluveny-Client': 'web' }, body: JSON.stringify(ADULT) }
+                    : path === '/api/v1/students/me' && method === 'patch'
+                      ? { method: 'PATCH', body: JSON.stringify({ pronounSet: 'SHE' }) }
+                      : path === '/api/v1/students/me/email-confirmation'
+                        ? { method: 'POST', headers: { 'X-Fluveny-Client': 'web' } }
+                        : path === '/api/v1/account/email-confirmation'
+                          ? { method: 'POST', body: JSON.stringify({ token: mockConfirmationToken() }) }
+                          : path === '/api/v1/auth/login'
+                            ? {
+                                method: 'POST',
+                                headers: { 'X-Fluveny-Client': 'web' },
+                                body: JSON.stringify({ email: 'antes@exemplo.test', password: ADULT.password }),
+                              }
+                            : path === '/api/v1/auth/logout'
+                              ? { method: 'POST', headers: { 'X-Fluveny-Client': 'web' } }
+                              : undefined;
         for (const key of keysOf(await resolve?.(new Request(`http://mock${path}`, init)))) {
           if (secrets.has(key)) leaked.push(`${method.toUpperCase()} ${path}: ${key}`);
         }
@@ -1088,5 +1115,147 @@ describe('recibos do mock (1.12)', () => {
         send('/api/v1/visitor/attempts', { ...body, type: 'gaps', answer: { ...body.answer, type: 'gaps' } }),
       ).rejects.toMatchObject({ status: 400, code: 'INVALID_ANSWER' });
     });
+  });
+});
+
+describe('mock do Progresso do Aluno (2.4)', () => {
+  type StudentRoute =
+    '/api/v1/students/me/attempts' | '/api/v1/students/me/attempts/reveal' | '/api/v1/students/me/completions';
+  const post = (route: StudentRoute, body: unknown) =>
+    Promise.resolve().then(() =>
+      mockRoutes[route].post(
+        new Request(`http://mock${route}`, {
+          method: 'POST',
+          headers: { 'X-Fluveny-Client': 'web' },
+          body: JSON.stringify(body),
+        }),
+      ),
+    );
+  const event = (body: unknown) =>
+    Promise.resolve().then(() =>
+      mockRoutes['/api/v1/students/me/events'].post(
+        new Request('http://mock/api/v1/students/me/events', { method: 'POST', body: JSON.stringify(body) }),
+      ),
+    );
+  const progress = () =>
+    Promise.resolve().then(() => mockRoutes['/api/v1/students/me/progress'].get(new Request('http://mock')).data);
+
+  /** Uma Tentativa do Aluno na Escolha de 3 itens: sem `deviceId`. */
+  const studentAttempt = (picks: number[], attemptId: string = randomUUID()) => {
+    const { deviceId: _deviceId, ...body } = attempt(
+      (item) => item.options[picks[THREE_ITEMS.items.indexOf(item)]!]!.optionKey,
+    );
+    return { ...body, attemptId };
+  };
+  const RIGHT = [0, 1, 1];
+  const PARTIAL = [1, 1, 1];
+  const viewed = (attemptId: string = randomUUID()) => ({
+    attemptId,
+    versionId: STAGE.versionId,
+    activityKey: DIALOGUE.activityKey,
+    outcome: 'VIEWED',
+    studyTimeMs: 2000,
+  });
+
+  beforeEach(async () => {
+    resetMockStudents();
+    resetMockStudentRecords();
+    await signupMock(ADULT);
+  });
+
+  it('sem sessão: 401 em todas as rotas', async () => {
+    expireMockSession();
+    expect(await problemOf(post('/api/v1/students/me/attempts', studentAttempt(RIGHT)))).toBe('401 UNAUTHENTICATED');
+    expect(await problemOf(post('/api/v1/students/me/completions', viewed()))).toBe('401 UNAUTHENTICATED');
+    expect(
+      await problemOf(
+        event({ type: 'ACTIVITY_STARTED', versionId: STAGE.versionId, activityKey: DIALOGUE.activityKey }),
+      ),
+    ).toBe('401 UNAUTHENTICATED');
+    expect(await problemOf(progress())).toBe('401 UNAUTHENTICATED');
+  });
+
+  it('a primeira Tentativa grava o XP; o reenvio do mesmo attemptId devolve o mesmo; outro attemptId, 0', async () => {
+    const id = randomUUID();
+    const first = await post('/api/v1/students/me/attempts', studentAttempt(PARTIAL, id));
+    expect(first.data).toMatchObject({ resultPct: 67, xpAwarded: 7 });
+    expect(first.data.receipt).toBeUndefined();
+    expect((await post('/api/v1/students/me/attempts', studentAttempt(PARTIAL, id))).data.xpAwarded).toBe(7);
+    const again = await post('/api/v1/students/me/attempts', studentAttempt(RIGHT));
+    expect(again.data).toMatchObject({ resultPct: 100, xpAwarded: 0 });
+    expect(await progress()).toEqual({
+      xpTotal: 7,
+      results: [
+        {
+          unitKey: 'unit-1',
+          activityKey: THREE_ITEMS.activityKey,
+          outcome: 'GRADED',
+          resultPct: 67,
+          xpAwarded: 7,
+          studyTimeMs: 1000,
+        },
+      ],
+    });
+  });
+
+  it('corpo fechado: o deviceId é 400, e nada é gravado; studyTimeMs fora de 0 a 24 h também', async () => {
+    expect(await problemOf(post('/api/v1/students/me/attempts', { ...studentAttempt(RIGHT), deviceId: DEVICE }))).toBe(
+      '400 VALIDATION_FAILED',
+    );
+    expect(await problemOf(post('/api/v1/students/me/completions', { ...viewed(), deviceId: DEVICE }))).toBe(
+      '400 VALIDATION_FAILED',
+    );
+    expect(
+      await problemOf(post('/api/v1/students/me/attempts', { ...studentAttempt(RIGHT), studyTimeMs: 86_400_001 })),
+    ).toBe('400 VALIDATION_FAILED');
+    expect(await problemOf(post('/api/v1/students/me/completions', { ...viewed(), studyTimeMs: -1 }))).toBe(
+      '400 VALIDATION_FAILED',
+    );
+    expect(await progress()).toEqual({ xpTotal: 0, results: [] });
+  });
+
+  it('reveal sem registro: 409 ATTEMPT_REQUIRED; depois da Tentativa, o expected sem XP e sem gravar', async () => {
+    expect(await problemOf(post('/api/v1/students/me/attempts/reveal', studentAttempt(PARTIAL)))).toBe(
+      '409 ATTEMPT_REQUIRED',
+    );
+    await post('/api/v1/students/me/attempts', studentAttempt(PARTIAL));
+    const revealed = await post('/api/v1/students/me/attempts/reveal', studentAttempt(PARTIAL));
+    expect(revealed.data).toMatchObject({ xpAwarded: 0, expected: { type: 'choice' } });
+    expect((await progress()).xpTotal).toBe(7);
+  });
+
+  it('conclusão: VIEWED grava sem XP e sem recibo; SKIPPED no Diálogo é 409 COMPLETION_NOT_ALLOWED', async () => {
+    const done = await post('/api/v1/students/me/completions', viewed());
+    expect(done.data).toEqual({ outcome: 'VIEWED', xpAwarded: 0 });
+    expect(await problemOf(post('/api/v1/students/me/completions', { ...viewed(), outcome: 'SKIPPED' }))).toBe(
+      '409 COMPLETION_NOT_ALLOWED',
+    );
+    expect((await progress()).results).toEqual([
+      { unitKey: 'unit-1', activityKey: DIALOGUE.activityKey, outcome: 'VIEWED', xpAwarded: 0, studyTimeMs: 2000 },
+    ]);
+  });
+
+  it('o Progresso é de cada conta', async () => {
+    await post('/api/v1/students/me/attempts', studentAttempt(RIGHT));
+    await signupMock({ ...ADULT, email: 'bia@exemplo.test' });
+    expect(await progress()).toEqual({ xpTotal: 0, results: [] });
+    expect((await post('/api/v1/students/me/attempts', studentAttempt(RIGHT))).data.xpAwarded).toBe(10);
+  });
+
+  it('evento: 202 sem corpo só com type, versionId e activityKey; deviceId é 400; Atividade desconhecida, 404', async () => {
+    const body = { type: 'ACTIVITY_STARTED', versionId: STAGE.versionId, activityKey: DIALOGUE.activityKey };
+    expect(await event(body)).toBeUndefined();
+    expect(await problemOf(event({ ...body, deviceId: DEVICE }))).toBe('400 VALIDATION_FAILED');
+    expect(await problemOf(event({ ...body, type: 'VISITOR_SESSION_STARTED' }))).toBe('400 VALIDATION_FAILED');
+    expect(await problemOf(event({ ...body, activityKey: 'nenhuma' }))).toBe('404 NOT_FOUND');
+  });
+
+  it('as rotas do Visitante não mudam: o recibo e o XP de sempre, também depois do Aluno', async () => {
+    await post('/api/v1/students/me/attempts', studentAttempt(RIGHT));
+    const visitor = await send(
+      '/api/v1/visitor/attempts',
+      attempt((item) => item.options[RIGHT[THREE_ITEMS.items.indexOf(item)]!]!.optionKey),
+    );
+    expect(visitor).toMatchObject({ xpAwarded: 10, receipt: expect.any(String) });
   });
 });

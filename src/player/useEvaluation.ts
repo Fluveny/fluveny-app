@@ -1,8 +1,11 @@
 // Fluxo de avaliação (EXPERIENCE.md, Verificar → Acerto | Erro → Tentar de
 // novo | Ver resposta; UX-DR63 a UX-DR68). O servidor corrige: o App manda a
 // Tentativa e mostra o Resultado, sem gabarito no cliente (FR-25, AD-7).
-// Desde a 1.12, a Tentativa e o reveal levam o `deviceId`, e o recibo que vem
-// no Resultado é guardado no aparelho antes da folha.
+// Desde a 1.12, a Tentativa e o reveal do Visitante levam o `deviceId`, e o
+// recibo que vem no Resultado é guardado no aparelho antes da folha. Desde a
+// 2.4, no modo Aluno do player (`usePlayerSession`), as duas vão às rotas
+// `/students/me/*`, sem `deviceId` e sem recibo, e o tempo de estudo é o do
+// relógio do player.
 import { randomUUID } from 'expo-crypto';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -13,7 +16,9 @@ import type { ContentText } from '../renderer';
 import { resultLine } from '../ui';
 import { visitorStore } from '../visitor/store';
 import type { VisitorStore } from '../visitor/types';
+import { usePlayerSession } from './playerSession';
 import type { ActivityProps, SheetSpec } from './registry';
+import { createStudyClock } from './studyClock';
 
 export const CHECK_LABEL = 'VERIFICAR';
 export const CONTINUE_LABEL = 'CONTINUAR';
@@ -22,6 +27,9 @@ export const REVEAL_LABEL = 'VER RESPOSTA';
 
 export const ATTEMPT_PATH = '/api/v1/visitor/attempts';
 export const REVEAL_PATH = '/api/v1/visitor/attempts/reveal';
+/** As rotas do Aluno (2.4): o mesmo Resultado, sem `deviceId` nem recibo. */
+export const STUDENT_ATTEMPT_PATH = '/api/v1/students/me/attempts';
+export const STUDENT_REVEAL_PATH = '/api/v1/students/me/attempts/reveal';
 
 export type Answer = PostBody<typeof ATTEMPT_PATH>['answer'];
 export type AttemptResult = PostData<typeof ATTEMPT_PATH>;
@@ -151,8 +159,11 @@ export function useEvaluation({
   const [state, setState] = useState<State>(INITIAL);
   const current = useRef(state);
   current.current = state;
-  // O tempo de estudo conta desde a montagem da Atividade.
-  const [startedAt] = useState(() => Date.now());
+  // O modo e o relógio de estudo do player; fora dele (Atividade solta), o Visitante e um relógio próprio.
+  const session = usePlayerSession();
+  const [ownClock] = useState(() => createStudyClock());
+  const clock = session.clock ?? ownClock;
+  const { mode, onSaved } = session;
   const alive = useRef(true);
   const finished = useRef(false);
   useEffect(() => {
@@ -169,19 +180,21 @@ export function useEvaluation({
   const pendingReveal = useRef<string | null>(null);
 
   const send = useCallback(
-    async (path: typeof ATTEMPT_PATH | typeof REVEAL_PATH, sent: Answer, attemptId: string) => {
-      const deviceId = await deviceIdOf(store);
-      return post(path, {
+    async (kind: 'attempt' | 'reveal', sent: Answer, attemptId: string): Promise<AttemptResult> => {
+      const fields = {
         attemptId,
-        ...(deviceId ? { deviceId } : {}),
         versionId,
         activityKey: activity.activityKey,
         type: activity.type,
         answer: sent,
-        studyTimeMs: Math.max(0, Math.round(Date.now() - startedAt)),
-      });
+        studyTimeMs: clock.elapsed(),
+      };
+      // O Aluno: sem `deviceId` (corpo fechado na API).
+      if (mode === 'student') return post(kind === 'attempt' ? STUDENT_ATTEMPT_PATH : STUDENT_REVEAL_PATH, fields);
+      const deviceId = await deviceIdOf(store);
+      return post(kind === 'attempt' ? ATTEMPT_PATH : REVEAL_PATH, { ...fields, ...(deviceId ? { deviceId } : {}) });
     },
-    [activity.activityKey, activity.type, versionId, startedAt, store],
+    [activity.activityKey, activity.type, versionId, clock, mode, store],
   );
 
   const check = useCallback(
@@ -194,11 +207,13 @@ export function useEvaluation({
       if (pendingAttempt.current?.answer !== key) pendingAttempt.current = { answer: key, attemptId: randomUUID() };
       const { attemptId } = pendingAttempt.current;
       try {
-        const result = await send(ATTEMPT_PATH, sent, attemptId);
+        const result = await send('attempt', sent, attemptId);
         // Chegou um Resultado: o próximo VERIFICAR é outra Tentativa.
         if (pendingAttempt.current?.attemptId === attemptId) pendingAttempt.current = null;
-        // O recibo é gravado antes da folha, e mesmo se o aluno já saiu: o ✕ não o perde.
-        await keepReceipt(store, activity.activityKey, result.receipt);
+        // O Aluno: o servidor gravou (a primeira vale), e o XP é relido. O Visitante: o recibo é
+        // gravado antes da folha, e mesmo se o aluno já saiu: o ✕ não o perde.
+        if (mode === 'student') onSaved();
+        else await keepReceipt(store, activity.activityKey, result.receipt);
         if (!alive.current) return;
         setState((s) => ({
           ...s,
@@ -216,7 +231,7 @@ export function useEvaluation({
         setState((s) => ({ ...s, phase: 'answering', error: codeOf(error) }));
       }
     },
-    [answer, send, store, activity.activityKey],
+    [answer, send, store, activity.activityKey, mode, onSaved],
   );
 
   const reveal = useCallback(async () => {
@@ -226,7 +241,7 @@ export function useEvaluation({
     setState((s) => ({ ...s, phase: 'revealing', error: null }));
     pendingReveal.current ??= randomUUID();
     try {
-      const result = await send(REVEAL_PATH, lastAnswer, pendingReveal.current);
+      const result = await send('reveal', lastAnswer, pendingReveal.current);
       pendingReveal.current = null;
       if (!alive.current) return;
       setState((s) => ({ ...s, phase: 'revealed', result }));

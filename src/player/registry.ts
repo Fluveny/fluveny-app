@@ -36,6 +36,8 @@ export type FooterAction = {
   onPress: () => void;
   /** Falha da última ação (texto de `messageFor`), acima do botão. */
   message?: string;
+  /** A `message` fica também sem rede, sobre o "SEM CONEXÃO" (o "salvar falhou" do Aluno, 2.4). */
+  messageOffline?: boolean;
   /**
    * `link`: a ação secundária como link de texto, sem botão primário no rodapé
    * ("NÃO POSSO FALAR AGORA" da Fala, 1.15). Padrão: o botão primário.

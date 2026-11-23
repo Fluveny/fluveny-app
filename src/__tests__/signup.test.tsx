@@ -277,8 +277,9 @@ describe('cadastro do Aluno adulto (2.1)', () => {
     expect(openPlayer).not.toHaveBeenCalled();
     const events = sent.filter((request) => request.url.endsWith('/visitor/events'));
     expect(events.map((request) => (request.body as { type: string }).type)).not.toContain('VISITOR_SESSION_STARTED');
-    // Nada de Progresso vai ao servidor antes da 2.4.
-    expect(sent.some((request) => /students\/me\/progress|\/progress/.test(request.url))).toBe(false);
+    // Desde a 2.4, o Aluno joga pelas rotas dele: nada vai às do Visitante, e o XP vem do Progresso do servidor.
+    await waitFor(() => expect(sent.some((request) => request.url.endsWith('/students/me/progress'))).toBe(true));
+    expect(sent.filter((request) => request.url.includes('/visitor/'))).toEqual([]);
   });
 
   it('"Escolher depois" segue sem gravar; sem nome, "Hi, friend!"', async () => {

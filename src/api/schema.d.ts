@@ -138,6 +138,57 @@ export interface paths {
         patch: operations["updateMyPronouns"];
         trace?: never;
     };
+    "/api/v1/students/me/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Corrige a Tentativa do Aluno e grava a primeira na Atividade, com o XP dela. expected e as justificativas só voltam no Acerto (100%). Reenviar o mesmo attemptId com o mesmo corpo devolve o XP gravado; outro attemptId (Tentar de novo, refazer) devolve o Feedback com xpAwarded 0, sem gravar. Tipo divergente ou expositivo: 400 INVALID_ANSWER; versão ou Atividade inexistente: 404. Campo desconhecido dá 400. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions e events: 429 TOO_MANY_REQUESTS com Retry-After. */
+        post: operations["submitStudentAttempt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/me/attempts/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Ver resposta: corrige a mesma Tentativa e devolve o Resultado com expected e as justificativas, sem XP e sem gravar. Exige o registro do Aluno na Atividade (na Resposta Livre, uma Tentativa do Extra Help), senão 409 ATTEMPT_REQUIRED. Tipo divergente ou expositivo: 400 INVALID_ANSWER; versão ou Atividade inexistente: 404. Campo desconhecido dá 400. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions e events: 429 TOO_MANY_REQUESTS com Retry-After. */
+        post: operations["revealStudentAttempt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/me/completions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Conclui uma Atividade sem correção, sem XP, e grava a primeira na Atividade: os expositivos dialogue, cards, expression, grammar e free com VIEWED, e a speech pulada, com SKIPPED. Fora disso, 409 COMPLETION_NOT_ALLOWED. A conclusão VIEWED de um free devolve a modelAnswer. Versão ou Atividade inexistente: 404. Campo desconhecido dá 400. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions e events: 429 TOO_MANY_REQUESTS com Retry-After. */
+        post: operations["submitStudentCompletion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/students/me/email-confirmation": {
         parameters: {
             query?: never;
@@ -149,6 +200,40 @@ export interface paths {
         put?: never;
         /** @description Reenvia o e-mail de confirmação do Aluno da sessão: o link anterior deixa de valer. Responde 202 sem corpo; o e-mail sai pela fila, em até alguns minutos. Já confirmado: 409 EMAIL_ALREADY_CONFIRMED. Mais de 1 por minuto ou 5 por dia: 429 TOO_MANY_REQUESTS com Retry-After. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. */
         post: operations["resendMyEmailConfirmation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/me/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Grava um evento do Aluno, sem PII, com a hora do servidor e o metricsId da conta. ACTIVITY_STARTED a cada abertura de Atividade, com versionId e activityKey; Atividade inexistente dá 404. Campo desconhecido dá 400. Responde 202 sem corpo. Se a gravação do evento falhar, 500. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions e events: 429 TOO_MANY_REQUESTS com Retry-After. */
+        post: operations["recordStudentEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/me/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description O Progresso do Aluno da sessão: o XP total (soma de todos os registros, inclusive de Atividades removidas) e a primeira conclusão de cada Atividade. resultPct só no GRADED. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. */
+        get: operations["getMyProgress"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -194,6 +279,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description O Estágio na visão do aluno. Sem sessão, só o primeiro Estágio da Unidade de menor order; os demais dão 401 UNAUTHENTICATED. Com sessão de Aluno, todos os Estágios publicados. */
         get: operations["getStage"];
         put?: never;
         post?: never;
@@ -314,6 +400,10 @@ export interface components {
         };
         ApiResponseStudentProfile: {
             data: components["schemas"]["StudentProfile"];
+            message?: string;
+        };
+        ApiResponseStudentProgress: {
+            data: components["schemas"]["StudentProgress"];
             message?: string;
         };
         ApiResponseUnitStudentView: {
@@ -850,6 +940,47 @@ export interface components {
             stageKey: string;
             title: components["schemas"]["ContentText"];
         };
+        StudentActivityResult: {
+            activityKey: string;
+            /** @enum {string} */
+            outcome: "GRADED" | "SKIPPED" | "VIEWED";
+            /**
+             * Format: int32
+             * @description Ausente no VIEWED e no SKIPPED.
+             */
+            resultPct?: number;
+            /** Format: int64 */
+            studyTimeMs: number;
+            unitKey: string;
+            /** Format: int32 */
+            xpAwarded: number;
+        };
+        StudentAttempt: {
+            activityKey: string;
+            answer: components["schemas"]["Answer"];
+            /** Format: uuid */
+            attemptId: string;
+            /** Format: int64 */
+            studyTimeMs: number;
+            type: string;
+            versionId: string;
+        };
+        StudentCompletion: {
+            activityKey: string;
+            /** Format: uuid */
+            attemptId: string;
+            /** @enum {string} */
+            outcome: "VIEWED" | "SKIPPED";
+            /** Format: int64 */
+            studyTimeMs: number;
+            versionId: string;
+        };
+        StudentEvent: {
+            activityKey: string;
+            /** @enum {string} */
+            type: "ACTIVITY_STARTED";
+            versionId: string;
+        };
         StudentProfile: {
             email: string;
             /** @description Se o e-mail já foi confirmado. */
@@ -860,6 +991,11 @@ export interface components {
              * @enum {string|null}
              */
             pronounSet?: "HE" | "SHE" | "THEY" | null;
+        };
+        StudentProgress: {
+            results: components["schemas"]["StudentActivityResult"][];
+            /** Format: int64 */
+            xpTotal: number;
         };
         UnitBundleContent: {
             media: {
@@ -1166,6 +1302,78 @@ export interface operations {
             };
         };
     };
+    submitStudentAttempt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StudentAttempt"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseAttemptResult"];
+                };
+            };
+        };
+    };
+    revealStudentAttempt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StudentAttempt"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseAttemptResult"];
+                };
+            };
+        };
+    };
+    submitStudentCompletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StudentCompletion"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCompletionResult"];
+                };
+            };
+        };
+    };
     resendMyEmailConfirmation: {
         parameters: {
             query?: never;
@@ -1181,6 +1389,48 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    recordStudentEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StudentEvent"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getMyProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseStudentProgress"];
+                };
             };
         };
     };
