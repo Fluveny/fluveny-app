@@ -31,7 +31,10 @@ export type { Outcome, ProgressEntry, Pronoun, ReceiptEntry, SeenKey, VariableKe
 export const VISITOR_DB = 'visitor.db';
 
 /** Só o que a loja usa do `SQLiteDatabase`: facilita trocar o banco nos testes. */
-export type VisitorDatabase = Pick<SQLiteDatabase, 'execAsync' | 'runAsync' | 'getFirstAsync' | 'getAllAsync'>;
+export type VisitorDatabase = Pick<
+  SQLiteDatabase,
+  'execAsync' | 'runAsync' | 'getFirstAsync' | 'getAllAsync' | 'withTransactionAsync'
+>;
 
 const SCHEMA = `
 PRAGMA journal_mode = WAL;
@@ -184,6 +187,14 @@ export function createVisitorStore(
     async markSeen(key: SeenKey) {
       const database = await db();
       await database.runAsync('INSERT OR IGNORE INTO seen (key, created_at) VALUES (?, ?)', key, Date.now());
+    },
+    async clear() {
+      const database = await db();
+      // O `device` fica: o `deviceId` é do aparelho, não da conta. Tudo ou nada: falha no meio não deixa a loja pela metade.
+      await database.withTransactionAsync(() =>
+        database.execAsync('DELETE FROM variables; DELETE FROM progress; DELETE FROM receipts; DELETE FROM seen;'),
+      );
+      emitter.emit();
     },
     subscribe: emitter.subscribe,
   };

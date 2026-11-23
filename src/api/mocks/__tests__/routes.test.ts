@@ -2,8 +2,11 @@ import openapi from '../../openapi.json';
 import { randomUUID } from 'node:crypto';
 
 import {
+  deactivateMockAccount,
+  forceMockLogin,
   forceMockResend,
   MOCK_CREATED,
+  MOCK_NO_CONTENT,
   MOCK_METHODS,
   mockConfirmationToken,
   MockProblem,
@@ -168,7 +171,15 @@ describe('mocks da API', () => {
                     ? { method: 'POST', headers: { 'X-Fluveny-Client': 'web' } }
                     : path === '/api/v1/account/email-confirmation'
                       ? { method: 'POST', body: JSON.stringify({ token: mockConfirmationToken() }) }
-                      : undefined;
+                      : path === '/api/v1/auth/login'
+                        ? {
+                            method: 'POST',
+                            headers: { 'X-Fluveny-Client': 'web' },
+                            body: JSON.stringify({ email: 'antes@exemplo.test', password: ADULT.password }),
+                          }
+                        : path === '/api/v1/auth/logout'
+                          ? { method: 'POST', headers: { 'X-Fluveny-Client': 'web' } }
+                          : undefined;
         for (const key of keysOf(await resolve?.(new Request(`http://mock${path}`, init)))) {
           if (secrets.has(key)) leaked.push(`${method.toUpperCase()} ${path}: ${key}`);
         }
@@ -258,6 +269,70 @@ describe('mock do cadastro e da sessão (2.1)', () => {
     expect(await problemOf(patchMe({ pronounSet: 'IT' }))).toBe('400 VALIDATION_FAILED');
     expect((await patchMe({ pronounSet: 'SHE' })).data.pronounSet).toBe('SHE');
     expect((await me()).data.pronounSet).toBe('SHE');
+  });
+});
+
+describe('mock do entrar e do sair (2.3)', () => {
+  beforeEach(() => resetMockStudents());
+  const me = (headers: Record<string, string> = {}) =>
+    Promise.resolve().then(() => mockRoutes['/api/v1/students/me'].get(new Request('http://mock', { headers })));
+  const login = (body: unknown, client: string | null = 'web') =>
+    Promise.resolve(
+      mockRoutes['/api/v1/auth/login'].post(
+        new Request('http://mock/api/v1/auth/login', {
+          method: 'POST',
+          headers: client ? { 'X-Fluveny-Client': client } : {},
+          body: JSON.stringify(body),
+        }),
+      ),
+    );
+  const logout = (headers: Record<string, string> = { 'X-Fluveny-Client': 'web' }) =>
+    Promise.resolve().then(() =>
+      mockRoutes['/api/v1/auth/logout'].post(new Request('http://mock', { method: 'POST', headers })),
+    );
+
+  it('login certo abre a sessão; e-mail desconhecido e senha errada dão o mesmo 401', async () => {
+    await signupMock(ADULT);
+    await logout();
+    expect(await problemOf(me())).toBe('401 UNAUTHENTICATED');
+    expect(await problemOf(login({ email: ADULT.email, password: 'outra123' }))).toBe('401 INVALID_CREDENTIALS');
+    expect(await problemOf(login({ email: 'nao@exemplo.test', password: ADULT.password }))).toBe(
+      '401 INVALID_CREDENTIALS',
+    );
+    const { data } = await login({ email: 'ANA@exemplo.test ', password: ADULT.password });
+    expect(data).toEqual({ student: expect.objectContaining({ email: ADULT.email, name: 'Ana' }) });
+    expect((await me()).data.email).toBe(ADULT.email);
+  });
+
+  it('Android: token novo no corpo e conferido no Bearer', async () => {
+    await signupMock(ADULT, 'android');
+    const { data } = await login({ email: ADULT.email, password: ADULT.password }, 'android');
+    expect(data.sessionToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect((await me({ Authorization: `Bearer ${data.sessionToken}` })).data.email).toBe(ADULT.email);
+    expect(await problemOf(me({ Authorization: 'Bearer outro' }))).toBe('401 UNAUTHENTICATED');
+    await logout({ 'X-Fluveny-Client': 'android', Authorization: `Bearer ${data.sessionToken}` });
+    expect(await problemOf(me({ Authorization: `Bearer ${data.sessionToken}` }))).toBe('401 UNAUTHENTICATED');
+  });
+
+  it('desativada só com a senha certa (403); forçado, 429; corpo e cabeçalho como a API', async () => {
+    await signupMock(ADULT);
+    deactivateMockAccount(ADULT.email);
+    expect(await problemOf(login({ email: ADULT.email, password: 'outra123' }))).toBe('401 INVALID_CREDENTIALS');
+    expect(await problemOf(login({ email: ADULT.email, password: ADULT.password }))).toBe('403 ACCOUNT_DEACTIVATED');
+    forceMockLogin('LOGIN_THROTTLED');
+    expect(await problemOf(login({ email: ADULT.email, password: ADULT.password }))).toBe('429 LOGIN_THROTTLED');
+    forceMockLogin(null);
+    expect(await problemOf(login({ email: ADULT.email, password: ADULT.password }, null))).toBe(
+      '400 CLIENT_HEADER_REQUIRED',
+    );
+    expect(await problemOf(login({ email: ADULT.email, password: '' }))).toBe('400 VALIDATION_FAILED');
+    expect(await problemOf(login({ email: ADULT.email, password: 'x', extra: 1 }))).toBe('400 VALIDATION_FAILED');
+  });
+
+  it('sair: sempre sem corpo (204, MOCK_NO_CONTENT), com ou sem sessão', async () => {
+    expect(MOCK_NO_CONTENT.has('POST /api/v1/auth/logout')).toBe(true);
+    expect(await logout()).toBeUndefined();
+    expect(await problemOf(logout({}))).toBe('400 CLIENT_HEADER_REQUIRED');
   });
 });
 

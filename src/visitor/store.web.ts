@@ -27,7 +27,10 @@ export const RECEIPTS = `${VISITOR_PREFIX}receipts`;
 /** Os avisos já vistos no aparelho (1.15): `[key]`. */
 export const SEEN = `${VISITOR_PREFIX}seen`;
 
-type KeyValue = Pick<Storage, 'getItem' | 'setItem'>;
+type KeyValue = Pick<Storage, 'getItem' | 'setItem'> & Partial<Pick<Storage, 'removeItem'>>;
+
+/** O que o sair (2.3) apaga; o `deviceId` fica. */
+const CLEARED = [VARIABLES, PROGRESS, RECEIPTS, SEEN];
 
 function defaultStorage(): KeyValue | undefined {
   try {
@@ -148,6 +151,18 @@ export function createVisitorStore(storage: KeyValue | undefined = defaultStorag
       const keys = asKeys(readJson(read(SEEN)));
       if (keys.includes(key)) return;
       write(SEEN, JSON.stringify([...keys, key]));
+    },
+    async clear() {
+      for (const key of CLEARED) {
+        memory.delete(key);
+        try {
+          if (storage?.removeItem) storage.removeItem(key);
+          else storage?.setItem(key, '');
+        } catch {
+          // `localStorage` indisponível: a loja já está só na memória.
+        }
+      }
+      emitter.emit();
     },
     subscribe: emitter.subscribe,
   };

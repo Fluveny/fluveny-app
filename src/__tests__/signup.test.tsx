@@ -20,7 +20,8 @@ import SignUp, {
   SIGNUP_TITLE,
 } from '../../app/(student)/cadastro';
 import StageTwoInvite from '../../app/(student)/convite';
-import ComingSoon, { SOON_TITLE } from '../../app/(public)/em-breve';
+import ComingSoon from '../../app/(public)/em-breve';
+import SignIn, { SIGN_IN_TITLE } from '../../app/(public)/entrar';
 import ConfirmEmail from '../../app/(public)/confirmar-email';
 import Root, { SIGN_UP, WELCOME_TITLE } from '../../app/(public)/index';
 import Player from '../../app/(student)/player';
@@ -105,6 +106,7 @@ async function openApp(initialUrl = '/') {
       ),
       '(public)/index': Root,
       '(public)/em-breve': ComingSoon,
+      '(public)/entrar': SignIn,
       '(public)/privacidade': PrivacyPolicy,
       '(public)/termos': TermsOfUse,
       '(student)/player': Player,
@@ -377,7 +379,7 @@ describe('cadastro do Aluno adulto (2.1)', () => {
     expect(screen.getByLabelText(EMAIL_FIELD).props.value).toBe(ADULT.email);
   });
 
-  it('e-mail repetido (409): mensagem sem culpa e os atalhos "Entrar" e "Recuperar senha", em "Em breve"', async () => {
+  it('e-mail repetido (409): mensagem sem culpa, "Entrar" abre Entrar (2.3) e "Recuperar senha", "Em breve"', async () => {
     await signUpFromWelcome();
     await fireEvent.press(await screen.findByRole('button', { name: PRONOUNS_LATER }));
     await screen.findByRole('header', { name: studentGreeting('Ana') });
@@ -388,8 +390,8 @@ describe('cadastro do Aluno adulto (2.1)', () => {
     expect(await screen.findByText(messageFor('EMAIL_ALREADY_REGISTERED'))).toBeTruthy();
     expect(messageFor('EMAIL_ALREADY_REGISTERED')).not.toMatch(/errad|inválid|culpa/i);
     await fireEvent.press(button(SIGN_IN_LINK));
-    expect(await screen.findByRole('header', { name: SOON_TITLE })).toBeTruthy();
-    expect(screen).toHavePathname('/em-breve');
+    expect(await screen.findByRole('header', { name: SIGN_IN_TITLE })).toBeTruthy();
+    expect(screen).toHavePathname('/entrar');
     await openApp('/cadastro');
     await fill({ email: 'ana@exemplo.test' });
     await fireEvent.press(button(CREATE_LABEL));

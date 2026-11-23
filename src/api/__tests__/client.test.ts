@@ -8,9 +8,11 @@ import {
   appVersion,
   fillPath,
   get,
+  onUnauthenticated,
   patch,
   post,
   postAccepted,
+  postNoContent,
   request,
   REQUEST_TIMEOUT_MS,
 } from '../client';
@@ -329,6 +331,39 @@ describe('postAccepted() (1.20)', () => {
     expect((await caught(postAccepted('/api/v1/visitor/events', event))).code).toBe('INTERNAL_ERROR');
     global.fetch = jest.fn().mockRejectedValue(new TypeError('Network request failed'));
     expect((await caught(postAccepted('/api/v1/visitor/events', event))).code).toBe(NETWORK_ERROR);
+  });
+});
+
+describe('postNoContent() e o 401 num ponto só (2.3)', () => {
+  it('204 sem corpo: POST sem corpo e sem Content-Type, resolve sem valor', async () => {
+    global.fetch = jest.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    await expect(postNoContent('/api/v1/auth/logout')).resolves.toBeUndefined();
+    const [url, init] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url).toBe('https://api.exemplo.test/api/v1/auth/logout');
+    expect(init.method).toBe('POST');
+    expect(init.body).toBeUndefined();
+    expect(new Headers(init.headers).has('Content-Type')).toBe(false);
+  });
+
+  it('401 de sessão avisa quem se inscreveu; INVALID_CREDENTIALS, o entrar, o sair e outros status, não', async () => {
+    const listener = jest.fn();
+    const stop = onUnauthenticated(listener);
+    const unauthorized = (code: string) => respond(401, problem(code), 'application/problem+json');
+    global.fetch = unauthorized('UNAUTHENTICATED');
+    expect((await caught(get('/api/v1/students/me'))).code).toBe('UNAUTHENTICATED');
+    expect(listener).toHaveBeenCalledTimes(1);
+    global.fetch = unauthorized('INVALID_CREDENTIALS');
+    expect((await caught(post('/api/v1/auth/login', { email: 'a@b.c', password: 'x' }))).status).toBe(401);
+    global.fetch = unauthorized('UNAUTHENTICATED');
+    await caught(post('/api/v1/auth/login', { email: 'a@b.c', password: 'x' }));
+    await caught(postNoContent('/api/v1/auth/logout'));
+    global.fetch = respond(403, problem('ACCESS_DENIED'), 'application/problem+json');
+    await caught(get('/api/v1/students/me'));
+    expect(listener).toHaveBeenCalledTimes(1);
+    stop();
+    global.fetch = unauthorized('UNAUTHENTICATED');
+    await caught(get('/api/v1/students/me'));
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 });
 

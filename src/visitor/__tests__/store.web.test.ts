@@ -27,6 +27,32 @@ describe('loja do Visitante no web (localStorage)', () => {
     expect(await store.progress()).toEqual([{ activityKey: 'a1', outcome: 'completed', xp: 10 }]);
   });
 
+  it('clear (2.3): apaga as chaves da loja, menos a do deviceId', async () => {
+    const data = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => data.get(key) ?? null,
+      setItem: (key: string, value: string) => void data.set(key, value),
+      removeItem: (key: string) => void data.delete(key),
+    };
+    const store = createWebStore(storage);
+    const id = await store.deviceId();
+    await store.setVariable('name', 'Ana');
+    await store.recordProgress({ activityKey: 'a1', outcome: 'completed', xp: 10 });
+    await store.recordReceipt('a1', 'v1.recibo');
+    await store.markSeen('speech-privacy');
+    const listener = jest.fn();
+    store.subscribe(listener);
+    await store.clear();
+    expect(listener).toHaveBeenCalled();
+    expect(await store.variables()).toEqual({});
+    expect(await store.progress()).toEqual([]);
+    expect(await store.receipts()).toEqual([]);
+    expect(await store.seen('speech-privacy')).toBe(false);
+    expect(await store.deviceId()).toBe(id);
+    expect([...data.keys()]).toEqual(['fluveny:visitor:device']);
+    expect(await createWebStore(storage).progress()).toEqual([]);
+  });
+
   it('storage que lança: segue em memória', async () => {
     const broken = {
       getItem: () => {

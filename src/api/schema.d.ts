@@ -53,6 +53,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Entra com e-mail e senha. Exige X-Fluveny-Client: web ou android (senão 400 CLIENT_HEADER_REQUIRED). Responde como o cadastro: no web, a sessão vai só no cookie fluveny_session; no Android, só no sessionToken do corpo. E-mail desconhecido ou senha errada dão 401 INVALID_CREDENTIALS, com a mesma mensagem; conta desativada, só com a senha certa, 403 ACCOUNT_DEACTIVATED. Depois de 3 falhas, a espera cresce (1, 2, 4… s): tentar antes dá 429 LOGIN_THROTTLED com Retry-After, sem conferir a senha. A sessão que a requisição já trazia (cookie ou Bearer) é encerrada. */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Sai: apaga no servidor a sessão do token recebido (cookie fluveny_session ou Authorization: Bearer), se houver, e ela deixa de autenticar na hora. Exige X-Fluveny-Client: web ou android (senão 400 CLIENT_HEADER_REQUIRED). Sempre 204; no web, com o Set-Cookie que apaga o cookie (Max-Age=0). */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/signup": {
         parameters: {
             query?: never;
@@ -665,6 +699,11 @@ export interface components {
             itemKey: string;
             justification?: components["schemas"]["ContentText"];
         };
+        LoginRequest: {
+            /** Format: email */
+            email: string;
+            password: string;
+        };
         MatchActivity: {
             activityKey: string;
             items: components["schemas"]["MatchItem"][];
@@ -988,6 +1027,52 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiResponseUnitVersionInfo"];
                 };
+            };
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Fluveny-Client": "web" | "android";
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseSignupResponse"];
+                };
+            };
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Fluveny-Client": "web" | "android";
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

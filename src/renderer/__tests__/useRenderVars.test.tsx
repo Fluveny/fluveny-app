@@ -22,6 +22,7 @@ function fakeStore(variables: Record<string, string>) {
     receipts: () => answer([]),
     seen: async () => false,
     markSeen: async () => {},
+    clear: async () => {},
     subscribe: () => () => {},
   };
   return { store, stall: () => (pending = true) };

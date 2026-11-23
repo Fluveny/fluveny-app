@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { SIGN_IN_PATH } from '../../src/auth/sessionEnd';
 import { StudentHome } from '../../src/auth/StudentHome';
 import { mayHaveSession, useCachedStudent, useStudent } from '../../src/auth/student';
 import { PRIVACY_LINK, PRIVACY_PATH, TERMS_LINK, TERMS_PATH } from '../../src/legal/paths';
@@ -126,13 +127,12 @@ export function Welcome() {
               onPress={() => router.navigate(SIGN_UP_PATH)}
               fullWidth
             />
-            {/* ENTRAR chega na 2.3. */}
             <Button
               label={SIGN_IN}
               variant="ghost"
               small
               disabled={busy}
-              onPress={() => router.navigate('/em-breve')}
+              onPress={() => router.navigate(SIGN_IN_PATH)}
               fullWidth
             />
           </View>

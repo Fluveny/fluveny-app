@@ -69,6 +69,11 @@ export type VisitorStore = {
   seen(key: SeenKey): Promise<boolean>;
   /** Marca o aviso `key` como visto; fica para sempre no aparelho. */
   markSeen(key: SeenKey): Promise<void>;
+  /**
+   * Apaga tudo o que a loja guarda, menos o `deviceId`: Variáveis, Progresso,
+   * recibos e avisos vistos (o sair da 2.3).
+   */
+  clear(): Promise<void>;
   /** Avisa quando variáveis ou Progresso mudam. Devolve a função que cancela. */
   subscribe(listener: () => void): () => void;
 };

@@ -57,6 +57,13 @@
 // desconhecido ou já usado dá 410. O reenvio (`POST
 // /students/me/email-confirmation`) responde 202, ou 409 com o e-mail já
 // confirmado; `forceMockResend` força o 409 ou o 429.
+//
+// Entrar e sair (2.3): o mock guarda a senha de cada conta (só na memória). `POST
+// /auth/login` confere e-mail e senha (401 `INVALID_CREDENTIALS` igual para os
+// dois), conta desativada (`deactivateMockAccount`) só com a senha certa dá 403,
+// e `forceMockLogin('LOGIN_THROTTLED')` força o 429; o sucesso abre a sessão como
+// o cadastro. `POST /auth/logout` responde 204 sempre (`MOCK_NO_CONTENT`) e
+// encerra a sessão do mock se ela for a da requisição.
 import type { components, paths } from '../schema';
 
 export const MOCK_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
@@ -64,7 +71,7 @@ type Method = (typeof MOCK_METHODS)[number];
 
 type Json<R> = R extends { content: { 'application/json': infer B } } ? B : never;
 
-/** Corpo da resposta de sucesso (200 ou 201) da operação; `202` sem corpo é `undefined`. */
+/** Corpo da resposta de sucesso (200 ou 201) da operação; `202` e `204` sem corpo são `undefined`. */
 type SuccessBody<O> = O extends { responses: infer R }
   ? R extends { 200: infer S }
     ? Json<S>
@@ -72,7 +79,9 @@ type SuccessBody<O> = O extends { responses: infer R }
       ? Json<S>
       : R extends { 202: unknown }
         ? undefined
-        : never
+        : R extends { 204: unknown }
+          ? undefined
+          : never
   : never;
 
 /**
@@ -941,10 +950,15 @@ async function recordEvent(request: Request): Promise<undefined> {
 /** As rotas que só respondem `201 Created` no contrato (sem 200), por `MÉTODO caminho`. */
 export const MOCK_CREATED: ReadonlySet<string> = new Set(['POST /api/v1/auth/signup']);
 
+/** As rotas que respondem `204 No Content` no contrato (as outras sem corpo dão 202), por `MÉTODO caminho`. */
+export const MOCK_NO_CONTENT: ReadonlySet<string> = new Set(['POST /api/v1/auth/logout']);
+
 type MockStudent = components['schemas']['StudentProfile'];
 
+/** Uma conta do mock: a senha (só na memória do mock), o perfil e se está desativada. */
+type MockAccount = { password: string; student: MockStudent; deactivated: boolean };
 /** As contas do mock, por e-mail em minúsculas. */
-const mockAccounts = new Set<string>();
+const mockAccounts = new Map<string, MockAccount>();
 /** A sessão do mock: o Aluno e, no Android, o token esperado no Bearer. */
 let mockSession: { student: MockStudent; token: string | null } | null = null;
 /** Os e-mails confirmados no mock. */
@@ -955,6 +969,8 @@ let lastConfirmationToken: string | null = null;
 let confirmationSeq = 0;
 /** Resposta forçada do reenvio (testes e mock manual): `409` ou `429`. */
 let forcedResend: 'EMAIL_ALREADY_CONFIRMED' | 'TOO_MANY_REQUESTS' | null = null;
+/** Resposta forçada do login (testes e mock manual): `429`. */
+let forcedLogin: 'LOGIN_THROTTLED' | null = null;
 
 /** Esquece as contas, a sessão e as confirmações do mock (testes). */
 export function resetMockStudents() {
@@ -964,6 +980,38 @@ export function resetMockStudents() {
   confirmationTokens.clear();
   lastConfirmationToken = null;
   forcedResend = null;
+  forcedLogin = null;
+}
+
+/** Força a resposta do login: `429 LOGIN_THROTTLED` ou nada. */
+export function forceMockLogin(code: 'LOGIN_THROTTLED' | null) {
+  forcedLogin = code;
+}
+
+/** Desativa a conta do mock (o login com a senha certa passa a dar 403). */
+export function deactivateMockAccount(email: string) {
+  const account = mockAccounts.get(email.toLowerCase());
+  if (account) account.deactivated = true;
+}
+
+/** Encerra a sessão do mock por fora do App (a sessão que venceu no servidor). */
+export function expireMockSession() {
+  mockSession = null;
+}
+
+/** Um `sessionToken` falso para o Android: 43 caracteres base64url, o formato do token da API. */
+let tokenSeq = 0;
+function mockSessionToken(): string {
+  tokenSeq += 1;
+  return `mock${Date.now().toString(36)}${tokenSeq}`.padEnd(43, '0').slice(0, 43);
+}
+
+/** Abre a sessão do mock para o Aluno e monta a resposta do cadastro e do login. */
+function openMockSession(student: MockStudent, client: 'web' | 'android') {
+  const token = client === 'android' ? mockSessionToken() : null;
+  mockSession = { student, token };
+  const current = { ...student, emailConfirmed: confirmedEmails.has(student.email) };
+  return { data: token ? { student: current, sessionToken: token } : { student: current } };
 }
 
 /** O token do último link de confirmação emitido pelo mock (cadastro ou reenvio). */
@@ -1048,13 +1096,44 @@ async function mockSignup(request: Request) {
   if (age < 18) throw new MockProblem(422, 'GUARDIAN_CONSENT_REQUIRED');
   const key = email.toLowerCase();
   if (mockAccounts.has(key)) throw new MockProblem(409, 'EMAIL_ALREADY_REGISTERED');
-  mockAccounts.add(key);
   const student: MockStudent = { email: key, name: name || null, pronounSet: null, emailConfirmed: false };
+  mockAccounts.set(key, { password: body.password as string, student, deactivated: false });
   issueConfirmationToken(key);
-  // 43 caracteres base64url, o formato do token da API; falso.
-  const token = client === 'android' ? `mock${Date.now().toString(36)}`.padEnd(43, '0').slice(0, 43) : null;
-  mockSession = { student, token };
-  return { data: token ? { student, sessionToken: token } : { student } };
+  return openMockSession(student, client);
+}
+
+/** Entrar, como o `LoginController` da API: e-mail desconhecido e senha errada dão o mesmo 401. */
+async function mockLogin(request: Request) {
+  const client = request.headers.get('X-Fluveny-Client');
+  if (client !== 'web' && client !== 'android') throw new MockProblem(400, 'CLIENT_HEADER_REQUIRED');
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  if (
+    !body ||
+    typeof body !== 'object' ||
+    Object.keys(body).some((key) => key !== 'email' && key !== 'password') ||
+    typeof body.email !== 'string' ||
+    typeof body.password !== 'string' ||
+    !body.email.trim() ||
+    !body.password ||
+    body.email.length > 254 ||
+    body.password.length > 256
+  ) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  if (forcedLogin) throw new MockProblem(429, forcedLogin);
+  const account = mockAccounts.get(body.email.trim().toLowerCase());
+  if (!account || account.password !== body.password) throw new MockProblem(401, 'INVALID_CREDENTIALS');
+  if (account.deactivated) throw new MockProblem(403, 'ACCOUNT_DEACTIVATED');
+  return openMockSession(account.student, client);
+}
+
+/** Sair: sempre 204; encerra a sessão do mock se ela for a da requisição. */
+function mockLogout(request: Request): undefined {
+  const client = request.headers.get('X-Fluveny-Client');
+  if (client !== 'web' && client !== 'android') throw new MockProblem(400, 'CLIENT_HEADER_REQUIRED');
+  const bearer = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
+  if (mockSession && (mockSession.token === null || bearer === mockSession.token)) mockSession = null;
+  return undefined;
 }
 
 /** O Aluno da sessão do mock; sem sessão (ou com outro Bearer), `401`. */
@@ -1113,6 +1192,8 @@ async function mockUpdatePronouns(request: Request) {
   }
   const updated: MockStudent = { ...student, pronounSet: body.pronounSet as MockStudent['pronounSet'] };
   mockSession = { ...mockSession!, student: updated };
+  const account = mockAccounts.get(updated.email);
+  if (account) account.student = updated;
   return { data: updated };
 }
 
@@ -1167,6 +1248,12 @@ export const mockRoutes: MockRoutes = {
   },
   '/api/v1/account/email-confirmation': {
     post: (request) => mockConfirmEmail(request),
+  },
+  '/api/v1/auth/login': {
+    post: (request) => mockLogin(request),
+  },
+  '/api/v1/auth/logout': {
+    post: (request) => mockLogout(request),
   },
   // Rotas do job de publicação: o App não as chama, mas o tipo exige um mock por rota.
   '/api/v1/admin/content/units/{unitKey}/versions': {

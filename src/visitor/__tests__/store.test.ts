@@ -11,6 +11,24 @@ describe('loja do Visitante (expo-sqlite)', () => {
     expect(await visitorStore.deviceId()).toBe(id);
   });
 
+  it('clear (2.3): apaga Variáveis, Progresso, recibos e avisos; o deviceId fica', async () => {
+    const store = createVisitorStore();
+    const id = await store.deviceId();
+    await store.setVariable('name', 'Ana');
+    await store.recordProgress({ activityKey: 'a1', outcome: 'completed', xp: 10 });
+    await store.recordReceipt('a1', 'v1.recibo');
+    await store.markSeen('speech-privacy');
+    const listener = jest.fn();
+    store.subscribe(listener);
+    await store.clear();
+    expect(listener).toHaveBeenCalled();
+    expect(await store.variables()).toEqual({});
+    expect(await store.progress()).toEqual([]);
+    expect(await store.receipts()).toEqual([]);
+    expect(await store.seen('speech-privacy')).toBe(false);
+    expect(await store.deviceId()).toBe(id);
+  });
+
   it('segunda abertura: uma loja nova sobre o mesmo banco acha o mesmo deviceId', async () => {
     const first = await createVisitorStore().deviceId();
     const reopened = await createVisitorStore().deviceId();

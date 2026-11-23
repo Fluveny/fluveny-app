@@ -16,6 +16,7 @@ import ConfirmEmail, {
   RETRY_LABEL,
 } from '../../app/(public)/confirmar-email';
 import ComingSoon from '../../app/(public)/em-breve';
+import SignIn from '../../app/(public)/entrar';
 import Root from '../../app/(public)/index';
 import PrivacyPolicy from '../../app/(public)/privacidade';
 import TermsOfUse from '../../app/(public)/termos';
@@ -94,6 +95,7 @@ async function openApp(initialUrl = '/', student?: StudentProfile) {
       ),
       '(public)/index': Root,
       '(public)/em-breve': ComingSoon,
+      '(public)/entrar': SignIn,
       '(public)/privacidade': PrivacyPolicy,
       '(public)/termos': TermsOfUse,
       '(public)/confirmar-email': ConfirmEmail,

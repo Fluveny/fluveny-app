@@ -4,7 +4,8 @@ import { useEffect } from 'react';
 import { AccessibilityInfo, BackHandler, StyleSheet, Text } from 'react-native';
 
 import { RootStack } from '../../app/_layout';
-import ComingSoon, { SOON_BACK, SOON_BODY, SOON_TITLE } from '../../app/(public)/em-breve';
+import ComingSoon from '../../app/(public)/em-breve';
+import SignIn, { BACK_LABEL as SIGN_IN_BACK, SIGN_IN_TITLE } from '../../app/(public)/entrar';
 import ConfirmEmail from '../../app/(public)/confirmar-email';
 import Root, { SIGN_IN, SIGN_UP, TRY_NOW, WELCOME_BODY, WELCOME_GOAL, WELCOME_TITLE } from '../../app/(public)/index';
 import SignUp, { BACK_LABEL as SIGNUP_BACK, INVITE_NOTICE, SIGNUP_TITLE } from '../../app/(student)/cadastro';
@@ -134,6 +135,7 @@ async function openApp(initialUrl = '/', student?: StudentProfile) {
       ),
       '(public)/index': Root,
       '(public)/em-breve': ComingSoon,
+      '(public)/entrar': SignIn,
       '(student)/player': Player,
       '(student)/convite': StageTwoInvite,
       '(student)/cadastro': SignUp,
@@ -442,7 +444,7 @@ describe('boas-vindas e player do Visitante (1.10)', () => {
     expect(button(CONTINUE_LABEL)).toBeEnabled();
   });
 
-  it('CRIAR CONTA abre o cadastro (2.1); ENTRAR leva a "Em breve", e VOLTAR retorna', async () => {
+  it('CRIAR CONTA abre o cadastro (2.1); ENTRAR abre Entrar (2.3), e Voltar retorna', async () => {
     await openApp();
     await fireEvent.press(await screen.findByRole('button', { name: SIGN_UP }));
     expect(await screen.findByRole('header', { name: SIGNUP_TITLE })).toBeTruthy();
@@ -452,10 +454,9 @@ describe('boas-vindas e player do Visitante (1.10)', () => {
     await fireEvent.press(button(SIGNUP_BACK));
     expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
     await fireEvent.press(button(SIGN_IN));
-    expect(await screen.findByRole('header', { name: SOON_TITLE })).toBeTruthy();
-    expect(screen.getByText(SOON_BODY)).toBeTruthy();
-    expect(screen).toHavePathname('/em-breve');
-    await fireEvent.press(button(SOON_BACK));
+    expect(await screen.findByRole('header', { name: SIGN_IN_TITLE })).toBeTruthy();
+    expect(screen).toHavePathname('/entrar');
+    await fireEvent.press(button(SIGN_IN_BACK));
     expect(await screen.findByText(WELCOME_TITLE)).toBeTruthy();
   });
 
