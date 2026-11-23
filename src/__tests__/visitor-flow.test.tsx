@@ -5,6 +5,8 @@ import { AccessibilityInfo, BackHandler, StyleSheet, Text } from 'react-native';
 
 import { RootStack } from '../../app/_layout';
 import ComingSoon from '../../app/(public)/em-breve';
+import RecoverPassword from '../../app/(public)/recuperar-senha';
+import ResetPassword from '../../app/(public)/redefinir-senha';
 import SignIn, { BACK_LABEL as SIGN_IN_BACK, SIGN_IN_TITLE } from '../../app/(public)/entrar';
 import ConfirmEmail from '../../app/(public)/confirmar-email';
 import Root, { SIGN_IN, SIGN_UP, TRY_NOW, WELCOME_BODY, WELCOME_GOAL, WELCOME_TITLE } from '../../app/(public)/index';
@@ -135,6 +137,8 @@ async function openApp(initialUrl = '/', student?: StudentProfile) {
       ),
       '(public)/index': Root,
       '(public)/em-breve': ComingSoon,
+      '(public)/recuperar-senha': RecoverPassword,
+      '(public)/redefinir-senha': ResetPassword,
       '(public)/entrar': SignIn,
       '(student)/player': Player,
       '(student)/convite': StageTwoInvite,
@@ -1054,7 +1058,13 @@ describe('fim do Estágio, convite e eventos do Visitante (1.20)', () => {
   }
 
   it('Aluno com conta (2.1): o resumo mostra CONTINUAR no lugar do convite, e ele volta à raiz', async () => {
-    await finishScripted({ email: 'ana@exemplo.test', name: 'Ana', pronounSet: null, emailConfirmed: true });
+    await finishScripted({
+      email: 'ana@exemplo.test',
+      name: 'Ana',
+      pronounSet: null,
+      emailConfirmed: true,
+      emailConfirmationOverdue: false,
+    });
     expect(screen.queryByTestId('stage-invite')).toBeNull();
     expect(screen.queryByRole('button', { name: INVITE_SIGN_UP })).toBeNull();
     await fireEvent.press(button(SUMMARY_CONTINUE));
@@ -1063,7 +1073,13 @@ describe('fim do Estágio, convite e eventos do Visitante (1.20)', () => {
   });
 
   it('Aluno com conta (2.1): /convite volta à raiz, sem o convite', async () => {
-    await openApp('/convite', { email: 'ana@exemplo.test', name: 'Ana', pronounSet: null, emailConfirmed: true });
+    await openApp('/convite', {
+      email: 'ana@exemplo.test',
+      name: 'Ana',
+      pronounSet: null,
+      emailConfirmed: true,
+      emailConfirmationOverdue: false,
+    });
     expect(await screen.findByRole('header', { name: 'Hi, Ana!' })).toBeTruthy();
     expect(screen).toHavePathname('/');
     expect(screen.queryByText(INVITE_TITLE)).toBeNull();

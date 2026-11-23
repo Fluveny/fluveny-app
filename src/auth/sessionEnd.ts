@@ -46,6 +46,22 @@ async function forgetToken() {
 }
 
 /**
+ * Apaga a sessão local do Aluno do cache, sem a loja: guarda o e-mail dele (se
+ * outra conta entrar depois, o `signIn` limpa a loja e o cache), zera o Aluno e
+ * apaga o token, esperando ele sair (um `clearSessionToken` atrasado apagaria o
+ * de um login rápido). Usada pelo 401 no meio do uso (2.3) e depois da senha
+ * redefinida (2.8). Resolve `false`, sem mexer em nada, sem Aluno no cache.
+ */
+export async function dropLocalSession(client: QueryClient): Promise<boolean> {
+  const student = client.getQueryData<StudentProfile | null>(STUDENT_QUERY_KEY);
+  if (!student) return false;
+  markSessionExpired(student.email);
+  client.setQueryData(STUDENT_QUERY_KEY, null);
+  await forgetToken();
+  return true;
+}
+
+/**
  * Sai da conta. Resolve depois de apagar tudo; sem rede ou com outro erro
  * do servidor, rejeita com o `ApiError` e a sessão continua.
  */
@@ -84,16 +100,10 @@ export function useSessionExpiry() {
   useEffect(
     () =>
       onUnauthenticated(() => {
-        const student = client.getQueryData<StudentProfile | null>(STUDENT_QUERY_KEY);
-        if (!student) return;
-        // Se outra conta entrar depois, o `signIn` limpa a loja e o cache deste Aluno.
-        markSessionExpired(student.email);
-        client.setQueryData(STUDENT_QUERY_KEY, null);
         const volta = where.current;
-        // Espera o token sair: um `clearSessionToken` atrasado apagaria o de um login rápido.
-        void forgetToken().then(() =>
-          router.replace({ pathname: SIGN_IN_PATH, params: { volta, motivo: SESSION_ENDED_REASON } }),
-        );
+        void dropLocalSession(client).then((dropped) => {
+          if (dropped) router.replace({ pathname: SIGN_IN_PATH, params: { volta, motivo: SESSION_ENDED_REASON } });
+        });
       }),
     [client, router],
   );

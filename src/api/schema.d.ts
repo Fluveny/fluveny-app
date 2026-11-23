@@ -87,6 +87,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/password-recovery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Pede o link de redefinição de senha. Sempre 202 sem corpo, para e-mail cadastrado ou não: o link (vale 1 hora, uso único) só sai, pela fila com prioridade, para conta ativa com o e-mail confirmado. Um pedido novo não invalida os links anteriores; o uso de um invalida os outros. Pedidos repetidos do mesmo e-mail (mais de 1 por minuto, 5 por dia da mesma origem ou 20 por dia) também dão 202, sem envio. Mais de 20 pedidos por hora do mesmo IP: 429 TOO_MANY_REQUESTS com Retry-After. E-mail inválido ou campo desconhecido: 400 VALIDATION_FAILED. */
+        post: operations["requestPasswordRecovery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Redefine a senha com o token do link e encerra todas as sessões da conta, em todos os aparelhos. Responde 204 sem corpo e não abre sessão: o App leva a Entrar. Senha fora da regra: 400 VALIDATION_FAILED, sem gastar o token. Token desconhecido, vencido, já usado ou de conta que mudou depois do pedido: 410 PASSWORD_RESET_LINK_INVALID. */
+        post: operations["resetPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/signup": {
         parameters: {
             query?: never;
@@ -859,6 +893,15 @@ export interface components {
             activityTypes: components["schemas"]["ActivityTypeSupport"][];
             minAppVersion: string;
         };
+        PasswordRecoveryRequest: {
+            /** Format: email */
+            email: string;
+        };
+        PasswordResetRequest: {
+            /** @description De 8 a 64 caracteres, com pelo menos uma letra e um número. Senhas com muitos acentos ou emoji podem precisar ser mais curtas (o limite é de 72 bytes em UTF-8). */
+            password: string;
+            token: string;
+        };
         PronounVariants: {
             he: string;
             she: string;
@@ -983,6 +1026,8 @@ export interface components {
         };
         StudentProfile: {
             email: string;
+            /** @description Se o e-mail segue sem confirmar 7 dias ou mais depois do cadastro (relógio do servidor). Com true, o App mostra a faixa "Confirme seu e-mail para poder recuperar a senha." com o Reenviar; até confirmar, a recuperação de senha não envia nada. */
+            emailConfirmationOverdue: boolean;
             /** @description Se o e-mail já foi confirmado. */
             emailConfirmed: boolean;
             name?: string | null;
@@ -1202,6 +1247,50 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    requestPasswordRecovery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordRecoveryRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    resetPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequest"];
+            };
+        };
         responses: {
             /** @description No Content */
             204: {

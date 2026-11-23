@@ -6,6 +6,8 @@ import { AccessibilityInfo, Platform } from 'react-native';
 
 import { RootStack } from '../../app/_layout';
 import ComingSoon from '../../app/(public)/em-breve';
+import RecoverPassword, { RECOVER_TITLE } from '../../app/(public)/recuperar-senha';
+import ResetPassword from '../../app/(public)/redefinir-senha';
 import SignIn, {
   CREATE_ACCOUNT_LINK,
   EMAIL_EMPTY,
@@ -116,6 +118,8 @@ async function openApp(initialUrl = '/') {
       ),
       '(public)/index': Root,
       '(public)/em-breve': ComingSoon,
+      '(public)/recuperar-senha': RecoverPassword,
+      '(public)/redefinir-senha': ResetPassword,
       '(public)/entrar': SignIn,
       '(public)/privacidade': PrivacyPolicy,
       '(public)/termos': TermsOfUse,
@@ -362,12 +366,13 @@ describe('Entrar (2.3)', () => {
     expect(captureError).toHaveBeenCalledWith(expect.objectContaining({ message: 'keystore' }));
   });
 
-  it('"Esqueci minha senha" leva a "Em breve" (2.8); "Criar conta", ao cadastro', async () => {
+  it('"Esqueci minha senha" leva a Recuperar senha (2.8); "Criar conta", ao cadastro', async () => {
     await openApp();
     await fireEvent.press(await screen.findByRole('button', { name: SIGN_IN }));
     await screen.findByRole('header', { name: SIGN_IN_TITLE });
     await fireEvent.press(button(FORGOT_LINK));
-    await waitFor(() => expect(screen).toHavePathname('/em-breve'));
+    expect(await screen.findByRole('header', { name: RECOVER_TITLE })).toBeTruthy();
+    expect(screen).toHavePathname('/recuperar-senha');
     await act(async () => router.back());
     await fireEvent.press(await screen.findByRole('button', { name: CREATE_ACCOUNT_LINK }));
     expect(await screen.findByRole('header', { name: SIGNUP_TITLE })).toBeTruthy();

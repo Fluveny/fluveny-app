@@ -6,6 +6,7 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { ApiError } from '../../src/api/client';
 import { messageFor, UNKNOWN_ERROR } from '../../src/api/errors';
 import { FormFrame, useLeave } from '../../src/auth/FormFrame';
+import { PASSWORD_CHANGED_REASON, RECOVER_PASSWORD_SCREEN } from '../../src/auth/passwordReset';
 import { returnPath, SESSION_ENDED_REASON } from '../../src/auth/sessionEnd';
 import { signIn, useCachedStudent } from '../../src/auth/student';
 import { captureError } from '../../src/observability/sentry';
@@ -26,9 +27,11 @@ export const CREATE_ACCOUNT_LINK = 'Criar conta';
 export const BACK_LABEL = 'Voltar';
 /** O aviso quando o 401 no meio do uso trouxe o aluno para cá (`motivo=sessao`), até a primeira tentativa. */
 export const SESSION_ENDED = 'Sua sessão terminou. Entre de novo.';
-
-/** Recuperar senha chega na 2.8. */
-const SOON_PATH = '/em-breve';
+/**
+ * O aviso depois da senha redefinida (`motivo=senha`, 2.8), até a primeira tentativa.
+ * [ASSUMPTION: copy] Texto proposto na 2.8, a revisar com UX.
+ */
+export const PASSWORD_CHANGED = 'Senha alterada. Entre com a senha nova.';
 const SIGN_UP_PATH = '/cadastro';
 
 /** O limite do contrato (`LoginRequest`). */
@@ -40,7 +43,8 @@ const PASSWORD_MAX = 256;
  * `POST /auth/login`. Com sucesso, vai ao `volta` (só caminho da lista fechada)
  * ou à raiz, sem Entrar na pilha. Erro: `messageFor(code)` no rodapé, e os
  * campos ficam como estavam. Aberta pelo 401 no meio do uso (`?motivo=sessao`),
- * mostra que a sessão terminou. Com Aluno no cache, não mostra o formulário: vai
+ * mostra que a sessão terminou; depois da senha redefinida (`?motivo=senha`,
+ * 2.8), que a senha mudou. Com Aluno no cache, não mostra o formulário: vai
  * direto ao destino (entrar de novo derrubaria a sessão atual).
  */
 export default function SignIn() {
@@ -131,6 +135,9 @@ export default function SignIn() {
       {motivo === SESSION_ENDED_REASON && !tried ? (
         <StatusBanner tone="notice" text={SESSION_ENDED} testID="signin-session-ended" />
       ) : null}
+      {motivo === PASSWORD_CHANGED_REASON && !tried ? (
+        <StatusBanner tone="notice" text={PASSWORD_CHANGED} testID="signin-password-changed" />
+      ) : null}
       <TextField
         label={EMAIL_FIELD}
         value={email}
@@ -176,7 +183,7 @@ export default function SignIn() {
             label={FORGOT_LINK}
             small
             disabled={sending}
-            onPress={() => router.navigate(SOON_PATH)}
+            onPress={() => router.navigate(RECOVER_PASSWORD_SCREEN)}
             testID="signin-forgot"
           />
         </View>
