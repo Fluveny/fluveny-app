@@ -1,8 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { ApiError } from '../../src/api/client';
 import { messageFor, NETWORK_ERROR } from '../../src/api/errors';
@@ -19,6 +18,8 @@ import {
   signupProblems,
   type SignupProblems,
 } from '../../src/auth/signupForm';
+import { FormFrame as Frame, useLeave } from '../../src/auth/FormFrame';
+import { SIGN_IN_PATH } from '../../src/auth/sessionEnd';
 import { savePronouns, signUp, type PronounSet } from '../../src/auth/student';
 import { PRIVACY_LINK, PRIVACY_PATH, TERMS_LINK, TERMS_PATH } from '../../src/legal/paths';
 import { PRIVACY_VERSION, TERMS_VERSION } from '../../src/legal/versions';
@@ -38,7 +39,7 @@ export const PASSWORD_FIELD = 'Senha';
 export const ACCEPT_LABEL = 'Li e aceito os Termos de uso e a Política de privacidade.';
 export const CREATE_LABEL = 'CRIAR CONTA';
 export const BACK_LABEL = 'Voltar';
-/** Atalhos do e-mail repetido: "Em breve" até a 2.3 (Entrar) e a 2.8 (Recuperar senha). */
+/** Atalhos do e-mail repetido: Entrar (2.3) e "Em breve" até a 2.8 (Recuperar senha). */
 export const SIGN_IN_LINK = 'Entrar';
 export const RECOVER_LINK = 'Recuperar senha';
 const SOON_PATH = '/em-breve';
@@ -55,32 +56,6 @@ export const PRONOUN_OPTIONS: readonly { value: PronounSet; label: string; examp
 
 /** O valor de `?de=` quando o cadastro abre do convite do Visitante (1.20). */
 export const FROM_INVITE = 'convite';
-
-/** Volta à tela anterior; aberto direto, à raiz. */
-function useLeave() {
-  const router = useRouter();
-  return () => {
-    if (router.canGoBack()) router.back();
-    else router.replace('/');
-  };
-}
-
-/** No nativo, o teclado não encolhe a janela: o conteúdo e o rodapé sobem com ele (UX-DR131). */
-const KEYBOARD_AVOIDING = Platform.OS !== 'web';
-
-/** Moldura das duas etapas: conteúdo rolável e o rodapé fixo, acima do teclado. */
-function Frame({ children, footer, testID }: { children: ReactNode; footer: ReactNode; testID: string }) {
-  return (
-    <SafeAreaView style={styles.screen} edges={['top', 'bottom', 'left', 'right']} testID={testID}>
-      <KeyboardAvoidingView style={styles.grow} behavior="padding" enabled={KEYBOARD_AVOIDING}>
-        <ScrollView style={styles.grow} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          {children}
-        </ScrollView>
-        <View style={styles.footer}>{footer}</View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
-}
 
 /**
  * Cadastro do Aluno adulto (2.1, FR-2): o formulário e, depois do 201, o passo
@@ -176,7 +151,7 @@ function SignUpForm({ fromInvite, onCreated }: { fromInvite: boolean; onCreated:
               </Text>
               {failure === 'EMAIL_ALREADY_REGISTERED' ? (
                 <View style={styles.links}>
-                  <TextLink label={SIGN_IN_LINK} onPress={() => router.navigate(SOON_PATH)} />
+                  <TextLink label={SIGN_IN_LINK} onPress={() => router.navigate(SIGN_IN_PATH)} />
                   <TextLink label={RECOVER_LINK} onPress={() => router.navigate(SOON_PATH)} />
                 </View>
               ) : null}
@@ -352,22 +327,12 @@ function PronounStep() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.surface },
-  grow: { flex: 1 },
-  content: {
-    flexGrow: 1,
-    gap: spacing[4],
-    paddingHorizontal: spacing.screenX,
-    paddingTop: spacing[4],
-    paddingBottom: spacing[6],
-  },
   top: { flexDirection: 'row', marginLeft: -spacing[3] },
   title: { ...typography.h1, color: color.ink },
   inviteText: { ...typography.bodyStrong, color: color.ink },
   teen: { gap: spacing[2] },
   accept: { gap: spacing[1] },
   links: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
-  footer: { paddingHorizontal: spacing.screenX, paddingTop: spacing[3], paddingBottom: spacing[3], gap: spacing[2] },
   failure: { gap: spacing[1] },
   failureText: { ...typography.bodyStrong, color: color.redDk, textAlign: 'center' },
   optionLabel: { ...typography.item, color: color.ink },

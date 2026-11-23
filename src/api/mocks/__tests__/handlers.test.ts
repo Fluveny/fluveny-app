@@ -48,6 +48,17 @@ describe('mockResponse()', () => {
     expect(response.status).toBe(202);
     await expect(response.text()).resolves.toBe('');
   });
+
+  it('mock sem corpo de rota 204 (o sair, 2.3) vira 204 sem corpo', async () => {
+    const response = await mockResponse(
+      mockRoutes['/api/v1/auth/logout'].post,
+      new Request('http://mock/api/v1/auth/logout', { method: 'POST', headers: { 'X-Fluveny-Client': 'web' } }),
+      200,
+      true,
+    );
+    expect(response.status).toBe(204);
+    await expect(response.text()).resolves.toBe('');
+  });
 });
 
 describe('mockResponse() com status (2.1)', () => {

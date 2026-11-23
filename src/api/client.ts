@@ -7,13 +7,18 @@
 // Sessão (2.1): no web, o cookie `HttpOnly` da API vai com `credentials:
 // 'include'` e o App nunca vê o token; no Android, o token do `expo-secure-store`
 // vai como `Authorization: Bearer`.
+//
+// Sessão que acaba no meio do uso (2.3, AD-12): todo `ApiError` nasce em
+// `request()`, e é ali, num ponto só, que um 401 avisa quem se inscreveu em
+// `onUnauthenticated` (o `useSessionExpiry` da pilha raiz). O 401 de senha
+// errada (`INVALID_CREDENTIALS`) também leva `WWW-Authenticate`: o `code` separa.
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 import appConfig from '../../app.json';
 import { storedSessionToken } from '../auth/session';
 import { captureError } from '../observability/sentry';
-import { messageFor, NETWORK_ERROR, UNKNOWN_ERROR } from './errors';
+import { INVALID_CREDENTIALS, messageFor, NETWORK_ERROR, UNKNOWN_ERROR } from './errors';
 import type { paths } from './schema';
 
 export const APP_VERSION_HEADER = 'X-App-Version';
@@ -134,6 +139,39 @@ export type PostBody<P extends PostPaths> = paths[P]['post'] extends {
   ? B
   : never;
 
+type NoContentPaths = {
+  [P in keyof paths]: paths[P] extends { post: { responses: { 204: unknown } } } ? P : never;
+}[keyof paths];
+
+/**
+ * Entrar e sair (2.3): o 401 deles não é sessão que acabou no meio. Entrar
+ * mostra o próprio erro; o sair cuida da sessão local.
+ */
+const SESSION_PATHS: ReadonlySet<string> = new Set(['/api/v1/auth/login', '/api/v1/auth/logout']);
+
+let unauthenticatedListener: (() => void) | null = null;
+
+/**
+ * Inscreve quem reage a um 401 de sessão (código diferente de
+ * `INVALID_CREDENTIALS`, fora do entrar e do sair). Um só por vez: a inscrição nova troca a
+ * anterior. Devolve a função que cancela.
+ */
+export function onUnauthenticated(listener: () => void): () => void {
+  unauthenticatedListener = listener;
+  return () => {
+    if (unauthenticatedListener === listener) unauthenticatedListener = null;
+  };
+}
+
+function notifyUnauthenticated(path: string, error: ApiError) {
+  if (error.status !== 401 || error.code === INVALID_CREDENTIALS || SESSION_PATHS.has(path)) return;
+  try {
+    unauthenticatedListener?.();
+  } catch (failure) {
+    captureError(failure);
+  }
+}
+
 const CODE = /^[A-Z][A-Z0-9_]*$/;
 
 /** Rejeita assim que `signal` abortar, mesmo que a leitura do corpo não reaja ao abort. */
@@ -180,7 +218,7 @@ async function readData<T>(response: Response, signal: AbortSignal): Promise<T> 
   return (body as { data: T }).data;
 }
 
-/** Resposta sem corpo (202): só confere o status; erro vira `ApiError` como em `readData`. */
+/** Resposta sem corpo (202 ou 204): só confere o status; erro vira `ApiError` como em `readData`. */
 async function readNothing(response: Response, signal: AbortSignal): Promise<void> {
   if (!response.ok) throw new ApiError(response.status, await problemCode(response, signal));
 }
@@ -230,6 +268,7 @@ export async function request<T>(
     try {
       return await read(response, controller.signal);
     } catch (error) {
+      if (error instanceof ApiError) notifyUnauthenticated(path, error);
       if (error instanceof ApiError || callerSignal?.aborted) throw error;
       // Timeout durante a leitura do corpo.
       throw new ApiError(0, NETWORK_ERROR);
@@ -283,6 +322,11 @@ export function postAccepted<P extends AcceptedPaths>(path: P, ...[body, init]: 
   if (body === undefined) return request<void>(path, { ...init, method: 'POST', headers }, readNothing);
   headers.set('Content-Type', 'application/json');
   return request<void>(path, { ...init, method: 'POST', headers, body: JSON.stringify(body) }, readNothing);
+}
+
+/** `POST` sem corpo de uma rota que responde `204` sem corpo (o sair, 2.3). */
+export function postNoContent<P extends NoContentPaths>(path: P, init?: RequestInit): Promise<void> {
+  return request<void>(path, { ...init, method: 'POST', headers: new Headers(init?.headers) }, readNothing);
 }
 
 /** `PATCH` tipado pelo contrato: manda `body` como JSON e devolve o `data` da resposta 200. */

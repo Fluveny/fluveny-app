@@ -1,16 +1,29 @@
 // O Aluno da sessão (2.1): o perfil de `GET /students/me` no cache do TanStack
 // Query (`['student', 'me']`), o cadastro e a troca de pronomes. `null` no cache
-// é "sem sessão" (401, ou o Android sem token guardado). O tratamento de 401 no
-// meio do uso (levar a Entrar) é da 2.3.
+// é "sem sessão" (401, ou o Android sem token guardado). Entrar (`signIn`) é da
+// 2.3; o sair e o 401 no meio do uso ficam em `sessionEnd.ts`.
 import { QueryClientContext, useQuery, type QueryClient } from '@tanstack/react-query';
 import { useCallback, useContext, useSyncExternalStore } from 'react';
 
-import { ApiError, clientKind, get, patch, post, type GetData, type PatchBody, type PostBody } from '../api/client';
+import {
+  ApiError,
+  clientKind,
+  get,
+  patch,
+  post,
+  type GetData,
+  type PatchBody,
+  type PostBody,
+  type PostData,
+} from '../api/client';
+import { visitorStore } from '../visitor/store';
 import type { Pronoun } from '../visitor/types';
+import { clearVisitorCache } from '../visitor/useVisitor';
 import { clearSessionToken, saveSessionToken, storedSessionToken } from './session';
 
 export type StudentProfile = GetData<'/api/v1/students/me'>;
 export type SignupBody = PostBody<'/api/v1/auth/signup'>;
+export type LoginBody = PostBody<'/api/v1/auth/login'>;
 export type PronounSet = NonNullable<PatchBody<'/api/v1/students/me'>['pronounSet']>;
 
 export const STUDENT_QUERY_KEY = ['student', 'me'] as const;
@@ -44,7 +57,7 @@ export async function fetchStudent(signal?: AbortSignal): Promise<StudentProfile
 /**
  * O Aluno da sessão: uma vez por abertura do App e, enquanto o e-mail não está
  * confirmado, de novo a cada volta ao primeiro plano (2.2: a faixa some depois
- * de confirmar no navegador). A 2.3 cuida da sessão que acaba no meio.
+ * de confirmar no navegador). A sessão que acaba no meio é do `useSessionExpiry` (2.3).
  */
 export function useStudent() {
   return useQuery({
@@ -91,7 +104,39 @@ export function useCachedStudent(): StudentProfile | null {
  * vai para o cache.
  */
 export async function signUp(client: QueryClient, body: SignupBody): Promise<StudentProfile> {
-  const { student, sessionToken } = await post('/api/v1/auth/signup', body);
+  return startSession(client, await post('/api/v1/auth/signup', body));
+}
+
+/** O e-mail do Aluno cuja sessão venceu no meio do uso (só em memória): a loja e o cache ainda são dele. */
+let expiredEmail: string | null = null;
+
+/** Guarda o e-mail do Aluno cuja sessão acabou de vencer (o `useSessionExpiry`, 2.3). */
+export function markSessionExpired(email: string): void {
+  expiredEmail = email.toLowerCase();
+}
+
+/**
+ * Entra com e-mail e senha (2.3), como o cadastro: o token no armazenamento
+ * seguro (Android) e o perfil no cache. Depois de uma sessão vencida, se quem
+ * entra é outra conta, a loja do aparelho e todo o cache do Aluno anterior
+ * saem antes (nome, Progresso e recibos não passam de uma conta a outra).
+ */
+export async function signIn(client: QueryClient, body: LoginBody): Promise<StudentProfile> {
+  const session = await post('/api/v1/auth/login', body);
+  const previous = expiredEmail;
+  expiredEmail = null;
+  if (previous !== null && previous !== session.student.email.toLowerCase()) {
+    await visitorStore.clear();
+    clearVisitorCache();
+    client.clear();
+  }
+  return startSession(client, session);
+}
+
+async function startSession(
+  client: QueryClient,
+  { student, sessionToken }: PostData<'/api/v1/auth/signup'> | PostData<'/api/v1/auth/login'>,
+): Promise<StudentProfile> {
   if (sessionToken && clientKind() === 'android') await saveSessionToken(sessionToken);
   client.setQueryData(STUDENT_QUERY_KEY, student);
   return student;

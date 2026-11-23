@@ -10,6 +10,9 @@ export const NETWORK_ERROR = 'NETWORK_ERROR';
 /** Código local, para resposta de erro sem `code` (corpo que não é problem+json). */
 export const UNKNOWN_ERROR = 'UNKNOWN_ERROR';
 
+/** Senha errada ou e-mail desconhecido no login (2.3): o 401 que não é sessão vencida. */
+export const INVALID_CREDENTIALS = 'INVALID_CREDENTIALS';
+
 export const GENERIC_MESSAGE = 'Tivemos um problema do nosso lado. Tente de novo daqui a pouco.';
 
 export const ERROR_MESSAGES: Readonly<Record<string, string>> = {
@@ -32,6 +35,10 @@ export const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   // Confirmação de e-mail (2.2). [ASSUMPTION] Textos propostos na 2.2, a revisar com UX.
   CONFIRMATION_LINK_INVALID: 'Este link não vale mais. Peça um novo e-mail de confirmação na tela inicial do Fluveny.',
   EMAIL_ALREADY_CONFIRMED: 'Seu e-mail já está confirmado.',
+  // Entrar (2.3). [ASSUMPTION] Textos propostos na 2.3, a revisar com UX.
+  [INVALID_CREDENTIALS]: 'E-mail ou senha incorretos.',
+  ACCOUNT_DEACTIVATED: 'Esta conta está desativada.',
+  LOGIN_THROTTLED: 'Muitas tentativas seguidas. Espere um pouco e tente de novo.',
   CLIENT_HEADER_REQUIRED: GENERIC_MESSAGE,
   METHOD_NOT_ALLOWED: GENERIC_MESSAGE,
   NOT_ACCEPTABLE: GENERIC_MESSAGE,

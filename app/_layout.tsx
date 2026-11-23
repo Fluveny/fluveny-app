@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { useMeta, useVersionStatus } from '../src/api/meta';
 import { API_MOCK, startApiMocks } from '../src/api/mocks';
 import { AppProviders, createQueryClient } from '../src/AppProviders';
+import { useSessionExpiry } from '../src/auth/sessionEnd';
 import { ColdStartScreen, isNoResponse } from '../src/ColdStartScreen';
 import { isLegalPath } from '../src/legal/paths';
 import { captureError, initSentry, wrapRoot } from '../src/observability/sentry';
@@ -35,9 +36,11 @@ export const META_SPLASH_TIMEOUT_MS = 3000;
  * Pilha raiz. Abaixo do `minAppVersion` (AD-11), só a tela "Atualize o app"
  * fica disponível: as outras rotas saem da pilha e não há para onde voltar. A
  * política e os termos (1.21) ficam fora dos dois guards: são texto estático e
- * abrem mesmo com o App desatualizado.
+ * abrem mesmo com o App desatualizado. Aqui também mora a reação ao 401 de
+ * sessão no meio do uso (2.3): leva a Entrar.
  */
 export function RootStack() {
+  useSessionExpiry();
   const status = useVersionStatus();
   const outdated = status === 'outdated';
   useEffect(() => {
@@ -55,6 +58,8 @@ export function RootStack() {
         <Stack.Screen name="(student)/convite" />
         {/* Cadastro do Aluno adulto e os pronomes (2.1). */}
         <Stack.Screen name="(student)/cadastro" />
+        {/* Entrar (2.3): pública; o 401 no meio do uso também leva para cá. */}
+        <Stack.Screen name="(public)/entrar" />
         {/* O link do e-mail de confirmação (2.2): pública, com ou sem sessão. */}
         <Stack.Screen name="(public)/confirmar-email" />
         {/* Catálogo do kit (1.8): só abre com __DEV__; no release, redireciona para /. */}

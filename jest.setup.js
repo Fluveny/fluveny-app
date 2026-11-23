@@ -23,6 +23,16 @@ jest.mock('expo-sqlite', () => {
     },
     getFirstAsync: async (source, ...params) => db.prepare(source).get(...flat(params)) ?? null,
     getAllAsync: async (source, ...params) => db.prepare(source).all(...flat(params)),
+    withTransactionAsync: async (task) => {
+      db.exec('BEGIN');
+      try {
+        await task();
+        db.exec('COMMIT');
+      } catch (error) {
+        db.exec('ROLLBACK');
+        throw error;
+      }
+    },
     closeAsync: async () => {},
   });
   global.__resetSqlite = () => {
