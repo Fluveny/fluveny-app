@@ -25,7 +25,7 @@ import {
 import { AppProviders, createQueryClient } from '../AppProviders';
 import { forgetCachedSession } from '../auth/session';
 import { STUDENT_QUERY_KEY, type StudentProfile } from '../auth/student';
-import { HOME_BODY, HOME_STUDY, SIGN_OUT_BODY, SIGN_OUT_CONFIRM, studentGreeting } from '../auth/StudentHome';
+import { SIGN_OUT_BODY, SIGN_OUT_CONFIRM, studentGreeting } from '../auth/StudentHome';
 import { PRIVACY_VERSION, TERMS_VERSION } from '../legal/versions';
 import { captureError } from '../observability/sentry';
 import { CLOSE_LABEL, OFFLINE_LABEL } from '../player/PlayerFrame';
@@ -416,7 +416,7 @@ describe('Tentativa do Aluno (2.4)', () => {
     expect(await screen.findByLabelText('10 XP')).toBeTruthy();
     // Fecha e abre de novo: outra Tentativa (outro attemptId) na mesma Atividade.
     await fireEvent.press(button(CLOSE_LABEL));
-    await fireEvent.press(await screen.findByRole('button', { name: HOME_STUDY }));
+    await fireEvent.press(await screen.findByTestId('dashboard-play'));
     expect(await screen.findByText('1 DE 2')).toBeTruthy();
     await answerChoice();
     expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
@@ -585,13 +585,18 @@ describe('conclusão e "salvar falhou" do Aluno (2.4)', () => {
     expect(ofRoute('POST', COMPLETIONS)).toHaveLength(2);
   });
 
-  it('sessão vence (401 na conclusão): Entrar com volta=/player; depois, o player recomeça do início', async () => {
+  it('sessão vence (401 na conclusão): Entrar com o volta do player; depois, a mesma Atividade do início', async () => {
     await withType('dialogue', finishing('viewed'), async () => {
       await playAsStudent();
       expireMockSession();
       await fireEvent.press(button(SKIP_LABEL));
       expect(await screen.findByText(SESSION_ENDED)).toBeTruthy();
-      expect(screen).toHaveSearchParams({ volta: '/player', motivo: 'sessao' });
+      // Desde a 2.5, o `volta` traz a Atividade na tela (a 1), e o Entrar volta a ela, do início.
+      const first = servedStage.activities[0]!.activityKey;
+      expect(screen).toHaveSearchParams({
+        volta: `/player?unidade=unit-1&estagio=stage-1&atividade=${first}`,
+        motivo: 'sessao',
+      });
       expect(captureError).not.toHaveBeenCalled();
       await fireEvent.changeText(screen.getByLabelText(EMAIL_FIELD), ADULT.email);
       await fireEvent.changeText(screen.getByLabelText(PASSWORD_FIELD), ADULT.password);
@@ -773,14 +778,14 @@ describe('tempo de estudo (2.4, os dois modos)', () => {
   });
 });
 
-describe('tela inicial e sair (2.4)', () => {
-  it('a tela inicial diz que o progresso fica na conta; sair apaga o cache inteiro, inclusive o Progresso', async () => {
+describe('painel e sair (2.4, 2.5)', () => {
+  it('fechar o player leva ao painel; sair apaga o cache inteiro, inclusive o Progresso', async () => {
     const student = await signedUp();
     await openApp('/player', student);
     expect(await screen.findByLabelText('0 XP')).toBeTruthy();
     expect(client.getQueryData(PROGRESS_QUERY_KEY)).toEqual({ xpTotal: 0, results: [] });
     await fireEvent.press(button(CLOSE_LABEL));
-    expect(await screen.findByText(HOME_BODY)).toBeTruthy();
+    expect(await screen.findByTestId('student-dashboard')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('student-home-sign-out'));
     expect(await screen.findByText(SIGN_OUT_BODY, { exact: false })).toBeTruthy();
     await fireEvent.press(button(SIGN_OUT_CONFIRM));

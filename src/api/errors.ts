@@ -13,6 +13,9 @@ export const UNKNOWN_ERROR = 'UNKNOWN_ERROR';
 /** Senha errada ou e-mail desconhecido no login (2.3): o 401 que não é sessão vencida. */
 export const INVALID_CREDENTIALS = 'INVALID_CREDENTIALS';
 
+/** Tentativa, reveal ou conclusão do Aluno num Estágio que a sequência ainda não liberou (2.5). */
+export const STAGE_LOCKED = 'STAGE_LOCKED';
+
 export const GENERIC_MESSAGE = 'Tivemos um problema do nosso lado. Tente de novo daqui a pouco.';
 
 export const ERROR_MESSAGES: Readonly<Record<string, string>> = {
@@ -41,6 +44,8 @@ export const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   LOGIN_THROTTLED: 'Muitas tentativas seguidas. Espere um pouco e tente de novo.',
   // Recuperação de senha (2.8). [ASSUMPTION] Texto proposto na 2.8, a revisar com UX.
   PASSWORD_RESET_LINK_INVALID: 'Este link de redefinição não vale mais. Peça outro.',
+  // Painel e sequência (2.5). [ASSUMPTION: copy] Texto proposto na 2.5, a revisar com UX.
+  [STAGE_LOCKED]: 'Este Estágio ainda está bloqueado. Conclua o Estágio anterior para desbloquear.',
   CLIENT_HEADER_REQUIRED: GENERIC_MESSAGE,
   METHOD_NOT_ALLOWED: GENERIC_MESSAGE,
   NOT_ACCEPTABLE: GENERIC_MESSAGE,

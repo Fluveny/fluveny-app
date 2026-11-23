@@ -1,18 +1,20 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, BackHandler, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError } from '../../src/api/client';
 import { mayHaveSession, useStudent, type StudentProfile } from '../../src/auth/student';
-import { messageFor } from '../../src/api/errors';
+import { messageFor, STAGE_LOCKED } from '../../src/api/errors';
+import { invalidateDashboard } from '../../src/dashboard/dashboard';
 import { useOnline } from '../../src/network/useOnline';
 import { captureError } from '../../src/observability/sentry';
 import { ActivityTransition } from '../../src/player/ActivityTransition';
 import { needsCompletion, useCompletion, type UngradedOutcome } from '../../src/player/completion';
 import { PlayerSessionContext, type PlayerMode, type PlayerSession } from '../../src/player/playerSession';
 import { PlayerFooter, PlayerFrame, PlayerTop } from '../../src/player/PlayerFrame';
+import { playerTarget } from '../../src/player/playerRoute';
 import { resolveActivity, type ActivityResult, type FooterAction, type SheetSpec } from '../../src/player/registry';
 import { SIGN_UP_PATH } from '../../src/player/StageInvite';
 import { StageSummary } from '../../src/player/StageSummary';
@@ -42,6 +44,9 @@ export const LOADING_LABEL = 'Carregando o Estágio';
 export const SAVING_LABEL = 'SALVANDO…';
 export const SAVE_RETRY_LABEL = 'TENTAR SALVAR DE NOVO';
 export const SAVE_FAILED = 'Não conseguimos salvar sua resposta. Nada foi perdido.';
+
+/** O Estágio travado (2.5): a ação que volta ao painel. [ASSUMPTION: copy] */
+export const BACK_HOME_LABEL = 'VOLTAR AO INÍCIO';
 
 /** O modo pelo Aluno da sessão: com perfil, o Aluno; `null`, o Visitante; sem resposta ainda, indefinido. */
 function modeOf(student: StudentProfile | null | undefined): PlayerMode | null {
@@ -95,6 +100,14 @@ function useLeave() {
  * conclusão que falha mostra "TENTAR SALVAR DE NOVO" com a linha vermelha, e a
  * volta da rede a repete uma vez. Nos dois modos, o tempo de estudo é o do
  * relógio do player (`useStudyClock`, corte de 5 min).
+ *
+ * Painel e retomada (2.5): o Aluno abre o player em `unidade`, `estagio` e
+ * `atividade` (chaves do conteúdo, lidas uma vez na abertura; valor inválido é
+ * ignorado). Sem `estagio`, o primeiro Estágio; sem `atividade`, ou com uma que
+ * não está no Estágio, a Atividade 1. A Atividade na tela fica na URL
+ * (`setParams`, sem histórico), para o `volta` de Entrar depois de um 401. O
+ * Visitante ignora os parâmetros. Uma gravação recusada com `STAGE_LOCKED`
+ * troca a tela pelo aviso com VOLTAR AO INÍCIO e relê o painel.
  */
 export default function Player() {
   const router = useRouter();
@@ -111,8 +124,20 @@ export default function Player() {
   if (fixedMode === null && mode !== null) setFixedMode(mode);
   const online = useOnline();
   const visitor = useVisitor();
-  const { stage, usefulExpressions, stageNumber, error, missingStage, loading, fetching, retry } = useStage();
-  const [index, setIndex] = useState(0);
+  // Onde o Aluno abre o player, lido uma vez na abertura: o `setParams` abaixo não o muda.
+  const params = useLocalSearchParams();
+  const [target] = useState(() => playerTarget(params));
+  const asStudent = mode === 'student';
+  const unitKey = (asStudent && target.unidade) || UNIT_KEY;
+  const { stage, usefulExpressions, stageNumber, error, missingStage, loading, fetching, retry } = useStage(
+    unitKey,
+    asStudent ? target.estagio : undefined,
+    // Só depois de decidir quem joga: senão, o Estágio 1 viria antes do `estagio` do Aluno.
+    mode !== null,
+  );
+  // `null` até o primeiro avanço: a Atividade de abertura (o `atividade` do Aluno, ou a 1).
+  const [index, setIndex] = useState<number | null>(null);
+  const [locked, setLocked] = useState(false);
   const [footer, setFooter] = useState<FooterAction | null>(null);
   const [sheet, setSheet] = useState<SheetSpec | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -136,8 +161,15 @@ export default function Player() {
 
   const activities = useMemo(() => (Array.isArray(stage?.activities) ? stage.activities : []), [stage]);
   const total = activities.length;
+  const startIndex = useMemo(() => {
+    if (!asStudent || !target.atividade) return 0;
+    return Math.max(
+      0,
+      activities.findIndex((entry) => entry.activityKey === target.atividade),
+    );
+  }, [asStudent, target.atividade, activities]);
   // Uma resposta com menos Atividades não deixa o índice fora da lista.
-  const position = Math.min(index, Math.max(0, total - 1));
+  const position = Math.min(index ?? startIndex, Math.max(0, total - 1));
   const activity = activities[position];
 
   // Título do Estágio em texto puro (a junção dos segmentos), com as Variáveis do Aluno.
@@ -163,8 +195,20 @@ export default function Player() {
   useEffect(() => {
     if (progressError) reportReadFailure(progressError);
   }, [progressError]);
-  const onSaved = useCallback(() => invalidateProgress(client), [client]);
-  const session = useMemo<PlayerSession>(() => ({ mode: mode ?? 'visitor', clock, onSaved }), [mode, clock, onSaved]);
+  // A gravação confirmada muda o XP do chip e os números do painel.
+  const onSaved = useCallback(() => {
+    invalidateProgress(client);
+    invalidateDashboard(client);
+  }, [client]);
+  // A sequência recusou a gravação: a tela troca pelo aviso, e o painel é relido (o Estágio está travado).
+  const onStageLocked = useCallback(() => {
+    setLocked(true);
+    invalidateDashboard(client);
+  }, [client]);
+  const session = useMemo<PlayerSession>(
+    () => ({ mode: mode ?? 'visitor', clock, onSaved, onStageLocked }),
+    [mode, clock, onSaved, onStageLocked],
+  );
 
   const {
     complete,
@@ -172,7 +216,7 @@ export default function Player() {
     completing,
     error: completionError,
     retryable: saveRetryable,
-  } = useCompletion(store, activity?.activityKey, stage?.versionId, { mode, clock, onSaved });
+  } = useCompletion(store, activity?.activityKey, stage?.versionId, { mode, clock, onSaved, onStageLocked });
 
   // Uma abertura por Atividade que aparece na tela (também ao refazer: cada abertura do player é outra).
   // Só depois de decidir quem joga: o Aluno pela rota dele, sem `deviceId`.
@@ -187,6 +231,18 @@ export default function Player() {
     else sendVisitorEvent(store, event, onlineNow.current);
   }, [mode, store, shownKey, versionId]);
 
+  // O Aluno: a Atividade na tela fica na URL, sem entrada no histórico, para voltar a ela depois de um 401
+  // (UX-DR118). O Visitante não muda a URL.
+  const shownStageKey = stage?.stageKey;
+  const { setParams } = router;
+  useEffect(() => {
+    if (!asStudent || !shownKey || !shownStageKey) return;
+    const next = { unidade: unitKey, estagio: shownStageKey, atividade: shownKey };
+    const now = playerTarget(params);
+    if (now.unidade === next.unidade && now.estagio === next.estagio && now.atividade === next.atividade) return;
+    setParams(next);
+  }, [asStudent, shownKey, shownStageKey, unitKey, params, setParams]);
+
   /**
    * Fecha o Estágio: os números do Resumo saem do Progresso já gravado (o do
    * aparelho, no Visitante; o do servidor, relido depois da última gravação,
@@ -199,11 +255,11 @@ export default function Player() {
       if (mode === 'student') {
         let entries: ProgressEntry[];
         try {
-          entries = progressEntries(await fetchProgress(client), UNIT_KEY);
+          entries = progressEntries(await fetchProgress(client), unitKey);
         } catch {
           // A falha vai ao Sentry pelo efeito da consulta do Progresso (a mesma).
           const cached = client.getQueryData<StudentProgress>(PROGRESS_QUERY_KEY);
-          entries = withEntry(progressEntries(cached, UNIT_KEY), recorded);
+          entries = withEntry(progressEntries(cached, unitKey), recorded);
         }
         setSummary(summarizeStage(entries, keys));
         return;
@@ -217,7 +273,7 @@ export default function Player() {
       }
       setSummary(summarizeStage(progress, keys));
     },
-    [mode, client, store, visitor.progress, activities],
+    [mode, client, store, visitor.progress, activities, unitKey],
   );
   const advance = useCallback(
     async (result?: ActivityResult) => {
@@ -312,6 +368,22 @@ export default function Player() {
     if (progressFailed) void refetchProgress();
     if (completionError && saveRetryable && !completing) failedAction.current?.();
   }, [online, student, completionError, saveRetryable, completing, progressFailed, refetchProgress]);
+
+  // O Estágio travado (2.5): nada se repete nem se grava; VOLTAR AO INÍCIO não depende da rede.
+  if (locked) {
+    return (
+      <PlayerMessage
+        onClose={leave}
+        online={online}
+        footerOnline
+        footer={{ label: BACK_HOME_LABEL, onPress: () => router.dismissTo('/') }}
+      >
+        <Text style={styles.message} accessibilityRole="alert" accessibilityLiveRegion="polite">
+          {messageFor(STAGE_LOCKED)}
+        </Text>
+      </PlayerMessage>
+    );
+  }
 
   if (summary && stage) {
     return (
@@ -416,17 +488,20 @@ function PlayerMessage({
   onClose,
   online,
   footer = null,
+  footerOnline = false,
 }: {
   children: React.ReactNode;
   onClose: () => void;
   online: boolean;
   footer?: FooterAction | null;
+  /** A ação do rodapé não chama o servidor: fica de pé sem rede. */
+  footerOnline?: boolean;
 }) {
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom', 'left', 'right']}>
       <PlayerTop onClose={onClose} online={online} />
       <View style={styles.center}>{children}</View>
-      <PlayerFooter footer={footer} online={online} />
+      <PlayerFooter footer={footer} online={online || footerOnline} />
     </SafeAreaView>
   );
 }

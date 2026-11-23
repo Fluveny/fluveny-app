@@ -12,14 +12,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { OFFLINE_TEXT } from '../network/text';
+import { OFFLINE_LABEL, OFFLINE_TEXT } from '../network/text';
 import { Button, Icon, InteractionContext, Pressable3D, ProgressBar, StatusBanner, TextLink, XpChip } from '../ui';
 import { color, size, spacing, typography } from '../ui/tokens';
 import { PlayerSheet } from './PlayerSheet';
 import type { FooterAction, SheetSpec } from './registry';
 
 export const CLOSE_LABEL = 'Sair';
-export const OFFLINE_LABEL = 'SEM CONEXÃO';
+export { OFFLINE_LABEL };
 export const PROGRESS_LABEL = 'Posição no Estágio';
 
 /** O teclado empurra o conteúdo e o rodapé só no nativo; no web, o navegador cuida. */
