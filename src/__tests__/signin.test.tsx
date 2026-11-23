@@ -42,14 +42,7 @@ import { AppProviders, createQueryClient } from '../AppProviders';
 import { returnPath } from '../auth/sessionEnd';
 import { forgetCachedSession } from '../auth/session';
 import { STUDENT_QUERY_KEY } from '../auth/student';
-import {
-  HOME_STUDY,
-  RESEND_LABEL,
-  SIGN_OUT_BODY,
-  SIGN_OUT_LABEL,
-  SIGN_OUT_TITLE,
-  studentGreeting,
-} from '../auth/StudentHome';
+import { RESEND_LABEL, SIGN_OUT_BODY, SIGN_OUT_LABEL, SIGN_OUT_TITLE, studentGreeting } from '../auth/StudentHome';
 import * as session from '../auth/session';
 import { captureError } from '../observability/sentry';
 import { visitorStore } from '../visitor/store';
@@ -488,7 +481,7 @@ describe('Sair (2.3)', () => {
     expect(screen.getByRole('header', { name: studentGreeting('Ana') })).toBeTruthy();
     expect(global.__secureStore.size).toBe(1);
     expect(await visitorStore.progress()).toHaveLength(1);
-    expect(button(HOME_STUDY)).toBeTruthy();
+    expect(screen.getByTestId('dashboard-play')).toBeTruthy();
   });
 });
 
@@ -509,17 +502,23 @@ describe('sessão que vence no uso (2.3)', () => {
     expect(screen).toHavePathname('/');
   });
 
-  it('no player: volta=/player', async () => {
+  it('no player: volta=/player com a Unidade, o Estágio e a Atividade na tela (2.5)', async () => {
     await signedIn();
-    await fireEvent.press(button(HOME_STUDY));
+    await fireEvent.press(await screen.findByTestId('dashboard-play'));
     await waitFor(() => expect(screen).toHavePathname('/player'));
+    const first = mockRoutes['/api/v1/units/{unitKey}/stages/{stageKey}'].get(new Request('http://mock')).data
+      .activities[0]!.activityKey;
+    await waitFor(() => expect(screen).toHaveSearchParams({ unidade: 'unit-1', estagio: 'stage-1', atividade: first }));
     expireMockSession();
     // Uma chamada de sessão qualquer no meio do uso (o perfil refeito).
     await act(async () => {
       await client.refetchQueries({ queryKey: STUDENT_QUERY_KEY });
     });
     expect(await screen.findByText(SESSION_ENDED)).toBeTruthy();
-    expect(screen).toHaveSearchParams({ volta: '/player', motivo: 'sessao' });
+    expect(screen).toHaveSearchParams({
+      volta: `/player?unidade=unit-1&estagio=stage-1&atividade=${first}`,
+      motivo: 'sessao',
+    });
   });
 
   it('outra conta entra depois da sessão vencida: loja e cache do Aluno anterior saem antes', async () => {

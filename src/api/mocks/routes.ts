@@ -83,6 +83,13 @@
 // tokens da conta e encerra a sessão do mock dessa conta. O perfil traz
 // `emailConfirmationOverdue`: `true` só sem confirmar e depois de
 // `markMockConfirmationOverdue(email)` (os 7 dias, que o mock não conta).
+//
+// Painel (2.5): `GET /students/me/dashboard` é calculado, a cada leitura, dos
+// registros do Aluno da sessão (401 sem ela): a `unit-1` com o `stage-1`
+// (`CURRENT` até todas as Atividades terem registro, depois `COMPLETED`), o
+// `next` na primeira Atividade sem registro, a média dos `GRADED` e a `unit-2`
+// "em breve", sem Estágios. `forceMockStageLocked(true)` faz a Tentativa, o
+// reveal e a conclusão do Aluno responderem `409 STAGE_LOCKED`, sem gravar nada.
 import type { components, paths } from '../schema';
 
 export const MOCK_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
@@ -668,9 +675,17 @@ type StudentRecord = {
 };
 const studentRecords = new Map<string, StudentRecord>();
 
+/** Com `true`, as gravações do Aluno (Tentativa, reveal e conclusão) respondem `409 STAGE_LOCKED` (2.5). */
+let forcedStageLocked = false;
+
 /** Esquece o Progresso gravado dos Alunos do mock (testes). */
 export function resetMockStudentRecords() {
   studentRecords.clear();
+  forcedStageLocked = false;
+}
+
+export function forceMockStageLocked(on: boolean) {
+  forcedStageLocked = on;
 }
 
 /** O teto do `studyTimeMs` da API (24 h). */
@@ -738,6 +753,8 @@ function studentRespondent(request: Request, body: Record<string, unknown> | nul
   if (!body || typeof body !== 'object' || Object.keys(body).some((key) => !fields.has(key))) {
     throw new MockProblem(400, 'VALIDATION_FAILED');
   }
+  // A sequência (2.5): o Estágio travado é recusado antes de corrigir, sem gravar nada.
+  if (forcedStageLocked) throw new MockProblem(409, 'STAGE_LOCKED');
   const ms = body.studyTimeMs;
   if (typeof ms !== 'number' || !Number.isInteger(ms) || ms < 0 || ms > MAX_STUDY_TIME_MS) {
     throw new MockProblem(400, 'VALIDATION_FAILED');
@@ -1112,6 +1129,71 @@ function studentProgress(request: Request) {
   return { data: { xpTotal: results.reduce((sum, result) => sum + result.xpAwarded, 0), results } };
 }
 
+/** O título do Estágio 1 do mock, o mesmo da Unidade e do Estágio. */
+const STAGE_1_TITLE = 'Meet & Greet';
+
+/**
+ * O painel do Aluno da sessão do mock (2.5), calculado dos registros a cada
+ * leitura, como a API: o Estágio 1 conclui com todas as Atividades
+ * registradas (puladas contam), o `next` é a primeira sem registro e a média
+ * é só dos `GRADED`. A Unit 2 é "em breve", sem Estágios.
+ */
+function studentDashboard(request: Request) {
+  const student = mockStudentOf(request);
+  const records = [...studentRecords.entries()]
+    .filter(([key]) => key.startsWith(`${student.email}|`))
+    .map(([, record]) => record);
+  const done = new Set(records.map((record) => record.activityKey));
+  const pending = stage1Activities.findIndex((activity) => !done.has(activity.activityKey));
+  const stageDone = pending === -1;
+  const graded = records.flatMap((record) =>
+    record.outcome === 'GRADED' && record.resultPct !== undefined ? [record.resultPct] : [],
+  );
+  const average = graded.length ? Math.round(graded.reduce((sum, pct) => sum + pct, 0) / graded.length) : undefined;
+  return {
+    data: {
+      ...(student.name ? { name: student.name } : {}),
+      xpTotal: records.reduce((sum, record) => sum + record.xpAwarded, 0),
+      badgeCount: 0,
+      units: [
+        {
+          unitKey: unit1.unitKey,
+          order: unit1.order,
+          title: unit1.title,
+          comingSoon: false,
+          versionId: VERSION_ID,
+          started: records.some((record) => stage1Activities.some((a) => a.activityKey === record.activityKey)),
+          stagesCompleted: stageDone ? 1 : 0,
+          stagesTotal: 1,
+          ...(average === undefined ? {} : { averageResultPct: average }),
+          stages: [{ stageKey: 'stage-1', title: STAGE_1_TITLE, state: stageDone ? 'COMPLETED' : 'CURRENT' } as const],
+          ...(stageDone
+            ? {}
+            : {
+                next: {
+                  stageKey: 'stage-1',
+                  activityKey: stage1Activities[pending]!.activityKey,
+                  position: pending + 1,
+                  total: stage1Activities.length,
+                },
+              }),
+        },
+        {
+          unitKey: unit2.unitKey,
+          order: unit2.order,
+          title: unit2.title,
+          comingSoon: true,
+          versionId: unit2.versionId,
+          started: false,
+          stagesCompleted: 0,
+          stagesTotal: 0,
+          stages: [],
+        },
+      ],
+    },
+  };
+}
+
 /** As rotas que só respondem `201 Created` no contrato (sem 200), por `MÉTODO caminho`. */
 export const MOCK_CREATED: ReadonlySet<string> = new Set(['POST /api/v1/auth/signup']);
 
@@ -1161,6 +1243,7 @@ export function resetMockStudents() {
   passwordResetTokens.clear();
   lastPasswordResetToken = null;
   forcedRecovery = null;
+  forcedStageLocked = false;
 }
 
 /** Marca que o prazo de 7 dias para confirmar o e-mail da conta já passou. */
@@ -1463,7 +1546,7 @@ export const mockRoutes: MockRoutes = {
     get: () => ({
       data: {
         ...unit1,
-        stages: [{ stageKey: 'stage-1', title: 'Meet & Greet', activityCount: stage1Activities.length }],
+        stages: [{ stageKey: 'stage-1', title: STAGE_1_TITLE, activityCount: stage1Activities.length }],
         usefulExpressions,
       },
     }),
@@ -1473,7 +1556,7 @@ export const mockRoutes: MockRoutes = {
       data: {
         versionId: VERSION_ID,
         stageKey: 'stage-1',
-        title: 'Meet & Greet',
+        title: STAGE_1_TITLE,
         completion: STAGE_COMPLETION,
         activities: stage1Activities,
       },
@@ -1512,6 +1595,9 @@ export const mockRoutes: MockRoutes = {
   },
   '/api/v1/students/me/progress': {
     get: (request) => studentProgress(request),
+  },
+  '/api/v1/students/me/dashboard': {
+    get: (request) => studentDashboard(request),
   },
   '/api/v1/students/me/email-confirmation': {
     post: (request) => mockResendConfirmation(request),

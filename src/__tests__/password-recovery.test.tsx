@@ -622,7 +622,7 @@ describe('faixa do e-mail não confirmado depois dos 7 dias (2.8, UX-DR117)', ()
   it('confirmado: sem faixa', async () => {
     const student = await mockAccount();
     await openApp('/', { ...student, emailConfirmed: true, emailConfirmationOverdue: false });
-    expect(await screen.findByTestId('student-home')).toBeTruthy();
+    expect(await screen.findByTestId('student-dashboard')).toBeTruthy();
     expect(screen.queryByTestId('email-confirmation-banner')).toBeNull();
   });
 });

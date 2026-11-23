@@ -7,14 +7,16 @@
 //
 // Sessão que acaba no meio: o `client.ts` avisa todo 401 de sessão num ponto só
 // (`onUnauthenticated`). Com Aluno no cache, apaga a sessão local (token e Aluno,
-// sem a loja) e leva a Entrar, com a rota atual em `volta`. Sem Aluno no cache (a
+// sem a loja) e leva a Entrar, com a rota atual em `volta` (no player, com a
+// Unidade, o Estágio e a Atividade na tela, 2.5). Sem Aluno no cache (a
 // abertura do App com a sessão vencida), nada: o `fetchStudent` já cai na boas-vindas.
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { usePathname, useRouter } from 'expo-router';
+import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
 import { ApiError, onUnauthenticated, postNoContent } from '../api/client';
 import { captureError } from '../observability/sentry';
+import { PLAYER_PATH, playerHref, playerTarget } from '../player/playerRoute';
 import { visitorStore } from '../visitor/store';
 import { clearVisitorCache } from '../visitor/useVisitor';
 import { clearSessionToken } from './session';
@@ -30,10 +32,43 @@ export const SESSION_ENDED_REASON = 'sessao';
 export const RETURN_PATHS = ['/', '/player'] as const;
 export type ReturnPath = (typeof RETURN_PATHS)[number];
 
-/** O destino depois de entrar: o `volta` se for um da lista fechada; senão, a raiz. */
-export function returnPath(volta: string | string[] | undefined): ReturnPath {
+/** Um destino de Entrar: a raiz, ou o player com os parâmetros válidos (2.5). */
+export type ReturnHref = ReturnPath | `/player?${string}`;
+
+/** Lê a query de um `volta` (`a=1&b=2`), sem depender do `URLSearchParams`; valor mal codificado fica de fora. */
+function queryOf(query: string): Record<string, string> {
+  const params: Record<string, string> = {};
+  for (const pair of query.split('&')) {
+    const at = pair.indexOf('=');
+    if (at <= 0) continue;
+    try {
+      const name = decodeURIComponent(pair.slice(0, at));
+      if (!(name in params)) params[name] = decodeURIComponent(pair.slice(at + 1));
+    } catch {
+      // Sequência % inválida: o parâmetro é ignorado.
+    }
+  }
+  return params;
+}
+
+/**
+ * O destino depois de entrar: o `volta` se o caminho for um da lista fechada;
+ * senão, a raiz. No player, só ficam `unidade`, `estagio` e `atividade` no
+ * formato de chave do conteúdo (UX-DR118); o resto da query cai.
+ */
+export function returnPath(volta: string | string[] | undefined): ReturnHref {
   const value = Array.isArray(volta) ? volta[0] : volta;
-  return RETURN_PATHS.find((path) => path === value) ?? '/';
+  if (typeof value !== 'string') return '/';
+  const mark = value.indexOf('?');
+  const path = mark === -1 ? value : value.slice(0, mark);
+  const known = RETURN_PATHS.find((entry) => entry === path);
+  if (known !== PLAYER_PATH) return known ?? '/';
+  return mark === -1 ? PLAYER_PATH : playerHref(playerTarget(queryOf(value.slice(mark + 1))));
+}
+
+/** O `volta` da rota atual: no player, com os parâmetros válidos da Atividade na tela. */
+function returnFor(pathname: string, params: Record<string, unknown>): string {
+  return pathname === PLAYER_PATH ? playerHref(playerTarget(params)) : pathname;
 }
 
 async function forgetToken() {
@@ -93,10 +128,12 @@ export function useSessionExpiry() {
   const client = useQueryClient();
   const router = useRouter();
   const pathname = usePathname();
-  const where = useRef(pathname);
+  // O `usePathname` não traz a query: os parâmetros do player vêm da rota global.
+  const params = useGlobalSearchParams();
+  const where = useRef(returnFor(pathname, params));
   useEffect(() => {
-    where.current = pathname;
-  }, [pathname]);
+    where.current = returnFor(pathname, params);
+  }, [pathname, params]);
   useEffect(
     () =>
       onUnauthenticated(() => {

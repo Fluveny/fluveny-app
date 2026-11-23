@@ -5,8 +5,8 @@ import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-n
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SIGN_IN_PATH } from '../../src/auth/sessionEnd';
-import { StudentHome } from '../../src/auth/StudentHome';
 import { mayHaveSession, useCachedStudent, useStudent } from '../../src/auth/student';
+import { StudentDashboard } from '../../src/dashboard/StudentDashboard';
 import { PRIVACY_LINK, PRIVACY_PATH, TERMS_LINK, TERMS_PATH } from '../../src/legal/paths';
 import { useOnline } from '../../src/network/useOnline';
 import { OFFLINE_TEXT } from '../../src/network/text';
@@ -68,7 +68,7 @@ function useTryNow(online: boolean) {
 }
 
 /**
- * A raiz (2.1): com sessão, a tela inicial do Aluno; sem sessão (401, ou o
+ * A raiz (2.1): com sessão, o painel do Aluno (2.5); sem sessão (401, ou o
  * Android sem token), a boas-vindas. No web, enquanto pergunta à API, só o fundo
  * azul da boas-vindas; qualquer falha da pergunta mostra a boas-vindas.
  */
@@ -81,7 +81,7 @@ export default function Root() {
 function SessionRoot() {
   const student = useStudent();
   if (student.isPending) return <View style={styles.screen} testID="root-checking" />;
-  if (student.data) return <StudentHome student={student.data} />;
+  if (student.data) return <StudentDashboard student={student.data} />;
   return <Welcome />;
 }
 

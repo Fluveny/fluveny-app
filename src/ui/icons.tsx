@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import Svg, { Circle, Path, Polygon } from 'react-native-svg';
 
-export type IconName = 'check' | 'x' | 'star' | 'eye' | 'book' | 'mic';
+export type IconName = 'check' | 'x' | 'star' | 'eye' | 'book' | 'mic' | 'lock';
 
 type Props = {
   name: IconName;
@@ -94,6 +94,23 @@ export function Icon({ name, size, color, testID }: Props) {
             strokeLinecap="round"
             fill="none"
           />
+        ) : null}
+        {name === 'lock' ? (
+          // Cadeado: o arco e o corpo, com o buraco da chave vazado (o Cartão de Estágio bloqueado, 2.5).
+          <>
+            <Path
+              d="M7.6 10.6V8a4.4 4.4 0 0 1 8.8 0v2.6"
+              stroke={color}
+              strokeWidth={2.6}
+              strokeLinecap="round"
+              fill="none"
+            />
+            <Path
+              d="M6.2 10.2h11.6a1.6 1.6 0 0 1 1.6 1.6v7.4a1.6 1.6 0 0 1-1.6 1.6H6.2a1.6 1.6 0 0 1-1.6-1.6v-7.4a1.6 1.6 0 0 1 1.6-1.6zM12 13.6a1.6 1.6 0 0 0-.9 2.9v1.5h1.8v-1.5a1.6 1.6 0 0 0-.9-2.9z"
+              fill={color}
+              fillRule="evenodd"
+            />
+          </>
         ) : null}
         {name === 'star' ? (
           <Polygon points={STAR} fill={color} stroke={color} strokeWidth={1.4} strokeLinejoin="round" />

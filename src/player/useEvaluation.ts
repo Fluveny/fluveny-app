@@ -16,7 +16,7 @@ import type { ContentText } from '../renderer';
 import { resultLine } from '../ui';
 import { visitorStore } from '../visitor/store';
 import type { VisitorStore } from '../visitor/types';
-import { usePlayerSession } from './playerSession';
+import { isStageLocked, usePlayerSession } from './playerSession';
 import type { ActivityProps, SheetSpec } from './registry';
 import { createStudyClock } from './studyClock';
 
@@ -163,7 +163,7 @@ export function useEvaluation({
   const session = usePlayerSession();
   const [ownClock] = useState(() => createStudyClock());
   const clock = session.clock ?? ownClock;
-  const { mode, onSaved } = session;
+  const { mode, onSaved, onStageLocked } = session;
   const alive = useRef(true);
   const finished = useRef(false);
   useEffect(() => {
@@ -226,12 +226,17 @@ export function useEvaluation({
           lastAnswer: sent,
         }));
       } catch (error) {
+        // O Estágio travado (2.5): o player troca a tela; nada se repete.
+        if (mode === 'student' && isStageLocked(error)) {
+          onStageLocked();
+          return;
+        }
         if (!alive.current) return;
         // A resposta destrava e VERIFICAR volta.
         setState((s) => ({ ...s, phase: 'answering', error: codeOf(error) }));
       }
     },
-    [answer, send, store, activity.activityKey, mode, onSaved],
+    [answer, send, store, activity.activityKey, mode, onSaved, onStageLocked],
   );
 
   const reveal = useCallback(async () => {
@@ -246,11 +251,15 @@ export function useEvaluation({
       if (!alive.current) return;
       setState((s) => ({ ...s, phase: 'revealed', result }));
     } catch (error) {
+      if (mode === 'student' && isStageLocked(error)) {
+        onStageLocked();
+        return;
+      }
       if (!alive.current) return;
       // A folha de Erro fica, com VER RESPOSTA de novo.
       setState((s) => ({ ...s, phase: 'wrong', error: codeOf(error) }));
     }
-  }, [send]);
+  }, [send, mode, onStageLocked]);
 
   const retry = useCallback(() => {
     const { phase, result } = current.current;

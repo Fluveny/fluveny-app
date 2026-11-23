@@ -52,16 +52,22 @@ export async function fetchVisitorActivityKeys(
 }
 
 /**
- * Carrega `GET /units/{unitKey}` e, dele, o Estágio da posição `stageIndex`
- * e as Expressões Úteis da Unidade.
+ * Carrega `GET /units/{unitKey}` e, dele, o Estágio `stageKey` (sem ele, o da
+ * posição 0) e as Expressões Úteis da Unidade. O número do Estágio é a posição
+ * dele na Unidade (2.5). `stageKey` fora da Unidade é "Estágio ausente".
+ * Com `enabled` falso (o player ainda decide quem joga), nada é buscado.
  * O `error` é o primeiro que aparecer; `retry` refaz o que falhou.
  */
-export function useStage(unitKey = UNIT_KEY, stageIndex = VISITOR_STAGE_INDEX) {
-  const unit = useQuery(unitQuery(unitKey));
+export function useStage(unitKey = UNIT_KEY, wantedStageKey?: string, enabled = true) {
+  const unit = useQuery({ ...unitQuery(unitKey), enabled });
   // Resposta fora do contrato (sem `stages`) vira "Estágio ausente", sem quebrar a tela.
   const stages = Array.isArray(unit.data?.stages) ? unit.data.stages : [];
-  const stageKey = stages[stageIndex]?.stageKey;
-  const stage = useQuery({ ...stageQuery(unitKey, stageKey), enabled: stageKey !== undefined });
+  const stageIndex =
+    wantedStageKey === undefined
+      ? VISITOR_STAGE_INDEX
+      : stages.findIndex((entry) => entry?.stageKey === wantedStageKey);
+  const stageKey = stageIndex >= 0 ? stages[stageIndex]?.stageKey : undefined;
+  const stage = useQuery({ ...stageQuery(unitKey, stageKey), enabled: enabled && stageKey !== undefined });
 
   // Unidade sem o Estágio pedido: não há o que jogar.
   const missingStage = unit.isSuccess && stageKey === undefined;
@@ -70,7 +76,7 @@ export function useStage(unitKey = UNIT_KEY, stageIndex = VISITOR_STAGE_INDEX) {
     stage: stage.data,
     /** As Expressões Úteis da Unidade (1.14), para o `ExpressionsProvider`. */
     usefulExpressions: Array.isArray(expressions) ? expressions : EMPTY,
-    stageNumber: stageIndex + 1,
+    stageNumber: Math.max(0, stageIndex) + 1,
     error: unit.error ?? stage.error ?? null,
     missingStage,
     loading: !missingStage && (unit.isPending || stage.isPending) && !unit.error && !stage.error,

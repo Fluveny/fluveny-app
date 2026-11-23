@@ -36,7 +36,8 @@ import { MOCK_CREATED, mockRoutes, resetMockStudents } from '../api/mocks/routes
 import { AppProviders, createQueryClient } from '../AppProviders';
 import { forgetCachedSession } from '../auth/session';
 import { ADULT_ONLY_TEXT, AGE_BELOW_TEXT, DATE_PROBLEM, PASSWORD_PROBLEM } from '../auth/signupForm';
-import { HOME_STUDY, studentGreeting } from '../auth/StudentHome';
+import { studentGreeting } from '../auth/StudentHome';
+import { DASHBOARD_START } from '../dashboard/StudentDashboard';
 import { PRIVACY_LINK, TERMS_LINK } from '../legal/paths';
 import { PRIVACY_POLICY } from '../legal/privacy';
 import { TERMS_OF_USE } from '../legal/terms';
@@ -224,7 +225,7 @@ describe('cadastro do Aluno adulto (2.1)', () => {
     await fireEvent.press(button(PRONOUNS_CONTINUE));
     expect(await screen.findByRole('header', { name: studentGreeting('Ana') })).toBeTruthy();
     expect(screen).toHavePathname('/');
-    expect(button(HOME_STUDY)).toBeTruthy();
+    expect(await screen.findByRole('button', { name: DASHBOARD_START })).toBeTruthy();
     expect(ofRoute('PATCH', '/api/v1/students/me').map((request) => request.body)).toEqual([{ pronounSet: 'SHE' }]);
     for (const request of sent) {
       expect(request.headers.get(CLIENT_HEADER)).toBe('web');
@@ -274,7 +275,7 @@ describe('cadastro do Aluno adulto (2.1)', () => {
     await fireEvent.press(await screen.findByRole('button', { name: PRONOUNS_LATER }));
     await reopenApp();
     expect(await screen.findByRole('header', { name: studentGreeting('Ana') })).toBeTruthy();
-    await fireEvent.press(button(HOME_STUDY));
+    await fireEvent.press(await screen.findByRole('button', { name: DASHBOARD_START }));
     expect(screen).toHavePathname('/player');
     // O Aluno não conta como sessão de Visitante: o player abre sem o VISITOR_SESSION_STARTED.
     // O VISITOR_SESSION_STARTED só sai pelo openPlayer, e a tela do Aluno não o chama.

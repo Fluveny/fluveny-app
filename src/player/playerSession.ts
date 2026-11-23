@@ -10,6 +10,9 @@
 // `useEvaluation`.
 import { createContext, useContext } from 'react';
 
+import { ApiError } from '../api/client';
+import { STAGE_LOCKED } from '../api/errors';
+
 import type { StudyClock } from './studyClock';
 
 export type PlayerMode = 'visitor' | 'student';
@@ -20,14 +23,21 @@ export type PlayerSession = {
   clock: StudyClock | null;
   /** O servidor confirmou uma gravação do Aluno (Tentativa ou conclusão): o XP é relido. */
   onSaved: () => void;
+  /** A API recusou a gravação do Aluno com `409 STAGE_LOCKED` (2.5): o player troca a tela pelo aviso. */
+  onStageLocked: () => void;
 };
 
 const noop = () => {};
 
 /** Fora do player: o Visitante, sem relógio do player. */
-export const VISITOR_SESSION: PlayerSession = { mode: 'visitor', clock: null, onSaved: noop };
+export const VISITOR_SESSION: PlayerSession = { mode: 'visitor', clock: null, onSaved: noop, onStageLocked: noop };
 
 export const PlayerSessionContext = createContext<PlayerSession>(VISITOR_SESSION);
+
+/** A recusa da sequência (2.5): só o Aluno a recebe, e ela não se repete nem vai ao Sentry. */
+export function isStageLocked(error: unknown): boolean {
+  return error instanceof ApiError && error.code === STAGE_LOCKED;
+}
 
 /** O modo, o relógio e o aviso de gravação do player em volta. */
 export const usePlayerSession = () => useContext(PlayerSessionContext);

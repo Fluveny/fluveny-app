@@ -201,7 +201,7 @@ describe('página /confirmar-email (2.2)', () => {
     await openApp(`/confirmar-email?token=${mockConfirmationToken()}`, student);
     expect(await screen.findByRole('header', { name: CONFIRMED_TITLE })).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: CONTINUE_LABEL }));
-    expect(await screen.findByTestId('student-home')).toBeTruthy();
+    expect(await screen.findByTestId('student-dashboard')).toBeTruthy();
     await waitFor(() => expect(screen.queryByTestId('email-confirmation-banner')).toBeNull());
     expect(screen).toHavePathname('/');
   });
@@ -289,7 +289,7 @@ describe('faixa e reenvio na tela inicial (2.2)', () => {
   it('sem faixa: com emailConfirmed true', async () => {
     const student = await mockAccount();
     await openApp('/', { ...student, emailConfirmed: true });
-    expect(await screen.findByTestId('student-home')).toBeTruthy();
+    expect(await screen.findByTestId('student-dashboard')).toBeTruthy();
     expect(screen.queryByTestId('email-confirmation-banner')).toBeNull();
   });
 
@@ -363,7 +363,7 @@ describe('faixa e reenvio na tela inicial (2.2)', () => {
     });
     const student = await mockAccount();
     await openApp('/', { ...student, emailConfirmed: true });
-    expect(await screen.findByTestId('student-home')).toBeTruthy();
+    expect(await screen.findByTestId('student-dashboard')).toBeTruthy();
     await act(async () => {
       onChange?.('background');
       onChange?.('active');

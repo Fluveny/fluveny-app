@@ -14,7 +14,7 @@ Em desenvolvimento, a rota `/kit` mostra todas as peças e estados (`npx expo st
 
 - Cores, tipos, raios, espaços e medidas só de `src/ui/tokens`. Hex ou `rgb()` fora dos tokens falha o lint. Medida que falta entra em `tokens/index.ts` vinda do `components` do `design.yaml`, com teste em `__tests__/tokens.test.ts`.
 - A profundidade é a sombra sólida: `solid()` em pé, `sunk()` afundado. Toda peça tocável usa `Pressable3D`, que afunda exatamente a altura da sombra sem mover o layout. Não existe outro estado de pressionado: nada escurece nem muda de cor no toque.
-- Sem sombra desfocada, sem gradiente, sem biblioteca de ícones ou de componentes de terceiros. Os ícones (`check`, `x`, `star`, `eye`) são SVG próprios em `icons.tsx`.
+- Sem sombra desfocada, sem gradiente, sem biblioteca de ícones ou de componentes de terceiros. Os ícones (`check`, `x`, `star`, `eye`, `book`, `mic`, `lock`) são SVG próprios em `icons.tsx`.
 - Toda peça tocável tem papel, rótulo e estado (`disabled`, `selected`, `busy`) e área de toque de pelo menos 48 dp (o `Pressable3D` calcula o `hitSlop`).
 - Estado nunca só por cor: certo e errado mostram ✓ ou ✕, e a palavra ("certo", "errado", "usado") entra no rótulo do leitor de tela. O texto visível do estado é o título da folha de feedback (1.11).
 - Texto nunca corta: `minHeight` em vez de `height`, sem `numberOfLines`, `allowFontScaling` padrão. Com a fonte a 200%, o botão cresce em altura.
@@ -89,7 +89,7 @@ Etiqueta azul no topo da Atividade, com um dos 11 valores de `ModeTagLabel`: GAM
 
 ### Base: `Pressable3D`, `Icon`, `useReducedMotion`
 
-`Pressable3D` é a base de toda peça tocável (sombra, afundar, `disabled`, `hitSlop`, acessibilidade). Use-a para uma peça nova do kit, nunca direto numa tela. `Icon` desenha `check`, `x`, `star` e `eye` com a cor de um token e fica oculto do leitor de tela. `useReducedMotion()` diz se "remover animações" está ligado.
+`Pressable3D` é a base de toda peça tocável (sombra, afundar, `disabled`, `hitSlop`, acessibilidade). Use-a para uma peça nova do kit, nunca direto numa tela. `Icon` desenha `check`, `x`, `star`, `eye`, `book`, `mic` e `lock` (o cadeado do painel, 2.5) com a cor de um token e fica oculto do leitor de tela. `useReducedMotion()` diz se "remover animações" está ligado.
 
 O player (1.10) fica fora do kit, em `src/player`: `PlayerFrame` (topo com ✕ `muted` de 48 dp, `ProgressBar` e `XpChip`; linha de posição; conteúdo rolável; rodapé fixo com um `Button` primário) e `ActivityTransition` (fade com subida). A folha branca da boas-vindas usa `size.welcomeSheetRadius` (32).
 

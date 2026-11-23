@@ -5,7 +5,7 @@
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 
 import { ApiError, get, postAccepted, type GetData } from '../api/client';
-import { NETWORK_ERROR } from '../api/errors';
+import { NETWORK_ERROR, STAGE_LOCKED } from '../api/errors';
 import { captureError } from '../observability/sentry';
 import type { Outcome, ProgressEntry } from '../visitor/types';
 
@@ -74,14 +74,16 @@ function expected(error: unknown): boolean {
 }
 
 /**
- * Uma gravação do Aluno falhou: o 4xx (fora o 401 e o 429) e a falha que não
- * é da API vão ao Sentry. Sem rede, 5xx, 401 e 429, não.
+ * Uma gravação do Aluno falhou: o 4xx (fora o 401, o 429 e o `STAGE_LOCKED`
+ * da sequência, 2.5) e a falha que não é da API vão ao Sentry. Sem rede, 5xx,
+ * 401 e 429, não.
  */
 export function reportSaveFailure(error: unknown): void {
   if (!(error instanceof ApiError)) {
     captureError(error);
     return;
   }
+  if (error.code === STAGE_LOCKED) return;
   if (error.status >= 400 && error.status < 500 && error.status !== 401 && error.status !== 429) captureError(error);
 }
 
