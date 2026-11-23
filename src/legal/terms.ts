@@ -8,7 +8,7 @@ import { TERMS_VERSION } from './versions';
 export const TERMS_OF_USE: LegalDocument = {
   title: 'Termos de uso',
   version: TERMS_VERSION,
-  date: '2026-11-19',
+  date: '2026-11-23',
   sections: [
     {
       title: 'O que é o Fluveny',
@@ -31,7 +31,7 @@ export const TERMS_OF_USE: LegalDocument = {
       title: 'Sua conta',
       paragraphs: [
         'Para criar uma conta, você informa um e-mail que é seu, uma senha e a sua data de nascimento verdadeira. A senha é só sua: não a compartilhe.',
-        'Por enquanto, o seu Progresso continua só no aparelho, mesmo com conta. Entrar em outro aparelho, recuperar a senha, mudar os dados e apagar a conta pelo App ainda não estão disponíveis.',
+        'Com conta, o seu Progresso e o XP ficam salvos na conta, no nosso servidor, e valem em qualquer aparelho em que você entrar. Recuperar a senha, mudar os dados e apagar a conta pelo App ainda não estão disponíveis.',
       ],
     },
     {

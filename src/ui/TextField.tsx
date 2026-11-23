@@ -1,6 +1,7 @@
 import { useState, type ComponentRef, type Ref } from 'react';
 import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
+import { useInteraction } from './interaction';
 import { color, overlay, rounded, size, spacing, typography } from './tokens';
 
 export type TextFieldProps = Omit<
@@ -29,6 +30,7 @@ export function TextField({
   label,
   onFocus,
   onBlur,
+  onChangeText,
   multiline,
   inputRef,
   hint,
@@ -37,6 +39,7 @@ export function TextField({
   ...input
 }: TextFieldProps) {
   const [focused, setFocused] = useState(false);
+  const interacted = useInteraction();
   const help = [error, hint].filter(Boolean).join(' ');
   return (
     <View style={styles.wrap}>
@@ -51,6 +54,13 @@ export function TextField({
         accessibilityLabel={label}
         accessibilityHint={help || undefined}
         placeholderTextColor={color.muted}
+        onChangeText={
+          onChangeText &&
+          ((text) => {
+            interacted();
+            onChangeText(text);
+          })
+        }
         onFocus={(event) => {
           setFocused(true);
           onFocus?.(event);

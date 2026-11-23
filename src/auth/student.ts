@@ -58,9 +58,11 @@ export async function fetchStudent(signal?: AbortSignal): Promise<StudentProfile
  * O Aluno da sessão: uma vez por abertura do App e, enquanto o e-mail não está
  * confirmado, de novo a cada volta ao primeiro plano (2.2: a faixa some depois
  * de confirmar no navegador). A sessão que acaba no meio é do `useSessionExpiry` (2.3).
+ * Com `enabled: false`, só lê o cache (o player do Visitante sem token, 2.4).
  */
-export function useStudent() {
+export function useStudent(enabled = true) {
   return useQuery({
+    enabled,
     queryKey: STUDENT_QUERY_KEY,
     queryFn: ({ signal }) => fetchStudent(signal),
     retry: false,

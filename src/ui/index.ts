@@ -38,6 +38,7 @@ export {
   type GapState,
 } from './GapSlot';
 export { Icon, type IconName } from './icons';
+export { InteractionContext, useInteraction } from './interaction';
 export { Logo } from './Logo';
 export { MATCH_LINKED, MATCH_STATES, MatchCard, type MatchCardProps, type MatchState } from './MatchCard';
 export {

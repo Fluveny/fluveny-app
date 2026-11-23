@@ -1,5 +1,6 @@
 // Política de privacidade provisória (1.21). Descreve só o que o código faz hoje:
-// o modo Visitante (Épico 1) e o cadastro do Aluno adulto (2.1). Mudou o que o
+// o modo Visitante (Épico 1), o cadastro do Aluno adulto (2.1) e o Progresso do
+// Aluno salvo na conta (2.4). Mudou o que o
 // App, a API ou o Worker tratam: mude este texto, a versão (`versions.ts`) e a
 // data no mesmo PR.
 import type { LegalDocument } from './types';
@@ -8,13 +9,13 @@ import { PRIVACY_VERSION } from './versions';
 export const PRIVACY_POLICY: LegalDocument = {
   title: 'Política de privacidade',
   version: PRIVACY_VERSION,
-  date: '2026-11-19',
+  date: '2026-11-23',
   sections: [
     {
       title: 'Sobre esta política',
       paragraphs: [
         'Aqui a gente explica quais dados o Fluveny trata quando você usa o App ou o site sem conta (o modo Visitante) e quando você cria uma conta, para que servem, onde ficam e com quem passam.',
-        'Por enquanto, só quem tem 18 anos ou mais pode criar conta. O Fluveny ainda não envia e-mails, e o seu Progresso continua só no aparelho, mesmo com conta.',
+        'Por enquanto, só quem tem 18 anos ou mais pode criar conta. Com conta, o Fluveny manda ao seu e-mail o link para confirmá-lo, e o seu Progresso fica salvo na conta, no nosso servidor.',
         'O Fluveny é um projeto de extensão da UNIFAL-MG. Quem é o controlador dos dados e qual é o canal de contato para assuntos de privacidade ainda estão sendo definidos com a coordenação do projeto. Os dois entram na versão final desta política.',
       ],
     },
@@ -22,7 +23,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       title: 'O que fica no seu aparelho',
       paragraphs: [
         'Um identificador aleatório do aparelho (deviceId), criado e guardado no aparelho na primeira vez que você usa o Fluveny. Ele não tem seu nome nem nada que identifique você diretamente. Ele também vai ao servidor, como explicado abaixo.',
-        'Só no aparelho ficam o nome e o país que você digita no Diálogo, o pronome que você escolhe, o seu Progresso (com o resultado e o tempo de estudo de cada Atividade) e o XP, e os recibos das Atividades que você concluiu.',
+        'No modo Visitante, só no aparelho ficam o nome e o país que você digita no Diálogo, o pronome que você escolhe, o seu Progresso (com o resultado e o tempo de estudo de cada Atividade) e o XP, e os recibos das Atividades que você concluiu.',
         'Esses dados (e o deviceId) ficam guardados no próprio aparelho: no navegador (localStorage), no site, e num banco local (SQLite), no App Android. Eles somem quando você limpa os dados do site no navegador ou os dados do App no Android.',
       ],
     },
@@ -30,6 +31,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       title: 'O que vai para o nosso servidor',
       paragraphs: [
         'Quando você responde ou conclui uma Atividade, o App manda ao servidor o deviceId, qual Atividade foi, o resultado e o tempo de estudo. O deviceId também serve para limitar o número de requisições por aparelho.',
+        'O tempo de estudo é medido no App, no modo Visitante e com conta: ele soma o tempo entre um toque e outro, sem as pausas de mais de 5 minutos e sem o tempo com o App fora da tela.',
         'Nas Atividades avaliadas, a sua resposta também vai, para ser corrigida. Antes de sair do aparelho, o nome e o país que você digitou são trocados por marcadores, quando aparecem na resposta.',
         'Na Fala, vai a transcrição do que você disse, com o nome e o país trocados da mesma forma. Ela é corrigida e não é guardada.',
         'O texto que você escreve na Resposta Livre nunca sai do aparelho.',
@@ -45,7 +47,10 @@ export const PRIVACY_POLICY: LegalDocument = {
         'A conta também guarda a versão destes termos e da Política de privacidade que você aceitou e a data do aceite.',
         'Para você continuar conectado, o servidor cria uma sessão, que vale 30 dias e se renova enquanto você usa o Fluveny. No site, ela fica num cookie que o próprio navegador guarda e que o código do site não consegue ler (HttpOnly). No App Android, ela fica no armazenamento seguro do aparelho. O servidor guarda só um resumo (hash) da sessão, que ele apaga quando ela vence.',
         'Quando a conta é criada, o servidor registra esse fato para a equipe medir o uso, com a hora do servidor e um identificador aleatório da conta, sem e-mail, nome, data de nascimento ou qualquer outro dado pessoal.',
-        'O nome e o pronome da conta aparecem nas Atividades no lugar dos do modo Visitante. O nome e o país que você digita no Diálogo, o seu Progresso e o XP continuam só no aparelho, como no modo Visitante.',
+        'O nome e o pronome da conta aparecem nas Atividades no lugar dos do modo Visitante. O nome e o país que você digita no Diálogo continuam só no aparelho, como no modo Visitante.',
+        'Com conta, o seu Progresso fica na conta, no nosso servidor: a primeira resposta de cada Atividade, com o resultado, o XP e o tempo de estudo (sem a resposta), e o XP total. Ele fica guardado enquanto a conta existir. Com conta, o App não manda o deviceId nem guarda recibos.',
+        'Nas Atividades avaliadas, a sua resposta vai ao servidor para ser corrigida, com o nome e o país trocados por marcadores, como no modo Visitante, e não é guardada. O texto que você escreve na Resposta Livre continua sem sair do aparelho.',
+        'Para a equipe medir o uso do Fluveny, o App avisa o servidor quando você abre cada Atividade, e o servidor registra cada Atividade concluída (qual foi, o resultado, o XP e o tempo de estudo). Esses avisos são gravados com a hora do servidor e um identificador aleatório da conta, sem e-mail, nome, respostas ou qualquer outro dado pessoal.',
         'Ainda não dá para mudar os dados nem apagar a conta pelo App. O canal para pedir isso entra na versão final desta política, junto com o controlador.',
       ],
     },
@@ -95,7 +100,7 @@ export const PRIVACY_POLICY: LegalDocument = {
     {
       title: 'Mudanças nesta política',
       paragraphs: [
-        'Esta política muda quando o Fluveny passar a tratar outros dados (por exemplo, quando o Progresso passar a ser salvo na conta) e quando sair a versão final. Cada versão traz o número e a data no topo.',
+        'Esta política muda quando o Fluveny passar a tratar outros dados e quando sair a versão final. Cada versão traz o número e a data no topo.',
       ],
     },
   ],

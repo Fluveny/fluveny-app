@@ -3,5 +3,5 @@
 // Os documentos (`privacy.ts`, `terms.ts`) leem daqui; mudou o texto, mude a
 // versão aqui e a data lá, no mesmo PR.
 
-export const PRIVACY_VERSION = '0.3';
-export const TERMS_VERSION = '0.2';
+export const PRIVACY_VERSION = '0.4';
+export const TERMS_VERSION = '0.3';

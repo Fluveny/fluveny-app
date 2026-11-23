@@ -16,7 +16,8 @@ import type { StudentProfile } from './student';
 /** A saudação, em inglês como no painel ("Hi, {nome}!"). */
 export const studentGreeting = (name: string | null | undefined) =>
   name?.trim() ? `Hi, ${name.trim()}!` : 'Hi, friend!';
-export const HOME_BODY = 'Sua conta está pronta. Por enquanto, o seu progresso continua só neste aparelho.';
+// [ASSUMPTION: copy] Desde a 2.4, o Progresso do Aluno fica na conta.
+export const HOME_BODY = 'Sua conta está pronta. Seu progresso fica salvo na sua conta.';
 export const HOME_STUDY = 'ESTUDAR AGORA';
 
 // Faixa do e-mail não confirmado (2.2). [ASSUMPTION] Textos propostos na 2.2, a revisar com UX.
@@ -27,10 +28,10 @@ export const RESEND_LABEL = 'REENVIAR';
 
 /** O sair (2.3), discreto no canto da tela inicial; a 2.9 o move para a Conta. */
 export const SIGN_OUT_LABEL = 'Sair';
-// A folha de confirmação do sair: antes da 2.4, o Progresso do Aluno só existe no aparelho.
-// [ASSUMPTION: copy] Textos propostos na 2.3, a revisar com UX.
+// A folha de confirmação do sair: desde a 2.4, o Progresso do Aluno fica na conta, e o sair apaga
+// só o que está no aparelho (a loja e o cache). [ASSUMPTION: copy] Textos propostos na 2.3 e na 2.4, a revisar com UX.
 export const SIGN_OUT_TITLE = 'Sair da conta?';
-export const SIGN_OUT_BODY = 'O progresso guardado neste aparelho será apagado.';
+export const SIGN_OUT_BODY = 'Seu progresso fica salvo na sua conta. O que está só neste aparelho será apagado.';
 export const SIGN_OUT_CONFIRM = 'SAIR';
 export const SIGN_OUT_CANCEL = 'CANCELAR';
 
@@ -38,7 +39,7 @@ const ALEX_SIZE = 180;
 
 /**
  * Tela inicial simples do Aluno com sessão (2.1), na raiz `/`: a saudação e o
- * botão do player de hoje, com o Progresso só no aparelho até a 2.4. Sem o
+ * botão do player de hoje, com o Progresso salvo na conta (2.4). Sem o
  * `VISITOR_SESSION_STARTED` do `openPlayer`: o Aluno não é uma sessão de
  * Visitante. A 2.5
  * troca esta tela pelo painel (AD-12).

@@ -64,6 +64,15 @@
 // e `forceMockLogin('LOGIN_THROTTLED')` força o 429; o sucesso abre a sessão como
 // o cadastro. `POST /auth/logout` responde 204 sempre (`MOCK_NO_CONTENT`) e
 // encerra a sessão do mock se ela for a da requisição.
+//
+// Progresso do Aluno (2.4): as rotas `/students/me/attempts`, `attempts/reveal`,
+// `completions` e `events` exigem a sessão do mock (401 sem ela), têm corpo
+// fechado (o `deviceId` dá 400) e nunca trazem recibo. Como a API, a primeira
+// Tentativa ou conclusão de cada conta e Atividade é gravada; o reenvio do mesmo
+// `attemptId` devolve o XP gravado, e outro `attemptId`, 0. O reveal sem registro
+// é `409 ATTEMPT_REQUIRED`, e a conclusão segue o `COMPLETION_NOT_ALLOWED` do
+// Visitante. `GET /students/me/progress` soma o `xpTotal` a cada leitura.
+// `resetMockStudentRecords()` esquece o Progresso (testes).
 import type { components, paths } from '../schema';
 
 export const MOCK_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
@@ -634,6 +643,102 @@ export function resetMockVisitorRecords() {
   firstRecords.clear();
 }
 
+/**
+ * A primeira Tentativa ou conclusão do Aluno numa Atividade, como a
+ * `activity_results` da API (2.4): o XP dela, o Resultado (só no `GRADED`) e o
+ * tempo de estudo. Chave: e-mail e `activityKey`, na ordem de gravação.
+ */
+type StudentRecord = {
+  activityKey: string;
+  attemptId: string;
+  outcome: 'GRADED' | 'VIEWED' | 'SKIPPED';
+  resultPct?: number;
+  xpAwarded: number;
+  studyTimeMs: number;
+};
+const studentRecords = new Map<string, StudentRecord>();
+
+/** Esquece o Progresso gravado dos Alunos do mock (testes). */
+export function resetMockStudentRecords() {
+  studentRecords.clear();
+}
+
+/** O teto do `studyTimeMs` da API (24 h). */
+const MAX_STUDY_TIME_MS = 86_400_000;
+
+/**
+ * Quem responde: o Visitante, pelo `deviceId` (recibo, 1.12), ou o Aluno da
+ * sessão do mock, pelo e-mail (Progresso no servidor, 2.4).
+ */
+type Respondent =
+  { kind: 'visitor'; deviceId: string | undefined } | { kind: 'student'; email: string; studyTimeMs: number };
+
+/** Quem responde já tem a primeira Tentativa ou conclusão na Atividade (com `graded`, só uma Tentativa corrigida). */
+function hasRecord(who: Respondent, activityKey: string, graded = false): boolean {
+  const saved =
+    who.kind === 'visitor'
+      ? who.deviceId
+        ? firstRecords.get(`${who.deviceId}|${activityKey}`)
+        : undefined
+      : studentRecords.get(`${who.email}|${activityKey}`);
+  return saved !== undefined && (!graded || saved.outcome === 'GRADED');
+}
+
+/**
+ * Grava a primeira resposta, como a API. O Visitante ganha o recibo (o XP é o
+ * da correção, sempre). O Aluno ganha o XP só na primeira: o reenvio do mesmo
+ * `attemptId` com o mesmo Resultado devolve o XP gravado; outra resposta, 0.
+ */
+function settle(
+  who: Respondent,
+  activityKey: string,
+  attemptId: unknown,
+  outcome: StudentRecord['outcome'],
+  resultPct: number | undefined,
+  xp: number,
+): { receipt?: string; xpAwarded: number } {
+  if (who.kind === 'visitor') {
+    const receipt = receiptFor(who.deviceId, activityKey, attemptId, outcome, resultPct ?? 0);
+    return { ...(receipt ? { receipt } : {}), xpAwarded: xp };
+  }
+  const key = `${who.email}|${activityKey}`;
+  const saved = studentRecords.get(key);
+  if (!saved) {
+    studentRecords.set(key, {
+      activityKey,
+      attemptId: attemptId as string,
+      outcome,
+      ...(resultPct === undefined ? {} : { resultPct }),
+      xpAwarded: xp,
+      studyTimeMs: who.studyTimeMs,
+    });
+    return { xpAwarded: xp };
+  }
+  const same = saved.attemptId === attemptId && saved.outcome === outcome && saved.resultPct === resultPct;
+  return { xpAwarded: same ? saved.xpAwarded : 0 };
+}
+
+/**
+ * O Aluno das rotas `/students/me/*` do mock: sessão (senão 401), corpo fechado
+ * (campo fora de `fields`, como o `deviceId`, é 400) e `studyTimeMs` inteiro de
+ * 0 a 24 h.
+ */
+function studentRespondent(request: Request, body: Record<string, unknown> | null, fields: ReadonlySet<string>) {
+  const student = mockStudentOf(request);
+  if (!body || typeof body !== 'object' || Object.keys(body).some((key) => !fields.has(key))) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  const ms = body.studyTimeMs;
+  if (typeof ms !== 'number' || !Number.isInteger(ms) || ms < 0 || ms > MAX_STUDY_TIME_MS) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  if (typeof body.attemptId !== 'string' || !UUID.test(body.attemptId)) throw new MockProblem(400, 'VALIDATION_FAILED');
+  return { kind: 'student', email: student.email, studyTimeMs: ms } as const;
+}
+
+const STUDENT_ATTEMPT_FIELDS = new Set(['attemptId', 'versionId', 'activityKey', 'type', 'answer', 'studyTimeMs']);
+const STUDENT_COMPLETION_FIELDS = new Set(['attemptId', 'versionId', 'activityKey', 'outcome', 'studyTimeMs']);
+
 /** `deviceId` do corpo: ausente vira `undefined`; fora do formato UUID, `400 VALIDATION_FAILED`. */
 function deviceIdOf(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined;
@@ -673,7 +778,11 @@ function receiptFor(
  * INVALID_ANSWER`; Atividade desconhecida, `404`. `expected` e as justificativas
  * só no Acerto ou no reveal; o reveal não dá XP.
  */
-async function gradeAttempt(request: Request, reveal: boolean): Promise<{ data: AttemptResult }> {
+async function gradeAttempt(
+  request: Request,
+  reveal: boolean,
+  as: 'visitor' | 'student' = 'visitor',
+): Promise<{ data: AttemptResult }> {
   const body = (await request.json().catch(() => null)) as {
     attemptId?: unknown;
     deviceId?: unknown;
@@ -681,17 +790,21 @@ async function gradeAttempt(request: Request, reveal: boolean): Promise<{ data: 
     type?: unknown;
     answer?: { type?: unknown; items?: unknown; transcript?: unknown };
   } | null;
+  const who: Respondent =
+    as === 'student'
+      ? studentRespondent(request, body as Record<string, unknown> | null, STUDENT_ATTEMPT_FIELDS)
+      : { kind: 'visitor', deviceId: undefined };
   const key = typeof body?.activityKey === 'string' ? answerKey.get(body.activityKey) : undefined;
   if (!body || typeof body.activityKey !== 'string') throw new MockProblem(400, 'VALIDATION_FAILED');
-  const deviceId = deviceIdOf(body.deviceId);
+  if (who.kind === 'visitor') who.deviceId = deviceIdOf(body.deviceId);
   const spoken = speechKey.get(body.activityKey);
-  if (spoken) return gradeSpeech(body, deviceId, spoken, reveal);
+  if (spoken) return gradeSpeech(body, who, spoken, reveal);
   const blanks = gapsKey.get(body.activityKey);
-  if (blanks) return gradeGaps(body, deviceId, blanks, reveal);
+  if (blanks) return gradeGaps(body, who, blanks, reveal);
   const helped = freeKey.get(body.activityKey);
-  if (helped) return gradeGaps(body, deviceId, helped, reveal, 'free');
+  if (helped) return gradeGaps(body, who, helped, reveal, 'free');
   const pairs = matchKey.get(body.activityKey);
-  if (pairs) return gradeMatch(body, deviceId, pairs, reveal);
+  if (pairs) return gradeMatch(body, who, pairs, reveal);
   if (!key) throw new MockProblem(404, 'NOT_FOUND');
   const answers = body.answer?.items;
   if (body.type !== 'choice' || body.answer?.type !== 'choice' || !Array.isArray(answers)) {
@@ -716,13 +829,13 @@ async function gradeAttempt(request: Request, reveal: boolean): Promise<{ data: 
     type: 'choice' as const,
     items: [...key.items].map(([itemKey, { correct }]) => ({ itemKey, optionKey: correct })),
   };
-  return gradedResult(body, deviceId, reveal, key.xp, items, expected);
+  return gradedResult(body, who, reveal, key.xp, items, expected);
 }
 
 /** O Resultado de uma correção por itens (Escolha, Associar e Lacunas), com as regras de recibo e reveal da API. */
 function gradedResult(
   body: { attemptId?: unknown; activityKey?: unknown },
-  deviceId: string | undefined,
+  who: Respondent,
   reveal: boolean,
   xp: number,
   items: { itemKey: string; correct: boolean; justification?: ContentText }[],
@@ -733,17 +846,17 @@ function gradedResult(
   const right = items.filter((item) => item.correct).length;
   const resultPct = right === total ? 100 : Math.min(99, Math.round((100 * right) / total));
   const open = reveal || resultPct === 100;
-  // O reveal exige uma Tentativa do aparelho na Atividade e não gera recibo.
-  if (reveal && (!deviceId || !firstRecords.has(`${deviceId}|${activityKey}`))) {
-    throw new MockProblem(409, 'ATTEMPT_REQUIRED');
-  }
-  const receipt = reveal ? undefined : receiptFor(deviceId, activityKey, body.attemptId, 'GRADED', resultPct);
+  // O reveal exige uma Tentativa de quem responde na Atividade e não gera recibo nem XP.
+  if (reveal && !hasRecord(who, activityKey)) throw new MockProblem(409, 'ATTEMPT_REQUIRED');
+  const { receipt, xpAwarded } = reveal
+    ? { receipt: undefined, xpAwarded: 0 }
+    : settle(who, activityKey, body.attemptId, 'GRADED', resultPct, Math.round((xp * resultPct) / 100));
   return {
     data: {
       ...(receipt ? { receipt } : {}),
       outcome: 'GRADED',
       resultPct,
-      xpAwarded: reveal ? 0 : Math.round((xp * resultPct) / 100),
+      xpAwarded,
       items: items.map(({ justification, ...item }) =>
         open && justification !== undefined ? { ...item, justification } : item,
       ),
@@ -760,7 +873,7 @@ function gradedResult(
  */
 function gradeMatch(
   body: { attemptId?: unknown; activityKey?: unknown; type?: unknown; answer?: { type?: unknown; items?: unknown } },
-  deviceId: string | undefined,
+  who: Respondent,
   key: { xp: number; responses: Set<string>; items: Map<string, { correct: string; justification?: ContentText }> },
   reveal: boolean,
 ): { data: AttemptResult } {
@@ -791,7 +904,7 @@ function gradeMatch(
     type: 'match' as const,
     items: [...key.items].map(([itemKey, { correct }]) => ({ itemKey, responseKey: correct })),
   };
-  return gradedResult(body, deviceId, reveal, key.xp, items, expected);
+  return gradedResult(body, who, reveal, key.xp, items, expected);
 }
 
 /**
@@ -803,7 +916,7 @@ function gradeMatch(
  */
 function gradeGaps(
   body: { attemptId?: unknown; activityKey?: unknown; type?: unknown; answer?: { type?: unknown; items?: unknown } },
-  deviceId: string | undefined,
+  who: Respondent,
   key: { xp: number; items: MockGap[] },
   reveal: boolean,
   type: 'gaps' | 'free' = 'gaps',
@@ -831,13 +944,13 @@ function gradeGaps(
     };
   });
   // No Extra Help, o reveal exige uma Tentativa corrigida: a conclusão `VIEWED` não basta (como na API).
-  if (reveal && type === 'free' && firstRecords.get(`${deviceId}|${body.activityKey}`)?.outcome !== 'GRADED') {
+  if (reveal && type === 'free' && !hasRecord(who, body.activityKey as string, true)) {
     throw new MockProblem(409, 'ATTEMPT_REQUIRED');
   }
   const values = key.items.map(({ itemKey, accepted }) => ({ itemKey, value: accepted[0]! }));
   const expected =
     type === 'free' ? { type: 'free' as const, items: values } : { type: 'gaps' as const, items: values };
-  const graded = gradedResult(body, deviceId, reveal, key.xp, items, expected);
+  const graded = gradedResult(body, who, reveal, key.xp, items, expected);
   // O Extra Help da Resposta Livre leva a marca no Resultado, como na API.
   return type === 'free' ? { data: { ...graded.data, extraHelp: true } } : graded;
 }
@@ -854,7 +967,7 @@ function gradeSpeech(
     type?: unknown;
     answer?: { type?: unknown; transcript?: unknown };
   },
-  deviceId: string | undefined,
+  who: Respondent,
   key: { xp: number; target: string; forms: string[] },
   reveal: boolean,
 ): { data: AttemptResult } {
@@ -864,18 +977,18 @@ function gradeSpeech(
     throw new MockProblem(400, 'INVALID_ANSWER');
   }
   if (!transcript.trim() || [...transcript].length > 500) throw new MockProblem(400, 'INVALID_ANSWER');
-  if (reveal && (!deviceId || !firstRecords.has(`${deviceId}|${activityKey}`))) {
-    throw new MockProblem(409, 'ATTEMPT_REQUIRED');
-  }
+  if (reveal && !hasRecord(who, activityKey)) throw new MockProblem(409, 'ATTEMPT_REQUIRED');
   const right = speechMatches(transcript, key.forms);
   const resultPct = right ? 100 : 0;
-  const receipt = reveal ? undefined : receiptFor(deviceId, activityKey, body.attemptId, 'GRADED', resultPct);
+  const { receipt, xpAwarded } = reveal
+    ? { receipt: undefined, xpAwarded: 0 }
+    : settle(who, activityKey, body.attemptId, 'GRADED', resultPct, right ? key.xp : 0);
   return {
     data: {
       ...(receipt ? { receipt } : {}),
       outcome: 'GRADED',
       resultPct,
-      xpAwarded: reveal || !right ? 0 : key.xp,
+      xpAwarded,
       items: [{ itemKey: activityKey, correct: right }],
       expected: { type: 'speech', transcript: key.target },
     },
@@ -886,25 +999,30 @@ function gradeSpeech(
  * Conclusão sem correção (VIEWED ou SKIPPED), sem XP; o `deviceId` é obrigatório.
  * O Tipo decide a conclusão aceita; fora dela, `409 COMPLETION_NOT_ALLOWED`.
  */
-async function complete(request: Request): Promise<{ data: CompletionResult }> {
+async function complete(request: Request, as: 'visitor' | 'student' = 'visitor'): Promise<{ data: CompletionResult }> {
   const body = (await request.json().catch(() => null)) as {
     attemptId?: unknown;
     deviceId?: unknown;
     activityKey?: unknown;
     outcome?: unknown;
   } | null;
+  const who: Respondent =
+    as === 'student'
+      ? studentRespondent(request, body as Record<string, unknown> | null, STUDENT_COMPLETION_FIELDS)
+      : { kind: 'visitor', deviceId: undefined };
   if (!body || typeof body.activityKey !== 'string' || typeof body.attemptId !== 'string') {
     throw new MockProblem(400, 'VALIDATION_FAILED');
   }
-  const deviceId = deviceIdOf(body.deviceId);
-  if (!deviceId || (body.outcome !== 'VIEWED' && body.outcome !== 'SKIPPED')) {
-    throw new MockProblem(400, 'VALIDATION_FAILED');
+  if (who.kind === 'visitor') {
+    who.deviceId = deviceIdOf(body.deviceId);
+    if (!who.deviceId) throw new MockProblem(400, 'VALIDATION_FAILED');
   }
+  if (body.outcome !== 'VIEWED' && body.outcome !== 'SKIPPED') throw new MockProblem(400, 'VALIDATION_FAILED');
   const activityKey = body.activityKey;
   const activity = stage1Activities.find((entry) => entry.activityKey === activityKey);
   if (!activity) throw new MockProblem(404, 'NOT_FOUND');
   if (ALLOWED_COMPLETION[activity.type] !== body.outcome) throw new MockProblem(409, 'COMPLETION_NOT_ALLOWED');
-  const receipt = receiptFor(deviceId, activityKey, body.attemptId, body.outcome, 0);
+  const { receipt } = settle(who, activityKey, body.attemptId, body.outcome, undefined, 0);
   // A Resposta Livre: a resposta-modelo vem na conclusão, também na repetição.
   const model = freeKey.get(activityKey)?.modelAnswer;
   return {
@@ -945,6 +1063,43 @@ async function recordEvent(request: Request): Promise<undefined> {
   const known = stage1Activities.some((activity) => activity.activityKey === body.activityKey);
   if (body.versionId !== VERSION_ID || !known) throw new MockProblem(404, 'NOT_FOUND');
   return undefined;
+}
+
+const STUDENT_EVENT_FIELDS = new Set(['type', 'versionId', 'activityKey']);
+
+/**
+ * Evento do Aluno (2.4), como a rota da API: sessão (senão 401), corpo fechado
+ * (o `deviceId` é campo desconhecido, 400), só `ACTIVITY_STARTED`, de uma
+ * Atividade do Estágio (senão 404). Responde 202 sem corpo.
+ */
+async function recordStudentEvent(request: Request): Promise<undefined> {
+  mockStudentOf(request);
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!body || typeof body !== 'object' || Object.keys(body).some((key) => !STUDENT_EVENT_FIELDS.has(key))) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  if (body.type !== 'ACTIVITY_STARTED' || typeof body.versionId !== 'string' || typeof body.activityKey !== 'string') {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  const known = stage1Activities.some((activity) => activity.activityKey === body.activityKey);
+  if (body.versionId !== VERSION_ID || !known) throw new MockProblem(404, 'NOT_FOUND');
+  return undefined;
+}
+
+/** O Progresso do Aluno da sessão do mock: o XP somado a cada leitura e a primeira conclusão de cada Atividade. */
+function studentProgress(request: Request) {
+  const { email } = mockStudentOf(request);
+  const results = [...studentRecords.entries()]
+    .filter(([key]) => key.startsWith(`${email}|`))
+    .map(([, record]) => ({
+      unitKey: unit1.unitKey,
+      activityKey: record.activityKey,
+      outcome: record.outcome,
+      ...(record.resultPct === undefined ? {} : { resultPct: record.resultPct }),
+      xpAwarded: record.xpAwarded,
+      studyTimeMs: record.studyTimeMs,
+    }));
+  return { data: { xpTotal: results.reduce((sum, result) => sum + result.xpAwarded, 0), results } };
 }
 
 /** As rotas que só respondem `201 Created` no contrato (sem 200), por `MÉTODO caminho`. */
@@ -1242,6 +1397,21 @@ export const mockRoutes: MockRoutes = {
   '/api/v1/students/me': {
     get: (request) => ({ data: mockStudentOf(request) }),
     patch: (request) => mockUpdatePronouns(request),
+  },
+  '/api/v1/students/me/attempts': {
+    post: (request) => gradeAttempt(request, false, 'student'),
+  },
+  '/api/v1/students/me/attempts/reveal': {
+    post: (request) => gradeAttempt(request, true, 'student'),
+  },
+  '/api/v1/students/me/completions': {
+    post: (request) => complete(request, 'student'),
+  },
+  '/api/v1/students/me/events': {
+    post: (request) => recordStudentEvent(request),
+  },
+  '/api/v1/students/me/progress': {
+    get: (request) => studentProgress(request),
   },
   '/api/v1/students/me/email-confirmation': {
     post: (request) => mockResendConfirmation(request),

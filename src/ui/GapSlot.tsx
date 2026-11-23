@@ -2,6 +2,7 @@ import { useState, type ComponentRef, type Ref } from 'react';
 import { StyleSheet, TextInput, View, type NativeSyntheticEvent, type TargetedEvent } from 'react-native';
 
 import { STATE_LABEL } from './a11y';
+import { useInteraction } from './interaction';
 import { FOCUS_RING } from './TextField';
 import { WordChip } from './WordChip';
 import { color, edge, rounded, size, spacing, typography } from './tokens';
@@ -85,12 +86,16 @@ function TypedGap({
   testID,
 }: Extract<GapSlotProps, { kind: 'typed' }> & { state: GapState; locked: boolean }) {
   const [focused, setFocused] = useState(false);
+  const interacted = useInteraction();
   const label = gapLabel(index, value);
   return (
     <TextInput
       ref={inputRef}
       value={value}
-      onChangeText={onChangeText}
+      onChangeText={(text) => {
+        interacted();
+        onChangeText(text);
+      }}
       editable={!locked}
       accessibilityLabel={state === 'right' || state === 'wrong' ? `${label}, ${STATE_LABEL[state]}` : label}
       accessibilityState={{ disabled: locked }}
