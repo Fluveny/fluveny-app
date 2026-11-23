@@ -21,6 +21,8 @@ import SignUp, {
 } from '../../app/(student)/cadastro';
 import StageTwoInvite from '../../app/(student)/convite';
 import ComingSoon from '../../app/(public)/em-breve';
+import RecoverPassword, { RECOVER_TITLE } from '../../app/(public)/recuperar-senha';
+import ResetPassword from '../../app/(public)/redefinir-senha';
 import SignIn, { SIGN_IN_TITLE } from '../../app/(public)/entrar';
 import ConfirmEmail from '../../app/(public)/confirmar-email';
 import Root, { SIGN_UP, WELCOME_TITLE } from '../../app/(public)/index';
@@ -106,6 +108,8 @@ async function openApp(initialUrl = '/') {
       ),
       '(public)/index': Root,
       '(public)/em-breve': ComingSoon,
+      '(public)/recuperar-senha': RecoverPassword,
+      '(public)/redefinir-senha': ResetPassword,
       '(public)/entrar': SignIn,
       '(public)/privacidade': PrivacyPolicy,
       '(public)/termos': TermsOfUse,
@@ -397,7 +401,8 @@ describe('cadastro do Aluno adulto (2.1)', () => {
     await fill({ email: 'ana@exemplo.test' });
     await fireEvent.press(button(CREATE_LABEL));
     await fireEvent.press(await screen.findByRole('button', { name: RECOVER_LINK }));
-    expect(screen).toHavePathname('/em-breve');
+    expect(await screen.findByRole('header', { name: RECOVER_TITLE })).toBeTruthy();
+    expect(screen).toHavePathname('/recuperar-senha');
   });
 
   it('sem rede no cadastro: messageFor(NETWORK_ERROR), e os dados do formulário ficam', async () => {

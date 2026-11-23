@@ -4,7 +4,10 @@ import { randomUUID } from 'node:crypto';
 import {
   deactivateMockAccount,
   forceMockLogin,
+  forceMockRecovery,
   forceMockResend,
+  markMockConfirmationOverdue,
+  mockPasswordResetToken,
   MOCK_CREATED,
   MOCK_NO_CONTENT,
   MOCK_METHODS,
@@ -149,6 +152,8 @@ describe('mocks da API', () => {
       for (const [method, resolve] of Object.entries(operations)) {
         // As Tentativas trazem a exceção da API (`expected` e justificativas): o corretor tem os testes dele.
         if (path.startsWith('/api/v1/visitor/attempts') || path.startsWith('/api/v1/students/me/attempts')) continue;
+        // A redefinição de senha (2.8) responde sem corpo e pede um token emitido: os testes dela estão abaixo.
+        if (path === '/api/v1/auth/password-reset') continue;
         const init =
           path === '/api/v1/students/me/completions'
             ? {
@@ -206,7 +211,9 @@ describe('mocks da API', () => {
                               }
                             : path === '/api/v1/auth/logout'
                               ? { method: 'POST', headers: { 'X-Fluveny-Client': 'web' } }
-                              : undefined;
+                              : path === '/api/v1/auth/password-recovery'
+                                ? { method: 'POST', body: JSON.stringify({ email: 'antes@exemplo.test' }) }
+                                : undefined;
         for (const key of keysOf(await resolve?.(new Request(`http://mock${path}`, init)))) {
           if (secrets.has(key)) leaked.push(`${method.toUpperCase()} ${path}: ${key}`);
         }
@@ -253,7 +260,13 @@ describe('mock do cadastro e da sessão (2.1)', () => {
   it('web: 201 sem token, e o perfil da sessão; e-mail repetido (em outra caixa) é 409', async () => {
     const created = await signupMock(ADULT);
     expect(created.data).toEqual({
-      student: { email: ADULT.email, name: 'Ana', pronounSet: null, emailConfirmed: false },
+      student: {
+        email: ADULT.email,
+        name: 'Ana',
+        pronounSet: null,
+        emailConfirmed: false,
+        emailConfirmationOverdue: false,
+      },
     });
     expect((await me()).data.email).toBe(ADULT.email);
     expect(await problemOf(signupMock({ ...ADULT, email: 'ANA@exemplo.test' }))).toBe('409 EMAIL_ALREADY_REGISTERED');
@@ -414,6 +427,85 @@ describe('mock da confirmação de e-mail (2.2)', () => {
     expect(await problemOf(resend())).toBe('409 EMAIL_ALREADY_CONFIRMED');
     forceMockResend(null);
     expect(await resend()).toBeUndefined();
+  });
+});
+
+describe('mock da recuperação de senha (2.8)', () => {
+  beforeEach(() => resetMockStudents());
+  const me = () => Promise.resolve().then(() => mockRoutes['/api/v1/students/me'].get(new Request('http://mock')));
+  const recover = (body: unknown) =>
+    Promise.resolve(
+      mockRoutes['/api/v1/auth/password-recovery'].post(
+        new Request('http://mock', { method: 'POST', body: JSON.stringify(body) }),
+      ),
+    );
+  const reset = (body: unknown) =>
+    Promise.resolve(
+      mockRoutes['/api/v1/auth/password-reset'].post(
+        new Request('http://mock', { method: 'POST', body: JSON.stringify(body) }),
+      ),
+    );
+  const login = (password: string) =>
+    Promise.resolve(
+      mockRoutes['/api/v1/auth/login'].post(
+        new Request('http://mock', {
+          method: 'POST',
+          headers: { 'X-Fluveny-Client': 'web' },
+          body: JSON.stringify({ email: ADULT.email, password }),
+        }),
+      ),
+    );
+  const confirmAccount = () =>
+    mockRoutes['/api/v1/account/email-confirmation'].post(
+      new Request('http://mock', { method: 'POST', body: JSON.stringify({ token: mockConfirmationToken() }) }),
+    );
+
+  it('pedir: 202 para qualquer e-mail; só conta confirmada e ativa recebe o token', async () => {
+    expect(await recover({ email: 'nao@exemplo.test' })).toBeUndefined();
+    await signupMock(ADULT);
+    expect(await recover({ email: ADULT.email })).toBeUndefined();
+    expect(mockPasswordResetToken()).toBeNull();
+    await confirmAccount();
+    deactivateMockAccount(ADULT.email);
+    expect(await recover({ email: ADULT.email })).toBeUndefined();
+    expect(mockPasswordResetToken()).toBeNull();
+  });
+
+  it('pedir: corpo fora do contrato, 400; forçado, 429', async () => {
+    expect(await problemOf(recover({ email: 'ana@' }))).toBe('400 VALIDATION_FAILED');
+    expect(await problemOf(recover({ email: ADULT.email, extra: 1 }))).toBe('400 VALIDATION_FAILED');
+    forceMockRecovery('TOO_MANY_REQUESTS');
+    expect(await problemOf(recover({ email: ADULT.email }))).toBe('429 TOO_MANY_REQUESTS');
+  });
+
+  it('redefinir: 204 (MOCK_NO_CONTENT), troca a senha, encerra a sessão e gasta todos os tokens da conta', async () => {
+    expect(MOCK_NO_CONTENT.has('POST /api/v1/auth/password-reset')).toBe(true);
+    await signupMock(ADULT);
+    await confirmAccount();
+    await recover({ email: ADULT.email });
+    const first = mockPasswordResetToken()!;
+    await recover({ email: ADULT.email });
+    const second = mockPasswordResetToken()!;
+    expect(second).not.toBe(first);
+    expect(await problemOf(reset({ token: second, password: 'abc' }))).toBe('400 VALIDATION_FAILED');
+    expect(await reset({ token: second, password: 'novasenha1' })).toBeUndefined();
+    expect(await problemOf(me())).toBe('401 UNAUTHENTICATED');
+    expect(await problemOf(login(ADULT.password))).toBe('401 INVALID_CREDENTIALS');
+    expect((await login('novasenha1')).data.student.email).toBe(ADULT.email);
+    expect(await problemOf(reset({ token: second, password: 'outrasenha1' }))).toBe('410 PASSWORD_RESET_LINK_INVALID');
+    expect(await problemOf(reset({ token: first, password: 'outrasenha1' }))).toBe('410 PASSWORD_RESET_LINK_INVALID');
+    expect(await problemOf(reset({ token: 'x', password: 'outrasenha1', extra: 1 }))).toBe('400 VALIDATION_FAILED');
+  });
+
+  it('perfil: emailConfirmationOverdue só sem confirmar e depois do prazo', async () => {
+    await signupMock(ADULT);
+    expect((await me()).data.emailConfirmationOverdue).toBe(false);
+    markMockConfirmationOverdue(ADULT.email);
+    expect((await me()).data.emailConfirmationOverdue).toBe(true);
+    await confirmAccount();
+    expect((await me()).data).toEqual(
+      expect.objectContaining({ emailConfirmed: true, emailConfirmationOverdue: false }),
+    );
   });
 });
 

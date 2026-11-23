@@ -73,6 +73,16 @@
 // é `409 ATTEMPT_REQUIRED`, e a conclusão segue o `COMPLETION_NOT_ALLOWED` do
 // Visitante. `GET /students/me/progress` soma o `xpTotal` a cada leitura.
 // `resetMockStudentRecords()` esquece o Progresso (testes).
+//
+// Recuperação de senha (2.8): `POST /auth/password-recovery` responde 202 sempre,
+// para e-mail cadastrado ou não; só conta ativa com o e-mail confirmado recebe um
+// token de uso único (`mockPasswordResetToken()` devolve o último), e
+// `forceMockRecovery('TOO_MANY_REQUESTS')` força o 429. `POST /auth/password-reset`
+// responde 204 (`MOCK_NO_CONTENT`): senha fora da regra dá 400 sem gastar o
+// token; token desconhecido ou usado, 410. O sucesso troca a senha, apaga os
+// tokens da conta e encerra a sessão do mock dessa conta. O perfil traz
+// `emailConfirmationOverdue`: `true` só sem confirmar e depois de
+// `markMockConfirmationOverdue(email)` (os 7 dias, que o mock não conta).
 import type { components, paths } from '../schema';
 
 export const MOCK_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
@@ -1106,7 +1116,10 @@ function studentProgress(request: Request) {
 export const MOCK_CREATED: ReadonlySet<string> = new Set(['POST /api/v1/auth/signup']);
 
 /** As rotas que respondem `204 No Content` no contrato (as outras sem corpo dão 202), por `MÉTODO caminho`. */
-export const MOCK_NO_CONTENT: ReadonlySet<string> = new Set(['POST /api/v1/auth/logout']);
+export const MOCK_NO_CONTENT: ReadonlySet<string> = new Set([
+  'POST /api/v1/auth/logout',
+  'POST /api/v1/auth/password-reset',
+]);
 
 type MockStudent = components['schemas']['StudentProfile'];
 
@@ -1126,6 +1139,14 @@ let confirmationSeq = 0;
 let forcedResend: 'EMAIL_ALREADY_CONFIRMED' | 'TOO_MANY_REQUESTS' | null = null;
 /** Resposta forçada do login (testes e mock manual): `429`. */
 let forcedLogin: 'LOGIN_THROTTLED' | null = null;
+/** Os e-mails cujo prazo de 7 dias para confirmar já passou (o mock não conta o tempo). */
+const overdueEmails = new Set<string>();
+/** Os tokens de redefinição válidos, com o e-mail de cada um (vários por conta: um pedido novo não invalida os outros). */
+const passwordResetTokens = new Map<string, string>();
+let lastPasswordResetToken: string | null = null;
+let passwordResetSeq = 0;
+/** Resposta forçada do pedido de recuperação (testes e mock manual): `429`. */
+let forcedRecovery: 'TOO_MANY_REQUESTS' | null = null;
 
 /** Esquece as contas, a sessão e as confirmações do mock (testes). */
 export function resetMockStudents() {
@@ -1136,6 +1157,31 @@ export function resetMockStudents() {
   lastConfirmationToken = null;
   forcedResend = null;
   forcedLogin = null;
+  overdueEmails.clear();
+  passwordResetTokens.clear();
+  lastPasswordResetToken = null;
+  forcedRecovery = null;
+}
+
+/** Marca que o prazo de 7 dias para confirmar o e-mail da conta já passou. */
+export function markMockConfirmationOverdue(email: string) {
+  overdueEmails.add(email.toLowerCase());
+}
+
+/** O token do último link de redefinição de senha emitido pelo mock. */
+export function mockPasswordResetToken(): string | null {
+  return lastPasswordResetToken;
+}
+
+/** Força a resposta do pedido de recuperação: `429 TOO_MANY_REQUESTS` ou nada. */
+export function forceMockRecovery(code: 'TOO_MANY_REQUESTS' | null) {
+  forcedRecovery = code;
+}
+
+/** O perfil como a API o devolve agora: a confirmação e o prazo dela. */
+function currentProfile(student: MockStudent): MockStudent {
+  const emailConfirmed = confirmedEmails.has(student.email);
+  return { ...student, emailConfirmed, emailConfirmationOverdue: !emailConfirmed && overdueEmails.has(student.email) };
 }
 
 /** Força a resposta do login: `429 LOGIN_THROTTLED` ou nada. */
@@ -1165,7 +1211,7 @@ function mockSessionToken(): string {
 function openMockSession(student: MockStudent, client: 'web' | 'android') {
   const token = client === 'android' ? mockSessionToken() : null;
   mockSession = { student, token };
-  const current = { ...student, emailConfirmed: confirmedEmails.has(student.email) };
+  const current = currentProfile(student);
   return { data: token ? { student: current, sessionToken: token } : { student: current } };
 }
 
@@ -1251,7 +1297,13 @@ async function mockSignup(request: Request) {
   if (age < 18) throw new MockProblem(422, 'GUARDIAN_CONSENT_REQUIRED');
   const key = email.toLowerCase();
   if (mockAccounts.has(key)) throw new MockProblem(409, 'EMAIL_ALREADY_REGISTERED');
-  const student: MockStudent = { email: key, name: name || null, pronounSet: null, emailConfirmed: false };
+  const student: MockStudent = {
+    email: key,
+    name: name || null,
+    pronounSet: null,
+    emailConfirmed: false,
+    emailConfirmationOverdue: false,
+  };
   mockAccounts.set(key, { password: body.password as string, student, deactivated: false });
   issueConfirmationToken(key);
   return openMockSession(student, client);
@@ -1297,7 +1349,55 @@ function mockStudentOf(request: Request): MockStudent {
   if (!mockSession || (mockSession.token !== null && bearer !== mockSession.token)) {
     throw new MockProblem(401, 'UNAUTHENTICATED');
   }
-  return { ...mockSession.student, emailConfirmed: confirmedEmails.has(mockSession.student.email) };
+  return currentProfile(mockSession.student);
+}
+
+/** `POST /auth/password-recovery`: 202 sempre; só conta ativa e confirmada recebe o token. */
+async function mockRequestPasswordRecovery(request: Request): Promise<undefined> {
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  if (
+    !body ||
+    typeof body !== 'object' ||
+    Object.keys(body).some((key) => key !== 'email') ||
+    typeof body.email !== 'string' ||
+    !MOCK_EMAIL.test(body.email.trim()) ||
+    body.email.length > 254
+  ) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  if (forcedRecovery) throw new MockProblem(429, forcedRecovery);
+  const email = body.email.trim().toLowerCase();
+  const account = mockAccounts.get(email);
+  if (account && !account.deactivated && confirmedEmails.has(email)) {
+    passwordResetSeq += 1;
+    const token = `mock-redefinicao-${passwordResetSeq}`;
+    passwordResetTokens.set(token, email);
+    lastPasswordResetToken = token;
+  }
+  return undefined;
+}
+
+/** `POST /auth/password-reset`: 204; senha fora da regra, 400 sem gastar o token; token desconhecido ou usado, 410. */
+async function mockResetPassword(request: Request): Promise<undefined> {
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  if (
+    !body ||
+    typeof body !== 'object' ||
+    Object.keys(body).some((key) => key !== 'token' && key !== 'password') ||
+    typeof body.token !== 'string' ||
+    !body.token.trim() ||
+    body.token.length > 128 ||
+    !mockPasswordOk(body.password)
+  ) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  const email = passwordResetTokens.get(body.token);
+  const account = email ? mockAccounts.get(email) : undefined;
+  if (!email || !account) throw new MockProblem(410, 'PASSWORD_RESET_LINK_INVALID');
+  account.password = body.password as string;
+  for (const [token, owner] of passwordResetTokens) if (owner === email) passwordResetTokens.delete(token);
+  if (mockSession?.student.email === email) mockSession = null;
+  return undefined;
 }
 
 /** `POST /account/email-confirmation`: pública; token de uso único, desconhecido ou usado dá 410. */
@@ -1424,6 +1524,12 @@ export const mockRoutes: MockRoutes = {
   },
   '/api/v1/auth/logout': {
     post: (request) => mockLogout(request),
+  },
+  '/api/v1/auth/password-recovery': {
+    post: (request) => mockRequestPasswordRecovery(request),
+  },
+  '/api/v1/auth/password-reset': {
+    post: (request) => mockResetPassword(request),
   },
   // Rotas do job de publicação: o App não as chama, mas o tipo exige um mock por rota.
   '/api/v1/admin/content/units/{unitKey}/versions': {

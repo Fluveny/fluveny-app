@@ -345,6 +345,19 @@ describe('postNoContent() e o 401 num ponto só (2.3)', () => {
     expect(new Headers(init.headers).has('Content-Type')).toBe(false);
   });
 
+  it('204 de rota com corpo (2.8): POST com o corpo em JSON e Content-Type; 410 vira ApiError', async () => {
+    global.fetch = jest.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const body = { token: 't', password: 'segredo123' };
+    await expect(postNoContent('/api/v1/auth/password-reset', body)).resolves.toBeUndefined();
+    const [url, init] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url).toBe('https://api.exemplo.test/api/v1/auth/password-reset');
+    expect(JSON.parse(init.body)).toEqual(body);
+    expect(new Headers(init.headers).get('Content-Type')).toBe('application/json');
+    global.fetch = respond(410, problem('PASSWORD_RESET_LINK_INVALID'), 'application/problem+json');
+    const error = await caught(postNoContent('/api/v1/auth/password-reset', body));
+    expect([error.status, error.code]).toEqual([410, 'PASSWORD_RESET_LINK_INVALID']);
+  });
+
   it('401 de sessão avisa quem se inscreveu; INVALID_CREDENTIALS, o entrar, o sair e outros status, não', async () => {
     const listener = jest.fn();
     const stop = onUnauthenticated(listener);
@@ -368,7 +381,13 @@ describe('postNoContent() e o 401 num ponto só (2.3)', () => {
 });
 
 describe('sessão e X-Fluveny-Client (2.1)', () => {
-  const PROFILE = { email: 'ana@exemplo.test', name: 'Ana', pronounSet: null, emailConfirmed: false };
+  const PROFILE = {
+    email: 'ana@exemplo.test',
+    name: 'Ana',
+    pronounSet: null,
+    emailConfirmed: false,
+    emailConfirmationOverdue: false,
+  };
   const TOKEN = 'a'.repeat(43);
   const os = Platform.OS;
   afterEach(() => {

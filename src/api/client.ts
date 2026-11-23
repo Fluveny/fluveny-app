@@ -140,8 +140,20 @@ export type PostBody<P extends PostPaths> = paths[P]['post'] extends {
   : never;
 
 type NoContentPaths = {
-  [P in keyof paths]: paths[P] extends { post: { responses: { 204: unknown } } } ? P : never;
+  [P in keyof paths]: paths[P] extends { post: { requestBody?: unknown; responses: { 204: unknown } } } ? P : never;
 }[keyof paths];
+
+/** O corpo JSON de `POST path` de uma rota que responde 204 sem corpo; `never` se a rota não pede corpo. */
+export type NoContentBody<P extends NoContentPaths> = paths[P]['post'] extends {
+  requestBody: { content: { 'application/json': infer B } };
+}
+  ? B
+  : never;
+
+/** Os argumentos de `postNoContent` depois do caminho: o corpo, se a rota pede um, e o `init`. */
+type NoContentArgs<P extends NoContentPaths> = [NoContentBody<P>] extends [never]
+  ? [body?: undefined, init?: RequestInit]
+  : [body: NoContentBody<P>, init?: RequestInit];
 
 /**
  * Entrar e sair (2.3): o 401 deles não é sessão que acabou no meio. Entrar
@@ -324,9 +336,16 @@ export function postAccepted<P extends AcceptedPaths>(path: P, ...[body, init]: 
   return request<void>(path, { ...init, method: 'POST', headers, body: JSON.stringify(body) }, readNothing);
 }
 
-/** `POST` sem corpo de uma rota que responde `204` sem corpo (o sair, 2.3). */
-export function postNoContent<P extends NoContentPaths>(path: P, init?: RequestInit): Promise<void> {
-  return request<void>(path, { ...init, method: 'POST', headers: new Headers(init?.headers) }, readNothing);
+/**
+ * `POST` de uma rota que responde `204` sem corpo. Rota sem corpo de requisição
+ * (o sair, 2.3) vai sem corpo e sem `Content-Type`; com corpo (a redefinição de
+ * senha, 2.8), como JSON.
+ */
+export function postNoContent<P extends NoContentPaths>(path: P, ...[body, init]: NoContentArgs<P>): Promise<void> {
+  const headers = new Headers(init?.headers);
+  if (body === undefined) return request<void>(path, { ...init, method: 'POST', headers }, readNothing);
+  headers.set('Content-Type', 'application/json');
+  return request<void>(path, { ...init, method: 'POST', headers, body: JSON.stringify(body) }, readNothing);
 }
 
 /** `PATCH` tipado pelo contrato: manda `body` como JSON e devolve o `data` da resposta 200. */

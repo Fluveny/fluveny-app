@@ -21,10 +21,11 @@ export const HOME_BODY = 'Sua conta está pronta. Seu progresso fica salvo na su
 export const HOME_STUDY = 'ESTUDAR AGORA';
 
 // Faixa do e-mail não confirmado (2.2). [ASSUMPTION] Textos propostos na 2.2, a revisar com UX.
-// A 2.8 troca o texto e o tom depois dos 7 dias.
 export const confirmationSent = (email: string) => `Enviamos um link de confirmação para ${email}.`;
 export const confirmationResent = (email: string) => `Enviamos outro link para ${email}. Pode levar alguns minutos.`;
 export const RESEND_LABEL = 'REENVIAR';
+/** Depois dos 7 dias sem confirmar (`emailConfirmationOverdue`, 2.8, UX-DR117): a frase da UX. */
+export const CONFIRM_TO_RECOVER = 'Confirme seu e-mail para poder recuperar a senha.';
 
 /** O sair (2.3), discreto no canto da tela inicial; a 2.9 o move para a Conta. */
 export const SIGN_OUT_LABEL = 'Sair';
@@ -50,7 +51,9 @@ export function StudentHome({ student }: { student: StudentProfile }) {
     <SafeAreaView style={styles.screen} edges={['top', 'bottom', 'left', 'right']} testID="student-home">
       <ScrollView contentContainerStyle={styles.content}>
         <SignOut />
-        {student.emailConfirmed ? null : <ConfirmationBanner email={student.email} />}
+        {student.emailConfirmed ? null : (
+          <ConfirmationBanner email={student.email} overdue={student.emailConfirmationOverdue} />
+        )}
         <View style={styles.grow} />
         <View style={styles.alex}>
           <AlexWave size={ALEX_SIZE} />
@@ -148,10 +151,12 @@ function SignOut() {
 
 /**
  * A faixa do e-mail não confirmado (2.2), desde o cadastro: o e-mail para onde
- * foi o link e o REENVIAR. O resultado do reenvio troca o texto da faixa e é
+ * foi o link e o REENVIAR. Depois dos 7 dias (`overdue`, 2.8), o texto diz que
+ * sem confirmar não dá para recuperar a senha; o tom segue `quiet` (a UX pede
+ * "faixa discreta"). O resultado do reenvio troca o texto da faixa e é
  * anunciado; no 409 (já confirmado), avisa e busca o perfil de novo, e a faixa some.
  */
-function ConfirmationBanner({ email }: { email: string }) {
+function ConfirmationBanner({ email, overdue }: { email: string; overdue: boolean }) {
   const client = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -182,7 +187,7 @@ function ConfirmationBanner({ email }: { email: string }) {
   return (
     <StatusBanner
       tone="quiet"
-      text={notice ?? confirmationSent(email)}
+      text={notice ?? (overdue ? CONFIRM_TO_RECOVER : confirmationSent(email))}
       action={{ label: RESEND_LABEL, onPress: () => void resend(), busy }}
       testID="email-confirmation-banner"
     />

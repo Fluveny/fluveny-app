@@ -19,6 +19,7 @@ import {
   type SignupProblems,
 } from '../../src/auth/signupForm';
 import { FormFrame as Frame, useLeave } from '../../src/auth/FormFrame';
+import { RECOVER_PASSWORD_SCREEN } from '../../src/auth/passwordReset';
 import { SIGN_IN_PATH } from '../../src/auth/sessionEnd';
 import { savePronouns, signUp, type PronounSet } from '../../src/auth/student';
 import { PRIVACY_LINK, PRIVACY_PATH, TERMS_LINK, TERMS_PATH } from '../../src/legal/paths';
@@ -39,10 +40,9 @@ export const PASSWORD_FIELD = 'Senha';
 export const ACCEPT_LABEL = 'Li e aceito os Termos de uso e a Política de privacidade.';
 export const CREATE_LABEL = 'CRIAR CONTA';
 export const BACK_LABEL = 'Voltar';
-/** Atalhos do e-mail repetido: Entrar (2.3) e "Em breve" até a 2.8 (Recuperar senha). */
+/** Atalhos do e-mail repetido: Entrar (2.3) e Recuperar senha (2.8). */
 export const SIGN_IN_LINK = 'Entrar';
 export const RECOVER_LINK = 'Recuperar senha';
-const SOON_PATH = '/em-breve';
 
 export const PRONOUNS_TITLE = 'Nas histórias, como Alex deve se referir a você?';
 export const PRONOUNS_CONTINUE = 'CONTINUAR';
@@ -152,7 +152,7 @@ function SignUpForm({ fromInvite, onCreated }: { fromInvite: boolean; onCreated:
               {failure === 'EMAIL_ALREADY_REGISTERED' ? (
                 <View style={styles.links}>
                   <TextLink label={SIGN_IN_LINK} onPress={() => router.navigate(SIGN_IN_PATH)} />
-                  <TextLink label={RECOVER_LINK} onPress={() => router.navigate(SOON_PATH)} />
+                  <TextLink label={RECOVER_LINK} onPress={() => router.navigate(RECOVER_PASSWORD_SCREEN)} />
                 </View>
               ) : null}
             </View>

@@ -39,6 +39,8 @@ export const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   [INVALID_CREDENTIALS]: 'E-mail ou senha incorretos.',
   ACCOUNT_DEACTIVATED: 'Esta conta está desativada.',
   LOGIN_THROTTLED: 'Muitas tentativas seguidas. Espere um pouco e tente de novo.',
+  // Recuperação de senha (2.8). [ASSUMPTION] Texto proposto na 2.8, a revisar com UX.
+  PASSWORD_RESET_LINK_INVALID: 'Este link de redefinição não vale mais. Peça outro.',
   CLIENT_HEADER_REQUIRED: GENERIC_MESSAGE,
   METHOD_NOT_ALLOWED: GENERIC_MESSAGE,
   NOT_ACCEPTABLE: GENERIC_MESSAGE,
