@@ -150,6 +150,8 @@ export function DialogueActivity({ activity, versionId, setFooter, advance }: Ac
       if (!mounted.current) return;
       setSaving(false);
       setAnswered((previous) => new Set(previous).add(asking));
+      // A cena vira a página: a fala seguinte entra na hora, sem a tela vazia.
+      setShown((value) => value + 1);
       return;
     }
     advance({ outcome: 'viewed', xp: 0 });
@@ -165,7 +167,12 @@ export function DialogueActivity({ activity, versionId, setFooter, advance }: Ac
     });
   }, [setFooter, entering, valid, saving, failed, onContinue]);
 
-  const visible = lines.slice(0, count);
+  // Cada resposta vira a página: só ficam as falas depois da última pergunta respondida.
+  let start = 0;
+  lines.forEach((line, index) => {
+    if (index < count && line.ask && answered.has(line.ask)) start = index + 1;
+  });
+  const visible = lines.slice(start, count);
   return (
     <View style={styles.body} testID="dialogue-activity">
       <SceneFrame pose="wave" testID="dialogue-scene">
