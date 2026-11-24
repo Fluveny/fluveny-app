@@ -211,14 +211,15 @@ describe('Diálogo: pergunta do nome', () => {
     await fireEvent.press(button());
     expect(await visitorStore.getVariable('name')).toBe('Ana');
     await waitFor(() => expect(screen.getByTestId('student-var').props.children).toBe('Ana'));
-    expect(shownLines()).toEqual(['dialogue-line-l1', 'dialogue-line-l2', 'dialogue-line-l3']);
+    // A resposta vira a página: as falas de antes saem da cena.
+    expect(shownLines()).toEqual(['dialogue-line-l3']);
     expect(screen.queryByLabelText(NAME_LABEL)).toBeNull();
     expect(advance).not.toHaveBeenCalled();
     await fireEvent.press(button());
     expect(advance).toHaveBeenCalledWith({ outcome: 'viewed', xp: 0 });
   });
 
-  it('com animações: depois de CONTINUAR na pergunta, CONTINUAR fica desabilitado e a fala seguinte entra em 650 ms', async () => {
+  it('com animações: depois de CONTINUAR na pergunta, a cena vira a página e a fala seguinte entra na hora', async () => {
     reduceMotion = false;
     jest.useFakeTimers();
     await open(ASK_NAME);
@@ -230,16 +231,7 @@ describe('Diálogo: pergunta do nome', () => {
     await fireEvent.press(button());
     await act(async () => {});
     expect(await visitorStore.getVariable('name')).toBe('Ana');
-    expect(shownLines()).toHaveLength(2);
-    expect(button()).toBeDisabled();
-    await act(async () => {
-      await jest.advanceTimersByTimeAsync(649);
-    });
-    expect(shownLines()).toHaveLength(2);
-    await act(async () => {
-      await jest.advanceTimersByTimeAsync(1);
-    });
-    expect(shownLines()).toHaveLength(3);
+    expect(shownLines()).toEqual(['dialogue-line-l3']);
     expect(button()).toBeEnabled();
   });
 
@@ -255,7 +247,7 @@ describe('Diálogo: pergunta do nome', () => {
     await fireEvent.changeText(field(), 'Ana');
     await fireEvent(field(), 'submitEditing');
     expect(await visitorStore.getVariable('name')).toBe('Ana');
-    await waitFor(() => expect(shownLines()).toHaveLength(3));
+    await waitFor(() => expect(shownLines()).toEqual(['dialogue-line-l3']));
   });
 
   it('gravar o nome falha: vai ao Sentry, a pergunta fica com a mensagem no rodapé, que some na nova tentativa', async () => {
@@ -335,13 +327,13 @@ describe('Diálogo: as duas perguntas', () => {
     expect(screen.queryByTestId('dialogue-ask-country')).toBeNull();
     await fireEvent.changeText(screen.getByLabelText(NAME_LABEL), 'Ana');
     await fireEvent.press(button());
-    await waitFor(() => expect(shownLines()).toEqual(['dialogue-line-l1', 'dialogue-line-l2']));
+    await waitFor(() => expect(shownLines()).toEqual(['dialogue-line-l2']));
     expect(screen.queryByLabelText(NAME_LABEL)).toBeNull();
     expect(screen.getByTestId('dialogue-ask-country')).toBeTruthy();
     expect(button()).toBeDisabled();
     await fireEvent.press(country('BR'));
     await fireEvent.press(button());
-    await waitFor(() => expect(shownLines()).toHaveLength(3));
+    await waitFor(() => expect(shownLines()).toEqual(['dialogue-line-l3']));
     expect(screen.queryByTestId('dialogue-ask-country')).toBeNull();
     await fireEvent.press(button());
     expect(advance).toHaveBeenCalledWith({ outcome: 'viewed', xp: 0 });
@@ -454,7 +446,7 @@ describe('Diálogo do Aluno (2.9)', () => {
     await waitFor(() => expect(screen.getByTestId('dialogue-ask-country')).toBeTruthy());
     await fireEvent.press(country('BR'));
     await fireEvent.press(button());
-    await waitFor(() => expect(shownLines()).toHaveLength(3));
+    await waitFor(() => expect(shownLines()).toEqual(['dialogue-line-l3']));
     await fireEvent.press(button());
     expect(advance).toHaveBeenCalled();
     expect(global.fetch).not.toHaveBeenCalled();
