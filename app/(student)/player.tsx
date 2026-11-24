@@ -5,6 +5,8 @@ import { ActivityIndicator, BackHandler, StyleSheet, Text, View } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError } from '../../src/api/client';
+import { refreshStudent } from '../../src/auth/emailConfirmation';
+import { guardianPending } from '../../src/auth/guardianConsent';
 import { mayHaveSession, useStudent, type StudentProfile } from '../../src/auth/student';
 import { messageFor, STAGE_LOCKED } from '../../src/api/errors';
 import { invalidateDashboard } from '../../src/dashboard/dashboard';
@@ -50,10 +52,13 @@ export const SAVE_FAILED = 'Não conseguimos salvar sua resposta. Nada foi perdi
 /** O Estágio travado (2.5): a ação que volta ao painel. [ASSUMPTION: copy] */
 export const BACK_HOME_LABEL = 'VOLTAR AO INÍCIO';
 
-/** O modo pelo Aluno da sessão: com perfil, o Aluno; `null`, o Visitante; sem resposta ainda, indefinido. */
+/**
+ * O modo pelo Aluno da sessão: com perfil, o Aluno; `null`, o Visitante; sem resposta ainda,
+ * indefinido. O adolescente à espera do responsável (2.11) joga como Visitante (loja e recibos).
+ */
 function modeOf(student: StudentProfile | null | undefined): PlayerMode | null {
   if (student === undefined) return null;
-  return student ? 'student' : 'visitor';
+  return student && !guardianPending(student) ? 'student' : 'visitor';
 }
 
 /** O Progresso com a entrada que acabou de ser gravada, se ele ainda não a tem (só a primeira conclusão vale). */
@@ -139,6 +144,8 @@ export default function Player() {
   );
   // `null` até o primeiro avanço: a Atividade de abertura (o `atividade` do Aluno, ou a 1).
   const [index, setIndex] = useState<number | null>(null);
+  /** A Atividade na tela, para a troca de modo do adolescente pendente (2.11) não voltar à 1. */
+  const positionRef = useRef(0);
   const [locked, setLocked] = useState(false);
   const [footer, setFooter] = useState<FooterAction | null>(null);
   const [sheet, setSheet] = useState<SheetSpec | null>(null);
@@ -173,6 +180,9 @@ export default function Player() {
   // Uma resposta com menos Atividades não deixa o índice fora da lista.
   const position = Math.min(index ?? startIndex, Math.max(0, total - 1));
   const activity = activities[position];
+  useEffect(() => {
+    positionRef.current = position;
+  }, [position]);
 
   // Título do Estágio em texto puro (a junção dos segmentos), com as Variáveis do Aluno.
   // Antes da primeira leitura do Visitante, vazio: assim o `{name}` não aparece cru.
@@ -207,6 +217,13 @@ export default function Player() {
     setLocked(true);
     invalidateDashboard(client);
   }, [client]);
+  // O adolescente pendente (2.11) que abriu como Aluno: a API recusou a gravação. O player passa a
+  // Visitante na mesma Atividade (o índice fica fixo) e o perfil é relido (a faixa ouro aparece).
+  const onGuardianPending = useCallback(() => {
+    setIndex(positionRef.current);
+    setFixedMode('visitor');
+    refreshStudent(client).catch(captureError);
+  }, [client]);
   // O refazer (2.7): a abertura da Atividade na tela, se ela já tinha registro do Aluno (`replay`,
   // `null` enquanto o Progresso não foi lido) e o `attemptId` da primeira resposta dela.
   const opening = useRef<{ key: string; replay: boolean | null; attemptId: string | null } | null>(null);
@@ -234,8 +251,8 @@ export default function Player() {
     [mode, replayOf],
   );
   const session = useMemo<PlayerSession>(
-    () => ({ mode: mode ?? 'visitor', clock, onSaved, onStageLocked, claimReplay }),
-    [mode, clock, onSaved, onStageLocked, claimReplay],
+    () => ({ mode: mode ?? 'visitor', clock, onSaved, onStageLocked, onGuardianPending, claimReplay }),
+    [mode, clock, onSaved, onStageLocked, onGuardianPending, claimReplay],
   );
 
   const {
@@ -249,6 +266,7 @@ export default function Player() {
     clock,
     onSaved,
     onStageLocked,
+    onGuardianPending,
     claimReplay,
   });
 
@@ -444,7 +462,7 @@ export default function Player() {
         online={online}
         onClose={leave}
         onSignUp={() => router.navigate(SIGN_UP_PATH)}
-        onContinue={student ? () => router.dismissTo('/') : undefined}
+        onContinue={student || studentQuery.data ? () => router.dismissTo('/') : undefined}
       />
     );
   }

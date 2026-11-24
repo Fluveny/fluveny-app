@@ -358,6 +358,7 @@ describe('Diálogo do Aluno (2.9)', () => {
     pronounSet: null,
     emailConfirmed: true,
     emailConfirmationOverdue: false,
+    status: 'ACTIVE',
   };
 
   function asStudent(profile: StudentProfile = PROFILE) {

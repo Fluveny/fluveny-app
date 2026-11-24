@@ -38,6 +38,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/account/guardian-consent/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description O responsável confirma o consentimento com o token do link (uso único, vale 7 dias): a conta do adolescente passa a ACTIVE. Responde 200 {status: CONFIRMED}. Token desconhecido, vencido ou já usado: 400 GUARDIAN_CONSENT_TOKEN_INVALID. Campo desconhecido dá 400. Acima do limite por IP, 429 TOO_MANY_REQUESTS com Retry-After. */
+        post: operations["confirmGuardianConsent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/content/units/{unitKey}/versions": {
         parameters: {
             query?: never;
@@ -147,7 +164,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Cria a conta do Aluno adulto, já ativa, e entra. Exige X-Fluveny-Client: web ou android (senão 400 CLIENT_HEADER_REQUIRED). No web, a sessão vai só no cookie fluveny_session (HttpOnly; Secure; SameSite=Lax; Path=/api; 30 dias); no Android, só no sessionToken do corpo. Senha fora da regra, aceite vazio ou data de nascimento inválida dão 400 VALIDATION_FAILED; menor de 12, 422 AGE_BELOW_MINIMUM; de 12 a 17, 422 GUARDIAN_CONSENT_REQUIRED; e-mail já cadastrado, 409 EMAIL_ALREADY_REGISTERED. country fora de countries.json dá 400 VALIDATION_FAILED no campo country. Vindo do convite do Visitante, visitor leva o deviceId e os recibos das rotas do Visitante: os válidos viram o Progresso e o XP da conta, na mesma transação do cadastro, e os inválidos (adulterados, de outro aparelho, com mais de 90 dias, reemitidos, já usados ou repetidos) são descartados sem erro. A resposta é a mesma com ou sem recibos descartados; o App limpa a loja do Visitante depois do 201. */
+        /** @description Cria a conta do Aluno adulto, já ativa, e entra. Exige X-Fluveny-Client: web ou android (senão 400 CLIENT_HEADER_REQUIRED). No web, a sessão vai só no cookie fluveny_session (HttpOnly; Secure; SameSite=Lax; Path=/api; 30 dias); no Android, só no sessionToken do corpo. Senha fora da regra, aceite vazio ou data de nascimento inválida dão 400 VALIDATION_FAILED; menor de 12, 422 AGE_BELOW_MINIMUM; de 12 a 17 sem guardianEmail, 422 GUARDIAN_CONSENT_REQUIRED (com guardianEmail, a conta nasce PENDING_GUARDIAN_CONSENT, o responsável recebe o link e o bloco visitor é ignorado); guardianEmail igual ao e-mail, 400 VALIDATION_FAILED; e-mail já cadastrado, 409 EMAIL_ALREADY_REGISTERED. country fora de countries.json dá 400 VALIDATION_FAILED no campo country. Vindo do convite do Visitante, visitor leva o deviceId e os recibos das rotas do Visitante: os válidos viram o Progresso e o XP da conta, na mesma transação do cadastro, e os inválidos (adulterados, de outro aparelho, com mais de 90 dias, reemitidos, já usados ou repetidos) são descartados sem erro. A resposta é a mesma com ou sem recibos descartados; o App limpa a loja do Visitante depois do 201. */
         post: operations["signup"];
         delete?: never;
         options?: never;
@@ -198,7 +215,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Corrige a Tentativa do Aluno e grava a primeira na Atividade, com o XP dela. expected e as justificativas só voltam no Acerto (100%). Reenviar o mesmo attemptId com o mesmo corpo devolve o XP gravado; outro attemptId (Tentar de novo, refazer) devolve o Feedback com xpAwarded 0, sem gravar. replay: true (opcional) marca o refazer de uma Atividade já concluída e publica o ACTIVITY_COMPLETED com firstAttempt false; sem registro, conta como primeira. Tipo divergente ou expositivo: 400 INVALID_ANSWER; versão ou Atividade inexistente: 404. Campo desconhecido dá 400. Estágio bloqueado na versão publicada (o anterior não está concluído): 409 STAGE_LOCKED, sem gravar nada (na Tentativa e no Ver resposta, antes de corrigir). O Estágio é o da Atividade na versão publicada, mesmo com versionId antigo; Atividade ou Estágio fora da versão publicada não trava. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions, events e dialogue-answers: 429 TOO_MANY_REQUESTS com Retry-After. */
+        /** @description Corrige a Tentativa do Aluno e grava a primeira na Atividade, com o XP dela. expected e as justificativas só voltam no Acerto (100%). Reenviar o mesmo attemptId com o mesmo corpo devolve o XP gravado; outro attemptId (Tentar de novo, refazer) devolve o Feedback com xpAwarded 0, sem gravar. replay: true (opcional) marca o refazer de uma Atividade já concluída e publica o ACTIVITY_COMPLETED com firstAttempt false; sem registro, conta como primeira. Tipo divergente ou expositivo: 400 INVALID_ANSWER; versão ou Atividade inexistente: 404. Campo desconhecido dá 400. Estágio bloqueado na versão publicada (o anterior não está concluído): 409 STAGE_LOCKED, sem gravar nada (na Tentativa e no Ver resposta, antes de corrigir). O Estágio é o da Atividade na versão publicada, mesmo com versionId antigo; Atividade ou Estágio fora da versão publicada não trava. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions, events e dialogue-answers: 429 TOO_MANY_REQUESTS com Retry-After. Adolescente à espera do responsável: 403 GUARDIAN_CONSENT_PENDING, sem gravar nada. */
         post: operations["submitStudentAttempt"];
         delete?: never;
         options?: never;
@@ -215,7 +232,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Ver resposta: corrige a mesma Tentativa e devolve o Resultado com expected e as justificativas, sem XP e sem gravar. Exige o registro do Aluno na Atividade (na Resposta Livre, uma Tentativa do Extra Help), senão 409 ATTEMPT_REQUIRED. Tipo divergente ou expositivo: 400 INVALID_ANSWER; versão ou Atividade inexistente: 404. Campo desconhecido dá 400. Estágio bloqueado na versão publicada (o anterior não está concluído): 409 STAGE_LOCKED, sem gravar nada (na Tentativa e no Ver resposta, antes de corrigir). O Estágio é o da Atividade na versão publicada, mesmo com versionId antigo; Atividade ou Estágio fora da versão publicada não trava. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions, events e dialogue-answers: 429 TOO_MANY_REQUESTS com Retry-After. */
+        /** @description Ver resposta: corrige a mesma Tentativa e devolve o Resultado com expected e as justificativas, sem XP e sem gravar. Exige o registro do Aluno na Atividade (na Resposta Livre, uma Tentativa do Extra Help), senão 409 ATTEMPT_REQUIRED. Tipo divergente ou expositivo: 400 INVALID_ANSWER; versão ou Atividade inexistente: 404. Campo desconhecido dá 400. Estágio bloqueado na versão publicada (o anterior não está concluído): 409 STAGE_LOCKED, sem gravar nada (na Tentativa e no Ver resposta, antes de corrigir). O Estágio é o da Atividade na versão publicada, mesmo com versionId antigo; Atividade ou Estágio fora da versão publicada não trava. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions, events e dialogue-answers: 429 TOO_MANY_REQUESTS com Retry-After. Adolescente à espera do responsável: 403 GUARDIAN_CONSENT_PENDING, sem gravar nada. */
         post: operations["revealStudentAttempt"];
         delete?: never;
         options?: never;
@@ -232,7 +249,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Conclui uma Atividade sem correção, sem XP, e grava a primeira na Atividade: os expositivos dialogue, cards, expression, grammar e free com VIEWED, e a speech pulada, com SKIPPED. Fora disso, 409 COMPLETION_NOT_ALLOWED. A conclusão VIEWED de um free devolve a modelAnswer. replay: true (opcional) marca o refazer, como em /attempts. Versão ou Atividade inexistente: 404. Campo desconhecido dá 400. Estágio bloqueado na versão publicada (o anterior não está concluído): 409 STAGE_LOCKED, sem gravar nada (na Tentativa e no Ver resposta, antes de corrigir). O Estágio é o da Atividade na versão publicada, mesmo com versionId antigo; Atividade ou Estágio fora da versão publicada não trava. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions, events e dialogue-answers: 429 TOO_MANY_REQUESTS com Retry-After. */
+        /** @description Conclui uma Atividade sem correção, sem XP, e grava a primeira na Atividade: os expositivos dialogue, cards, expression, grammar e free com VIEWED, e a speech pulada, com SKIPPED. Fora disso, 409 COMPLETION_NOT_ALLOWED. A conclusão VIEWED de um free devolve a modelAnswer. replay: true (opcional) marca o refazer, como em /attempts. Versão ou Atividade inexistente: 404. Campo desconhecido dá 400. Estágio bloqueado na versão publicada (o anterior não está concluído): 409 STAGE_LOCKED, sem gravar nada (na Tentativa e no Ver resposta, antes de corrigir). O Estágio é o da Atividade na versão publicada, mesmo com versionId antigo; Atividade ou Estágio fora da versão publicada não trava. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions, events e dialogue-answers: 429 TOO_MANY_REQUESTS com Retry-After. Adolescente à espera do responsável: 403 GUARDIAN_CONSENT_PENDING, sem gravar nada. */
         post: operations["submitStudentCompletion"];
         delete?: never;
         options?: never;
@@ -282,7 +299,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** @description Grava no perfil o nome e o país que o Aluno respondeu num Diálogo, os mesmos que o GET /students/me devolve. Só vale o campo que o Diálogo daquela versão pergunta (fala com ask); Atividade inexistente, que não é Diálogo, sem a fala do campo, sem nenhum campo, país fora de countries.json ou campo desconhecido: 400 VALIDATION_FAILED, sem gravar nada. Responde 204 sem corpo. Conta no limite de escritas do Aluno. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions, events e dialogue-answers: 429 TOO_MANY_REQUESTS com Retry-After. */
+        /** @description Grava no perfil o nome e o país que o Aluno respondeu num Diálogo, os mesmos que o GET /students/me devolve. Só vale o campo que o Diálogo daquela versão pergunta (fala com ask); Atividade inexistente, que não é Diálogo, sem a fala do campo, sem nenhum campo, país fora de countries.json ou campo desconhecido: 400 VALIDATION_FAILED, sem gravar nada. Responde 204 sem corpo. Conta no limite de escritas do Aluno. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions, events e dialogue-answers: 429 TOO_MANY_REQUESTS com Retry-After. Adolescente à espera do responsável: 403 GUARDIAN_CONSENT_PENDING, sem gravar nada. */
         put: operations["saveMyDialogueAnswers"];
         post?: never;
         delete?: never;
@@ -334,8 +351,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Grava um evento do Aluno, sem PII, com a hora do servidor e o metricsId da conta. ACTIVITY_STARTED a cada abertura de Atividade, com versionId e activityKey; Atividade inexistente dá 404. Campo desconhecido dá 400. Responde 202 sem corpo. Se a gravação do evento falhar, 500. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions, events e dialogue-answers: 429 TOO_MANY_REQUESTS com Retry-After. */
+        /** @description Grava um evento do Aluno, sem PII, com a hora do servidor e o metricsId da conta. ACTIVITY_STARTED a cada abertura de Atividade, com versionId e activityKey; Atividade inexistente dá 404. Campo desconhecido dá 400. Responde 202 sem corpo. Se a gravação do evento falhar, 500. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions, events e dialogue-answers: 429 TOO_MANY_REQUESTS com Retry-After. Adolescente à espera do responsável: 403 GUARDIAN_CONSENT_PENDING, sem gravar nada. */
         post: operations["recordStudentEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/me/guardian-consent/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Reenvia o link ao responsável do adolescente da sessão: o anterior deixa de valer. Corpo opcional {guardianEmail}: troca o e-mail do responsável antes de enviar (igual ao do adolescente, ou ausente numa conta sem responsável gravado: 400 VALIDATION_FAILED no campo guardianEmail). Exige X-Fluveny-Client (senão 400 CLIENT_HEADER_REQUIRED). Responde 202 sem corpo. Conta já ativa: 409 GUARDIAN_CONSENT_NOT_PENDING. Mais de 1 por minuto ou 5 por dia: 429 TOO_MANY_REQUESTS com Retry-After. */
+        post: operations["resendGuardianConsent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -387,6 +421,23 @@ export interface paths {
         get: operations["getMyStageSummary"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/me/visitor-migration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Migra o Progresso do Visitante para a conta da sessão, com o mesmo bloco visitor do cadastro (deviceId e recibos): o App chama ao ver a conta ACTIVE depois do consentimento do responsável (história 2.11), e limpa a loja local depois do 200. Valida e migra como no cadastro, numa só transação; recibo inválido, já consumido ou de Atividade já registrada na conta é descartado sem erro. Repetir dá migrated 0. Campo desconhecido dá 400. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions, events e dialogue-answers: 429 TOO_MANY_REQUESTS com Retry-After. Adolescente à espera do responsável: 403 GUARDIAN_CONSENT_PENDING, sem gravar nada. */
+        post: operations["migrateMyVisitorProgress"];
         delete?: never;
         options?: never;
         head?: never;
@@ -535,12 +586,20 @@ export interface components {
             data: components["schemas"]["CompletionResult"];
             message?: string;
         };
+        ApiResponseConfirmedGuardianConsent: {
+            data: components["schemas"]["ConfirmedGuardianConsent"];
+            message?: string;
+        };
         ApiResponseListUnitListItemStudentView: {
             data: components["schemas"]["UnitListItemStudentView"][];
             message?: string;
         };
         ApiResponseMeta: {
             data: components["schemas"]["Meta"];
+            message?: string;
+        };
+        ApiResponseResult: {
+            data: components["schemas"]["Result"];
             message?: string;
         };
         ApiResponseSignupResponse: {
@@ -725,6 +784,13 @@ export interface components {
         };
         ConfirmEmail: {
             token: string;
+        };
+        ConfirmGuardianConsent: {
+            token: string;
+        };
+        ConfirmedGuardianConsent: {
+            /** @enum {string} */
+            status: "CONFIRMED";
         };
         /** @description Texto do conteúdo: uma string ou as variantes {he, she, they}. */
         ContentText: string | components["schemas"]["PronounVariants"];
@@ -1054,6 +1120,16 @@ export interface components {
             /** Format: email */
             newEmail: string;
         };
+        ResendGuardianConsent: {
+            /** Format: email */
+            guardianEmail?: string;
+        };
+        Result: {
+            /** Format: int32 */
+            discarded?: number;
+            /** Format: int32 */
+            migrated?: number;
+        };
         SignupRequest: {
             acceptedPrivacyVersion: string;
             acceptedTermsVersion: string;
@@ -1063,6 +1139,11 @@ export interface components {
             country?: string;
             /** Format: email */
             email: string;
+            /**
+             * Format: email
+             * @description O e-mail do responsável, exigido de 12 a 17 anos (senão 422 GUARDIAN_CONSENT_REQUIRED). Igual ao e-mail do adolescente: 400 VALIDATION_FAILED. Ignorado com 18 anos ou mais.
+             */
+            guardianEmail?: string;
             name?: string;
             /** @description De 8 a 64 caracteres, com pelo menos uma letra e um número. Senhas com muitos acentos ou emoji podem precisar ser mais curtas (o limite é de 72 bytes em UTF-8). */
             password: string;
@@ -1243,6 +1324,11 @@ export interface components {
              * @enum {string|null}
              */
             pronounSet?: "HE" | "SHE" | "THEY" | null;
+            /**
+             * @description PENDING_GUARDIAN_CONSENT: adolescente à espera do responsável. Lê, mas as escritas de Progresso dão 403 GUARDIAN_CONSENT_PENDING; o App mostra a faixa ouro. Ao ver ACTIVE, o App migra os recibos pelo POST /students/me/visitor-migration.
+             * @enum {string}
+             */
+            status: "ACTIVE" | "PENDING_GUARDIAN_CONSENT";
         };
         StudentProgress: {
             results: components["schemas"]["StudentActivityResult"][];
@@ -1348,6 +1434,11 @@ export interface components {
             type: "VISITOR_SESSION_STARTED" | "ACTIVITY_STARTED";
             versionId?: string;
         };
+        VisitorMigrationRequest: {
+            /** Format: uuid */
+            deviceId: string;
+            receipts: string[];
+        };
     };
     responses: never;
     parameters: never;
@@ -1399,6 +1490,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    confirmGuardianConsent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmGuardianConsent"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseConfirmedGuardianConsent"];
                 };
             };
         };
@@ -1841,6 +1956,30 @@ export interface operations {
             };
         };
     };
+    resendGuardianConsent: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Fluveny-Client": "web" | "android";
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ResendGuardianConsent"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     changeMyPassword: {
         parameters: {
             query?: never;
@@ -1902,6 +2041,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseStudentStageSummary"];
+                };
+            };
+        };
+    };
+    migrateMyVisitorProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisitorMigrationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseResult"];
                 };
             };
         };

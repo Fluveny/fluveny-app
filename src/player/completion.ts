@@ -14,7 +14,7 @@ import { ApiError, post, type PostBody, type PostData } from '../api/client';
 import { UNKNOWN_ERROR } from '../api/errors';
 import { captureError } from '../observability/sentry';
 import type { Outcome, VisitorStore } from '../visitor/types';
-import { isStageLocked, type PlayerMode } from './playerSession';
+import { isGuardianPending, isStageLocked, type PlayerMode } from './playerSession';
 import { isRetryableSave, reportSaveFailure } from './studentProgress';
 import { createStudyClock, type StudyClock } from './studyClock';
 import { keepReceipt } from './useEvaluation';
@@ -110,6 +110,8 @@ export type CompletionSession = {
   onSaved: () => void;
   /** `409 STAGE_LOCKED` do Aluno (2.5): sem mensagem no rodapé, o player troca a tela. */
   onStageLocked?: () => void;
+  /** `403 GUARDIAN_CONSENT_PENDING` (2.11): o player passa a Visitante; sem mensagem. */
+  onGuardianPending?: () => void;
   /** O refazer (2.7), como o `PlayerSession.claimReplay`; sem ele, nunca `replay`. */
   claimReplay?: (activityKey: string, attemptId: string) => boolean;
 };
@@ -132,6 +134,7 @@ export function useCompletion(
   const clock = session?.clock ?? ownClock;
   const onSaved = session?.onSaved ?? noop;
   const onStageLocked = session?.onStageLocked ?? noop;
+  const onGuardianPending = session?.onGuardianPending;
   const claimReplay = session?.claimReplay;
   const [completing, setCompleting] = useState(false);
   const [failure, setFailure] = useState<{ activityKey: string; code: string; retryable: boolean } | null>(null);
@@ -173,6 +176,10 @@ export function useCompletion(
           onStageLocked();
           return { status: alive.current ? 'failed' : 'gone' };
         }
+        if (mode === 'student' && isGuardianPending(error) && onGuardianPending) {
+          onGuardianPending();
+          return { status: alive.current ? 'failed' : 'gone' };
+        }
         if (mode === 'student') reportSaveFailure(error);
         const code = mode === 'student' ? (error instanceof ApiError ? error.code : UNKNOWN_ERROR) : codeOf(error);
         if (alive.current) setFailure({ activityKey, code, retryable: isRetryableSave(error) });
@@ -186,7 +193,7 @@ export function useCompletion(
       // Saiu durante o envio: o recibo ficou, o Progresso não (como o ✕ depois do Resultado).
       return alive.current ? { status: 'done', result } : { status: 'gone' };
     },
-    [store, activityKey, versionId, mode, clock, onSaved, onStageLocked, claimReplay],
+    [store, activityKey, versionId, mode, clock, onSaved, onStageLocked, onGuardianPending, claimReplay],
   );
 
   /** Esquece a falha (a Resposta Livre trocou pelo Extra Help, 1.18: a mensagem do ENVIAR não vale mais). */

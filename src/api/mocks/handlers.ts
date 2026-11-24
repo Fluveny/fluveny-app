@@ -30,7 +30,10 @@ export async function mockResponse(
     if (!(error instanceof MockProblem)) throw error;
     return HttpResponse.json(problemBody(error), {
       status: error.status,
-      headers: { 'Content-Type': 'application/problem+json' },
+      headers: {
+        'Content-Type': 'application/problem+json',
+        ...(error.retryAfter === undefined ? {} : { 'Retry-After': String(error.retryAfter) }),
+      },
     });
   }
 }

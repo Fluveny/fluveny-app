@@ -141,12 +141,15 @@ export type MockRoutes = {
 export class MockProblem extends Error {
   readonly status: number;
   readonly code: string;
+  /** Os segundos do `Retry-After` (429). */
+  readonly retryAfter: number | undefined;
 
-  constructor(status: number, code: string) {
+  constructor(status: number, code: string, retryAfter?: number) {
     super(`mock ${status} ${code}`);
     this.name = 'MockProblem';
     this.status = status;
     this.code = code;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -786,7 +789,7 @@ function settle(
  * 0 a 24 h.
  */
 function studentRespondent(request: Request, body: Record<string, unknown> | null, fields: ReadonlySet<string>) {
-  const student = mockStudentOf(request);
+  const student = mockWriterOf(request);
   if (!body || typeof body !== 'object' || Object.keys(body).some((key) => !fields.has(key))) {
     throw new MockProblem(400, 'VALIDATION_FAILED');
   }
@@ -1161,7 +1164,7 @@ const STUDENT_EVENT_FIELDS = new Set(['type', 'versionId', 'activityKey']);
  * Atividade do Estágio (senão 404). Responde 202 sem corpo.
  */
 async function recordStudentEvent(request: Request): Promise<undefined> {
-  mockStudentOf(request);
+  mockWriterOf(request);
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body || typeof body !== 'object' || Object.keys(body).some((key) => !STUDENT_EVENT_FIELDS.has(key))) {
     throw new MockProblem(400, 'VALIDATION_FAILED');
@@ -1341,8 +1344,58 @@ let forcedAccount: 'TOO_MANY_REQUESTS' | null = null;
 /** Resposta forçada da exclusão da conta (2.10): `503` ou `404`. */
 let forcedDeletion: 'ACCOUNT_DELETION_FAILED' | 'NOT_FOUND' | null = null;
 
+/** Os adolescentes à espera do responsável (2.11): e-mail da conta → e-mail do responsável (só na memória do mock). */
+const pendingGuardians = new Map<string, string>();
+/** Os tokens do link do responsável, com a conta de cada um (um por conta: o reenvio troca). */
+const guardianTokens = new Map<string, string>();
+let lastGuardianToken: string | null = null;
+let guardianSeq = 0;
+/** A hora do último reenvio ao responsável, por conta (1 por minuto, como a API). */
+const guardianResentAt = new Map<string, number>();
+/** Resposta forçada da migração (2.11): rede ou 5xx. */
+let forcedMigration: 'INTERNAL_ERROR' | null = null;
+
+/** O token mágico da página do responsável no mock manual: sempre 200 (autoriza a última conta pendente). */
+export const MOCK_GUARDIAN_VALID_TOKEN = 'valido';
+
+function issueGuardianToken(email: string): string {
+  for (const [token, owner] of guardianTokens) if (owner === email) guardianTokens.delete(token);
+  guardianSeq += 1;
+  const token = `mock-responsavel-${guardianSeq}`;
+  guardianTokens.set(token, email);
+  lastGuardianToken = token;
+  return token;
+}
+
+/** O token do último link do responsável emitido pelo mock. */
+export function mockGuardianToken(): string | null {
+  return lastGuardianToken;
+}
+
+/** O gancho de teste: o responsável confirmou, e a conta vira `ACTIVE`. */
+export function confirmMockGuardian(email: string) {
+  const key = email.toLowerCase();
+  pendingGuardians.delete(key);
+  for (const [token, owner] of guardianTokens) if (owner === key) guardianTokens.delete(token);
+}
+
+/** O e-mail do responsável que o mock guardou (testes da correção). */
+export function mockGuardianEmail(email: string): string | undefined {
+  return pendingGuardians.get(email.toLowerCase());
+}
+
+/** Força a falha da migração (`500`) ou nada. */
+export function forceMockMigration(code: 'INTERNAL_ERROR' | null) {
+  forcedMigration = code;
+}
+
 /** Esquece as contas, a sessão e as confirmações do mock (testes). */
 export function resetMockStudents() {
+  pendingGuardians.clear();
+  guardianTokens.clear();
+  lastGuardianToken = null;
+  guardianResentAt.clear();
+  forcedMigration = null;
   mockAccounts.clear();
   mockSession = null;
   confirmedEmails.clear();
@@ -1386,7 +1439,14 @@ export function seedMockAccount(email: string, password: string) {
   const key = email.toLowerCase();
   mockAccounts.set(key, {
     password,
-    student: { email: key, name: null, pronounSet: null, emailConfirmed: true, emailConfirmationOverdue: false },
+    student: {
+      email: key,
+      name: null,
+      pronounSet: null,
+      emailConfirmed: true,
+      emailConfirmationOverdue: false,
+      status: 'ACTIVE',
+    },
     deactivated: false,
   });
   confirmedEmails.add(key);
@@ -1410,7 +1470,12 @@ export function forceMockRecovery(code: 'TOO_MANY_REQUESTS' | null) {
 /** O perfil como a API o devolve agora: a confirmação e o prazo dela. */
 function currentProfile(student: MockStudent): MockStudent {
   const emailConfirmed = confirmedEmails.has(student.email);
-  return { ...student, emailConfirmed, emailConfirmationOverdue: !emailConfirmed && overdueEmails.has(student.email) };
+  return {
+    ...student,
+    emailConfirmed,
+    emailConfirmationOverdue: !emailConfirmed && overdueEmails.has(student.email),
+    status: pendingGuardians.has(student.email) ? 'PENDING_GUARDIAN_CONSENT' : 'ACTIVE',
+  };
 }
 
 /** Força a resposta do login: `429 LOGIN_THROTTLED` ou nada. */
@@ -1473,6 +1538,7 @@ const SIGNUP_FIELDS = new Set([
   'acceptedPrivacyVersion',
   'country',
   'visitor',
+  'guardianEmail',
 ]);
 const MOCK_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -1570,8 +1636,15 @@ async function mockSignup(request: Request) {
   const age = mockAge(body.birthDate);
   if (age === null) throw new MockProblem(400, 'VALIDATION_FAILED');
   if (age < 12) throw new MockProblem(422, 'AGE_BELOW_MINIMUM');
-  if (age < 18) throw new MockProblem(422, 'GUARDIAN_CONSENT_REQUIRED');
   const key = email.toLowerCase();
+  // O adolescente (2.11): com o e-mail do responsável, a conta nasce pendente e o `visitor` é ignorado.
+  const teen = age < 18;
+  const guardian = typeof body.guardianEmail === 'string' ? body.guardianEmail.trim().toLowerCase() : undefined;
+  if (body.guardianEmail !== undefined && (!guardian || !MOCK_EMAIL.test(guardian) || guardian.length > 254)) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  if (teen && !guardian) throw new MockProblem(422, 'GUARDIAN_CONSENT_REQUIRED');
+  if (teen && guardian === key) throw new MockProblem(400, 'VALIDATION_FAILED');
   if (mockAccounts.has(key)) throw new MockProblem(409, 'EMAIL_ALREADY_REGISTERED');
   const student: MockStudent = {
     email: key,
@@ -1580,13 +1653,18 @@ async function mockSignup(request: Request) {
     pronounSet: null,
     emailConfirmed: false,
     emailConfirmationOverdue: false,
+    status: teen ? 'PENDING_GUARDIAN_CONSENT' : 'ACTIVE',
   };
-  const visitor = mockVisitorOf(body.visitor);
+  const visitor = teen ? undefined : mockVisitorOf(body.visitor);
   if (body.country !== undefined && (typeof body.country !== 'string' || !MOCK_COUNTRIES.has(body.country))) {
     throw new MockProblem(400, 'VALIDATION_FAILED');
   }
   mockAccounts.set(key, { password: body.password as string, student, deactivated: false });
   if (visitor) migrateMockReceipts(key, visitor);
+  if (teen && guardian) {
+    pendingGuardians.set(key, guardian);
+    issueGuardianToken(key);
+  }
   issueConfirmationToken(key);
   return openMockSession(student, client);
 }
@@ -1632,6 +1710,72 @@ function mockStudentOf(request: Request): MockStudent {
     throw new MockProblem(401, 'UNAUTHENTICATED');
   }
   return currentProfile(mockSession.student);
+}
+
+/** O Aluno da sessão numa escrita de Progresso: o adolescente pendente recebe `403 GUARDIAN_CONSENT_PENDING`. */
+function mockWriterOf(request: Request): MockStudent {
+  const student = mockStudentOf(request);
+  if (pendingGuardians.has(student.email)) throw new MockProblem(403, 'GUARDIAN_CONSENT_PENDING');
+  return student;
+}
+
+/** `POST /students/me/guardian-consent/resend`: 202; corpo opcional `{guardianEmail}`; 1 por minuto; ativa, 409. */
+async function mockResendGuardian(request: Request): Promise<undefined> {
+  const client = request.headers.get('X-Fluveny-Client');
+  if (client !== 'web' && client !== 'android') throw new MockProblem(400, 'CLIENT_HEADER_REQUIRED');
+  const student = mockStudentOf(request);
+  const text = await request.text();
+  const body = (text ? JSON.parse(text) : {}) as Record<string, unknown> | null;
+  if (!body || typeof body !== 'object' || Object.keys(body).some((key) => key !== 'guardianEmail')) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  if (!pendingGuardians.has(student.email)) throw new MockProblem(409, 'GUARDIAN_CONSENT_NOT_PENDING');
+  let guardian: string | undefined;
+  if (body.guardianEmail !== undefined) {
+    guardian = typeof body.guardianEmail === 'string' ? body.guardianEmail.trim().toLowerCase() : '';
+    if (!MOCK_EMAIL.test(guardian) || guardian.length > 254 || guardian === student.email) {
+      throw new MockProblem(400, 'VALIDATION_FAILED');
+    }
+  }
+  const last = guardianResentAt.get(student.email);
+  const now = Date.now();
+  if (last !== undefined && now - last < 60_000) {
+    throw new MockProblem(429, 'TOO_MANY_REQUESTS', Math.ceil((60_000 - (now - last)) / 1000));
+  }
+  guardianResentAt.set(student.email, now);
+  if (guardian) pendingGuardians.set(student.email, guardian);
+  issueGuardianToken(student.email);
+  return undefined;
+}
+
+/** `POST /account/guardian-consent/confirm`: pública; token do link (ou `valido`) → 200; outro, 400. */
+async function mockConfirmGuardian(request: Request) {
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!body || typeof body !== 'object' || typeof body.token !== 'string' || Object.keys(body).length !== 1) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  let email = guardianTokens.get(body.token);
+  // O token mágico do mock manual autoriza a última conta pendente; sem nenhuma, é inválido como outro.
+  if (!email && body.token === MOCK_GUARDIAN_VALID_TOKEN) email = [...pendingGuardians.keys()].pop();
+  if (!email) throw new MockProblem(400, 'GUARDIAN_CONSENT_TOKEN_INVALID');
+  confirmMockGuardian(email);
+  return { data: { status: 'CONFIRMED' as const } };
+}
+
+/** `POST /students/me/visitor-migration`: como o cadastro (2.6), para a conta ativa; pendente, 403. */
+async function mockVisitorMigration(request: Request) {
+  const student = mockWriterOf(request);
+  if (forcedMigration) throw new MockProblem(500, forcedMigration);
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!body || typeof body !== 'object' || Object.keys(body).some((key) => key !== 'deviceId' && key !== 'receipts')) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  const visitor = mockVisitorOf(body)!;
+  const before = [...studentRecords.keys()].filter((key) => key.startsWith(`${student.email}|`)).length;
+  migrateMockReceipts(student.email, visitor);
+  const after = [...studentRecords.keys()].filter((key) => key.startsWith(`${student.email}|`)).length;
+  const migrated = after - before;
+  return { data: { migrated, discarded: visitor.receipts.length - migrated } };
 }
 
 /** `POST /auth/password-recovery`: 202 sempre; só conta ativa e confirmada recebe o token. */
@@ -1864,7 +2008,7 @@ async function mockConfirmEmailChange(request: Request): Promise<undefined> {
 
 /** `PUT /students/me/dialogue-answers` (2.9): 204; só o campo que o Diálogo da versão pergunta. */
 async function mockSaveDialogueAnswers(request: Request): Promise<undefined> {
-  const student = mockStudentOf(request);
+  const student = mockWriterOf(request);
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const activity = stage1Activities.find((item) => item.activityKey === body?.activityKey);
   const asks = new Set(
@@ -1977,6 +2121,15 @@ export const mockRoutes: MockRoutes = {
   },
   '/api/v1/account/email-confirmation': {
     post: (request) => mockConfirmEmail(request),
+  },
+  '/api/v1/students/me/guardian-consent/resend': {
+    post: (request) => mockResendGuardian(request),
+  },
+  '/api/v1/account/guardian-consent/confirm': {
+    post: (request) => mockConfirmGuardian(request),
+  },
+  '/api/v1/students/me/visitor-migration': {
+    post: (request) => mockVisitorMigration(request),
   },
   '/api/v1/auth/login': {
     post: (request) => mockLogin(request),

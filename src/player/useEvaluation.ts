@@ -16,7 +16,7 @@ import type { ContentText } from '../renderer';
 import { resultLine } from '../ui';
 import { visitorStore } from '../visitor/store';
 import type { VisitorStore } from '../visitor/types';
-import { isStageLocked, usePlayerSession } from './playerSession';
+import { isGuardianPending, isStageLocked, usePlayerSession } from './playerSession';
 import type { ActivityProps, SheetSpec } from './registry';
 import { createStudyClock } from './studyClock';
 
@@ -163,7 +163,7 @@ export function useEvaluation({
   const session = usePlayerSession();
   const [ownClock] = useState(() => createStudyClock());
   const clock = session.clock ?? ownClock;
-  const { mode, onSaved, onStageLocked, claimReplay } = session;
+  const { mode, onSaved, onStageLocked, onGuardianPending, claimReplay } = session;
   const alive = useRef(true);
   const finished = useRef(false);
   useEffect(() => {
@@ -236,12 +236,18 @@ export function useEvaluation({
           onStageLocked();
           return;
         }
+        // O adolescente pendente (2.11): o player passa a Visitante; a resposta destrava sem mensagem.
+        if (mode === 'student' && isGuardianPending(error) && onGuardianPending) {
+          onGuardianPending();
+          if (alive.current) setState((s) => ({ ...s, phase: 'answering', error: null }));
+          return;
+        }
         if (!alive.current) return;
         // A resposta destrava e VERIFICAR volta.
         setState((s) => ({ ...s, phase: 'answering', error: codeOf(error) }));
       }
     },
-    [answer, send, store, activity.activityKey, mode, onSaved, onStageLocked],
+    [answer, send, store, activity.activityKey, mode, onSaved, onStageLocked, onGuardianPending],
   );
 
   const reveal = useCallback(async () => {
@@ -260,11 +266,16 @@ export function useEvaluation({
         onStageLocked();
         return;
       }
+      if (mode === 'student' && isGuardianPending(error) && onGuardianPending) {
+        onGuardianPending();
+        if (alive.current) setState((s) => ({ ...s, phase: 'wrong', error: null }));
+        return;
+      }
       if (!alive.current) return;
       // A folha de Erro fica, com VER RESPOSTA de novo.
       setState((s) => ({ ...s, phase: 'wrong', error: codeOf(error) }));
     }
-  }, [send, mode, onStageLocked]);
+  }, [send, mode, onStageLocked, onGuardianPending]);
 
   const retry = useCallback(() => {
     const { phase, result } = current.current;

@@ -2,8 +2,8 @@
 // Query (`['student', 'me']`), o cadastro e a troca de pronomes. `null` no cache
 // é "sem sessão" (401, ou o Android sem token guardado). Entrar (`signIn`) é da
 // 2.3; o sair e o 401 no meio do uso ficam em `sessionEnd.ts`.
-import { QueryClientContext, useQuery, type QueryClient } from '@tanstack/react-query';
-import { useCallback, useContext, useSyncExternalStore } from 'react';
+import { QueryClientContext, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useCallback, useContext, useEffect, useSyncExternalStore } from 'react';
 
 import {
   ApiError,
@@ -21,6 +21,7 @@ import type { Pronoun } from '../visitor/types';
 import { captureError } from '../observability/sentry';
 import { finishVisitorMigration, visitorSignupFields, type VisitorSignupFields } from '../visitor/migration';
 import { clearVisitorCache } from '../visitor/useVisitor';
+import { markGuardianPending, syncGuardianConsent } from './guardianConsent';
 import { clearSessionToken, saveSessionToken, storedSessionToken } from './session';
 
 export type StudentProfile = GetData<'/api/v1/students/me'>;
@@ -63,7 +64,8 @@ export async function fetchStudent(signal?: AbortSignal): Promise<StudentProfile
  * Com `enabled: false`, só lê o cache (o player do Visitante sem token, 2.4).
  */
 export function useStudent(enabled = true) {
-  return useQuery({
+  const client = useQueryClient();
+  const query = useQuery({
     enabled,
     queryKey: STUDENT_QUERY_KEY,
     queryFn: ({ signal }) => fetchStudent(signal),
@@ -73,6 +75,15 @@ export function useStudent(enabled = true) {
     // Sem rede, falha na hora (NETWORK_ERROR) em vez de pausar: a raiz cai na boas-vindas.
     networkMode: 'always',
   });
+  // O adolescente (2.11): pendente, a conta fica marcada neste aparelho; ativa e marcada, os recibos
+  // migram a cada leitura do perfil até dar certo. Outra conta (o login) não migra (2.6).
+  const email = query.data?.email;
+  const status = query.data?.status;
+  const updatedAt = query.dataUpdatedAt;
+  useEffect(() => {
+    if (email && status) void syncGuardianConsent(client, { email, status });
+  }, [client, email, status, updatedAt]);
+  return query;
 }
 
 const noSubscription = () => () => {};
@@ -113,12 +124,21 @@ export async function signUp(
   client: QueryClient,
   body: Omit<SignupBody, 'country' | 'visitor'>,
 ): Promise<StudentProfile> {
+  // O adolescente (2.11, com `guardianEmail`): a conta nasce pendente e ele segue jogando como
+  // Visitante; a loja fica, e os recibos migram depois do consentimento (`migrateAfterConsent`).
   let fields: VisitorSignupFields = {};
   try {
     fields = await visitorSignupFields(visitorStore);
   } catch (error) {
     // A loja não leu: o cadastro segue sem migrar (o erro da loja não leva recibo).
     captureError(error);
+  }
+  if (body.guardianEmail !== undefined) {
+    // O país vai; o `visitor`, não (a API o ignora: a migração é depois do consentimento).
+    const { visitor: _visitor, ...teenFields } = fields;
+    const student = await startSession(client, await post('/api/v1/auth/signup', { ...body, ...teenFields }));
+    await markGuardianPending(student.email);
+    return student;
   }
   const session = await post('/api/v1/auth/signup', { ...body, ...fields });
   // A conta já existe: a limpeza roda mesmo se a sessão falhar, e nunca rejeita.

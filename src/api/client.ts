@@ -56,13 +56,19 @@ export function apiBaseUrl(): string {
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  /** Os segundos do `Retry-After` (429), quando a resposta o traz em segundos. */
+  readonly retryAfter: number | undefined;
+  /** Os campos nomeados nos `errors[].field` do problem+json (o 400 `VALIDATION_FAILED`); só os nomes. */
+  readonly fields: readonly string[];
 
-  constructor(status: number, code: string) {
+  constructor(status: number, code: string, retryAfter?: number, fields: readonly string[] = []) {
     // A mensagem é só para log e Sentry: status e código, nunca o corpo.
     super(`API ${status} ${code}`);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.retryAfter = retryAfter;
+    this.fields = fields;
   }
 
   /** Texto pt-BR para mostrar ao aluno. */
@@ -127,9 +133,25 @@ export type AcceptedBody<P extends AcceptedPaths> = paths[P]['post'] extends {
   ? B
   : never;
 
-/** Os argumentos de `postAccepted` depois do caminho: o corpo, se a rota pede um, e o `init`. */
+/** O corpo opcional de uma rota 202 (o reenvio ao responsável, 2.11); `never` se a rota não tem corpo opcional. */
+type OptionalAcceptedBody<P extends AcceptedPaths> = paths[P]['post'] extends {
+  requestBody?: { content: { 'application/json': infer B } };
+}
+  ? [B] extends [never]
+    ? never
+    : unknown extends B
+      ? never
+      : B
+  : never;
+
+/**
+ * Os argumentos de `postAccepted` depois do caminho: o corpo, se a rota pede um
+ * (opcional se o contrato o deixa opcional), e o `init`.
+ */
 type AcceptedArgs<P extends AcceptedPaths> = [AcceptedBody<P>] extends [never]
-  ? [body?: undefined, init?: RequestInit]
+  ? [OptionalAcceptedBody<P>] extends [never]
+    ? [body?: undefined, init?: RequestInit]
+    : [body?: OptionalAcceptedBody<P>, init?: RequestInit]
   : [body: AcceptedBody<P>, init?: RequestInit];
 
 /** O corpo JSON de `POST path`, como o contrato pede. */
@@ -201,6 +223,19 @@ function notifyUnauthenticated(path: string, error: ApiError) {
 
 const CODE = /^[A-Z][A-Z0-9_]*$/;
 
+/** O `Retry-After` em segundos inteiros; a forma de data e o valor torto ficam de fora. */
+function retryAfterOf(response: Response): number | undefined {
+  const value = response.headers?.get?.('Retry-After')?.trim();
+  if (!value || !/^\d{1,9}$/.test(value)) return undefined;
+  return Number(value);
+}
+
+/** O `ApiError` da resposta que não deu certo: status, `code` e o `Retry-After`. */
+async function errorOf(response: Response, signal: AbortSignal): Promise<ApiError> {
+  const { code, fields } = await problemOf(response, signal);
+  return new ApiError(response.status, code, retryAfterOf(response), fields);
+}
+
 /** Rejeita assim que `signal` abortar, mesmo que a leitura do corpo não reaja ao abort. */
 function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -211,27 +246,32 @@ function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   });
 }
 
-/** O `code` do problem+json; `UNKNOWN_ERROR` se o corpo não tiver. Abort sobe. */
-async function problemCode(response: Response, signal: AbortSignal): Promise<string> {
+/** O `code` do problem+json (`UNKNOWN_ERROR` se o corpo não tiver) e os nomes dos campos de `errors`. Abort sobe. */
+async function problemOf(response: Response, signal: AbortSignal): Promise<{ code: string; fields: string[] }> {
   let body: unknown;
   try {
     body = await untilAborted(response.json() as Promise<unknown>, signal);
   } catch (error) {
     if (signal.aborted) throw error;
     // Corpo vazio ou que não é JSON: cai no genérico.
-    return UNKNOWN_ERROR;
+    return { code: UNKNOWN_ERROR, fields: [] };
   }
-  if (body && typeof body === 'object' && 'code' in body) {
-    const code = (body as { code: unknown }).code;
-    if (typeof code === 'string' && CODE.test(code)) return code;
-  }
-  return UNKNOWN_ERROR;
+  if (!body || typeof body !== 'object') return { code: UNKNOWN_ERROR, fields: [] };
+  const raw = (body as { code?: unknown }).code;
+  const code = typeof raw === 'string' && CODE.test(raw) ? raw : UNKNOWN_ERROR;
+  const errors = (body as { errors?: unknown }).errors;
+  const fields = Array.isArray(errors)
+    ? errors
+        .map((entry: unknown) =>
+          entry && typeof entry === 'object' ? (entry as { field?: unknown }).field : undefined,
+        )
+        .filter((field): field is string => typeof field === 'string')
+    : [];
+  return { code, fields };
 }
 
 async function readData<T>(response: Response, signal: AbortSignal): Promise<T> {
-  if (!response.ok) {
-    throw new ApiError(response.status, await problemCode(response, signal));
-  }
+  if (!response.ok) throw await errorOf(response, signal);
   let body: unknown;
   try {
     body = await untilAborted(response.json() as Promise<unknown>, signal);
@@ -247,7 +287,7 @@ async function readData<T>(response: Response, signal: AbortSignal): Promise<T> 
 
 /** Resposta sem corpo (202 ou 204): só confere o status; erro vira `ApiError` como em `readData`. */
 async function readNothing(response: Response, signal: AbortSignal): Promise<void> {
-  if (!response.ok) throw new ApiError(response.status, await problemCode(response, signal));
+  if (!response.ok) throw await errorOf(response, signal);
 }
 
 export async function request<T>(
