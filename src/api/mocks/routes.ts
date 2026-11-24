@@ -696,6 +696,17 @@ export function resetMockStudentRecords() {
   forcedStageLocked = false;
 }
 
+/**
+ * Grava a primeira resposta de um Aluno numa Atividade, como as rotas dele
+ * (testes do resumo e do refazer, 2.7).
+ */
+export function seedMockStudentRecord(
+  email: string,
+  record: Omit<StudentRecord, 'attemptId'> & { attemptId?: string },
+): void {
+  studentRecords.set(`${email}|${record.activityKey}`, { attemptId: `seed-${record.activityKey}`, ...record });
+}
+
 export function forceMockStageLocked(on: boolean) {
   forcedStageLocked = on;
 }
@@ -772,11 +783,30 @@ function studentRespondent(request: Request, body: Record<string, unknown> | nul
     throw new MockProblem(400, 'VALIDATION_FAILED');
   }
   if (typeof body.attemptId !== 'string' || !UUID.test(body.attemptId)) throw new MockProblem(400, 'VALIDATION_FAILED');
+  // O refazer (2.7): `replay` é opcional e booleano; o mock não publica métricas, só valida.
+  if (body.replay !== undefined && typeof body.replay !== 'boolean') throw new MockProblem(400, 'VALIDATION_FAILED');
   return { kind: 'student', email: student.email, studyTimeMs: ms } as const;
 }
 
-const STUDENT_ATTEMPT_FIELDS = new Set(['attemptId', 'versionId', 'activityKey', 'type', 'answer', 'studyTimeMs']);
-const STUDENT_COMPLETION_FIELDS = new Set(['attemptId', 'versionId', 'activityKey', 'outcome', 'studyTimeMs']);
+const STUDENT_ATTEMPT_FIELDS = new Set([
+  'attemptId',
+  'versionId',
+  'activityKey',
+  'type',
+  'answer',
+  'studyTimeMs',
+  'replay',
+]);
+/** O reveal não aceita `replay` (o contrato não o tem nessa rota). */
+const STUDENT_REVEAL_FIELDS = new Set(['attemptId', 'versionId', 'activityKey', 'type', 'answer', 'studyTimeMs']);
+const STUDENT_COMPLETION_FIELDS = new Set([
+  'attemptId',
+  'versionId',
+  'activityKey',
+  'outcome',
+  'studyTimeMs',
+  'replay',
+]);
 
 /** `deviceId` do corpo: ausente vira `undefined`; fora do formato UUID, `400 VALIDATION_FAILED`. */
 function deviceIdOf(value: unknown): string | undefined {
@@ -832,7 +862,11 @@ async function gradeAttempt(
   } | null;
   const who: Respondent =
     as === 'student'
-      ? studentRespondent(request, body as Record<string, unknown> | null, STUDENT_ATTEMPT_FIELDS)
+      ? studentRespondent(
+          request,
+          body as Record<string, unknown> | null,
+          reveal ? STUDENT_REVEAL_FIELDS : STUDENT_ATTEMPT_FIELDS,
+        )
       : { kind: 'visitor', deviceId: undefined };
   const key = typeof body?.activityKey === 'string' ? answerKey.get(body.activityKey) : undefined;
   if (!body || typeof body.activityKey !== 'string') throw new MockProblem(400, 'VALIDATION_FAILED');
@@ -1140,6 +1174,44 @@ function studentProgress(request: Request) {
       studyTimeMs: record.studyTimeMs,
     }));
   return { data: { xpTotal: results.reduce((sum, result) => sum + result.xpAwarded, 0), results } };
+}
+
+/**
+ * O resumo do Estágio do Aluno (2.7), com o cálculo da API: só as Atividades do
+ * Estágio na versão do mock (a removida não conta), XP somado, média
+ * arredondada só dos `GRADED` (ausente sem nenhum), puladas e tempo somado.
+ * Estágio sem todas registradas: `409 STAGE_NOT_COMPLETED`; Unidade ou Estágio
+ * desconhecido: `404`.
+ */
+function studentStageSummary(request: Request) {
+  const { email } = mockStudentOf(request);
+  const match = /\/units\/([^/]+)\/stages\/([^/]+)\/summary/.exec(new URL(request.url).pathname);
+  const unitKey = match ? decodeURIComponent(match[1]!) : '';
+  const stageKey = match ? decodeURIComponent(match[2]!) : '';
+  if (unitKey !== unit1.unitKey || stageKey !== 'stage-1') throw new MockProblem(404, 'NOT_FOUND');
+  const keys = new Set(stage1Activities.map((activity) => activity.activityKey));
+  const records = [...studentRecords.entries()]
+    .filter(([key]) => key.startsWith(`${email}|`))
+    .map(([, record]) => record)
+    .filter((record) => keys.has(record.activityKey));
+  if (new Set(records.map((record) => record.activityKey)).size < keys.size) {
+    throw new MockProblem(409, 'STAGE_NOT_COMPLETED');
+  }
+  const graded = records.flatMap((record) =>
+    record.outcome === 'GRADED' && record.resultPct !== undefined ? [record.resultPct] : [],
+  );
+  return {
+    data: {
+      unitKey,
+      stageKey,
+      xpAwarded: records.reduce((sum, record) => sum + record.xpAwarded, 0),
+      ...(graded.length
+        ? { averageResultPct: Math.round(graded.reduce((sum, pct) => sum + pct, 0) / graded.length) }
+        : {}),
+      skippedCount: records.filter((record) => record.outcome === 'SKIPPED').length,
+      studyTimeMs: records.reduce((sum, record) => sum + (record.studyTimeMs ?? 0), 0),
+    },
+  };
 }
 
 /** O título do Estágio 1 do mock, o mesmo da Unidade e do Estágio. */
@@ -1660,6 +1732,9 @@ export const mockRoutes: MockRoutes = {
   },
   '/api/v1/students/me/progress': {
     get: (request) => studentProgress(request),
+  },
+  '/api/v1/students/me/units/{unitKey}/stages/{stageKey}/summary': {
+    get: (request) => studentStageSummary(request),
   },
   '/api/v1/students/me/dashboard': {
     get: (request) => studentDashboard(request),

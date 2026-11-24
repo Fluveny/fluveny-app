@@ -18,12 +18,14 @@ import { playerTarget } from '../../src/player/playerRoute';
 import { resolveActivity, type ActivityResult, type FooterAction, type SheetSpec } from '../../src/player/registry';
 import { SIGN_UP_PATH } from '../../src/player/StageInvite';
 import { StageSummary } from '../../src/player/StageSummary';
-import { summarizeStage, type StageSummary as Summary } from '../../src/player/stageStats';
+import { fromStudentSummary, summarizeStage, type StageSummary as Summary } from '../../src/player/stageStats';
 import {
   fetchProgress,
+  fetchStageSummary,
   invalidateProgress,
   PROGRESS_QUERY_KEY,
   progressEntries,
+  recordedKeys,
   reportReadFailure,
   sendStudentEvent,
   useStudentProgress,
@@ -205,9 +207,35 @@ export default function Player() {
     setLocked(true);
     invalidateDashboard(client);
   }, [client]);
+  // O refazer (2.7): a abertura da Atividade na tela, se ela já tinha registro do Aluno (`replay`,
+  // `null` enquanto o Progresso não foi lido) e o `attemptId` da primeira resposta dela.
+  const opening = useRef<{ key: string; replay: boolean | null; attemptId: string | null } | null>(null);
+  const replayOf = useCallback(
+    (activityKey: string): boolean | null => {
+      const known = client.getQueryData<StudentProgress>(PROGRESS_QUERY_KEY);
+      return known ? recordedKeys(known, unitKey).has(activityKey) : null;
+    },
+    [client, unitKey],
+  );
+  const claimReplay = useCallback(
+    (activityKey: string, attemptId: string) => {
+      if (mode !== 'student') return false;
+      let open = opening.current;
+      if (!open || open.key !== activityKey) {
+        open = { key: activityKey, replay: replayOf(activityKey), attemptId: null };
+        opening.current = open;
+      }
+      // Sem Progresso nem cache: vai sem `replay` (a API trata como primeira).
+      if (open.replay === null) open.replay = replayOf(activityKey) ?? false;
+      if (!open.replay) return false;
+      if (open.attemptId === null) open.attemptId = attemptId;
+      return open.attemptId === attemptId;
+    },
+    [mode, replayOf],
+  );
   const session = useMemo<PlayerSession>(
-    () => ({ mode: mode ?? 'visitor', clock, onSaved, onStageLocked }),
-    [mode, clock, onSaved, onStageLocked],
+    () => ({ mode: mode ?? 'visitor', clock, onSaved, onStageLocked, claimReplay }),
+    [mode, clock, onSaved, onStageLocked, claimReplay],
   );
 
   const {
@@ -216,7 +244,13 @@ export default function Player() {
     completing,
     error: completionError,
     retryable: saveRetryable,
-  } = useCompletion(store, activity?.activityKey, stage?.versionId, { mode, clock, onSaved, onStageLocked });
+  } = useCompletion(store, activity?.activityKey, stage?.versionId, {
+    mode,
+    clock,
+    onSaved,
+    onStageLocked,
+    claimReplay,
+  });
 
   // Uma abertura por Atividade que aparece na tela (também ao refazer: cada abertura do player é outra).
   // Só depois de decidir quem joga: o Aluno pela rota dele, sem `deviceId`.
@@ -226,10 +260,12 @@ export default function Player() {
   useEffect(() => {
     if (!mode || !shownKey || !versionId || lastStarted.current === shownKey) return;
     lastStarted.current = shownKey;
+    // Abriu outra Atividade: a marca do refazer sai do Progresso de agora e fica fixa até sair dela.
+    if (mode === 'student') opening.current = { key: shownKey, replay: replayOf(shownKey), attemptId: null };
     const event = { type: 'ACTIVITY_STARTED', versionId, activityKey: shownKey } as const;
     if (mode === 'student') sendStudentEvent(event, onlineNow.current);
     else sendVisitorEvent(store, event, onlineNow.current);
-  }, [mode, store, shownKey, versionId]);
+  }, [mode, store, shownKey, versionId, replayOf]);
 
   // O Aluno: a Atividade na tela fica na URL, sem entrada no histórico, para voltar a ela depois de um 401
   // (UX-DR118). O Visitante não muda a URL.
@@ -244,15 +280,28 @@ export default function Player() {
   }, [asStudent, shownKey, shownStageKey, unitKey, params, setParams]);
 
   /**
-   * Fecha o Estágio: os números do Resumo saem do Progresso já gravado (o do
-   * aparelho, no Visitante; o do servidor, relido depois da última gravação,
-   * no Aluno). Se a leitura falhar, usa o Progresso em memória (ou o do cache)
-   * com a entrada que acabou de ser concluída (ele foi lido antes dela).
+   * Fecha o Estágio. O Aluno (2.7): os números vêm do resumo do servidor
+   * (`GET /students/me/units/{unitKey}/stages/{stageKey}/summary`), lido depois
+   * da última gravação; ao refazer, são os da primeira conclusão. Se a rota
+   * falhar (409, 404, rede, 5xx), o erro vai ao Sentry (menos sem rede e o 401,
+   * como as outras leituras do Aluno) e o resumo sai do Progresso relido, como antes. O Visitante:
+   * do Progresso do aparelho. Se a leitura do Progresso falhar, usa o em
+   * memória (ou o do cache) com a entrada que acabou de ser concluída.
    */
   const finishStage = useCallback(
     async (recorded?: ProgressEntry) => {
       const keys = activities.map((entry) => entry.activityKey);
       if (mode === 'student') {
+        const stageKey = stage?.stageKey;
+        if (stageKey) {
+          try {
+            setSummary(fromStudentSummary(await fetchStageSummary(unitKey, stageKey)));
+            return;
+          } catch (failure) {
+            // Sem rede e o 401 seguem a regra das leituras do Aluno (fora do Sentry).
+            reportReadFailure(failure);
+          }
+        }
         let entries: ProgressEntry[];
         try {
           entries = progressEntries(await fetchProgress(client), unitKey);
@@ -273,7 +322,7 @@ export default function Player() {
       }
       setSummary(summarizeStage(progress, keys));
     },
-    [mode, client, store, visitor.progress, activities, unitKey],
+    [mode, client, store, visitor.progress, activities, unitKey, stage?.stageKey],
   );
   const advance = useCallback(
     async (result?: ActivityResult) => {

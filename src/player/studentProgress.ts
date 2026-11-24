@@ -4,7 +4,7 @@
 // gravação falha. O Progresso do Aluno nunca vai para a loja do aparelho.
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 
-import { ApiError, get, postAccepted, type GetData } from '../api/client';
+import { ApiError, get, getAt, postAccepted, type GetData } from '../api/client';
 import { NETWORK_ERROR, STAGE_LOCKED } from '../api/errors';
 import { captureError } from '../observability/sentry';
 import type { Outcome, ProgressEntry } from '../visitor/types';
@@ -44,12 +44,26 @@ export function fetchProgress(client: QueryClient): Promise<StudentProgress> {
   return client.fetchQuery({ ...progressQuery(), staleTime: 0 });
 }
 
+export const STAGE_SUMMARY_PATH = '/api/v1/students/me/units/{unitKey}/stages/{stageKey}/summary';
+
+export type StudentStageSummary = GetData<typeof STAGE_SUMMARY_PATH>;
+
+/** O resumo do Estágio do Aluno no servidor (2.7): XP, média, puladas e tempo da primeira conclusão. */
+export function fetchStageSummary(unitKey: string, stageKey: string): Promise<StudentStageSummary> {
+  return getAt(STAGE_SUMMARY_PATH, { unitKey, stageKey });
+}
+
+/** As Atividades da Unidade que já têm registro do Aluno no Progresso (o refazer, 2.7). */
+export function recordedKeys(progress: StudentProgress | undefined, unitKey: string): Set<string> {
+  return new Set(progressEntries(progress, unitKey).map((entry) => entry.activityKey));
+}
+
 const OUTCOMES: Record<string, Outcome> = { GRADED: 'completed', VIEWED: 'viewed', SKIPPED: 'skipped' };
 
 /**
  * Os resultados da Unidade como entradas do Progresso, para o `summarizeStage`
- * (até a 2.7): `GRADED` é `completed`, e o XP é o `xpAwarded`. Resposta fora do
- * contrato vira lista vazia.
+ * (o resumo local, fallback do Aluno desde a 2.7): `GRADED` é `completed`, e o
+ * XP é o `xpAwarded`. Resposta fora do contrato vira lista vazia.
  */
 export function progressEntries(progress: StudentProgress | undefined, unitKey: string): ProgressEntry[] {
   const results = Array.isArray(progress?.results) ? progress.results : [];

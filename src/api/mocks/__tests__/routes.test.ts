@@ -18,6 +18,7 @@ import {
   resetMockStudentRecords,
   resetMockStudents,
   resetMockVisitorRecords,
+  seedMockStudentRecord,
 } from '../routes';
 
 type Schema = {
@@ -148,6 +149,11 @@ describe('mocks da API', () => {
     // As rotas do Aluno pedem uma sessão do mock: um cadastro antes.
     resetMockStudents();
     await signupMock({ ...ADULT, email: 'antes@exemplo.test' });
+    // O resumo do Estágio (2.7) pede o Estágio concluído (senão, 409).
+    resetMockStudentRecords();
+    // A varredura troca a sessão (cadastro e login de outras contas): o Estágio fica concluído para as duas.
+    seedStage('antes@exemplo.test');
+    seedStage(ADULT.email);
     for (const [path, operations] of Object.entries(routes)) {
       for (const [method, resolve] of Object.entries(operations)) {
         // As Tentativas trazem a exceção da API (`expected` e justificativas): o corretor tem os testes dele.
@@ -214,12 +220,67 @@ describe('mocks da API', () => {
                               : path === '/api/v1/auth/password-recovery'
                                 ? { method: 'POST', body: JSON.stringify({ email: 'antes@exemplo.test' }) }
                                 : undefined;
-        for (const key of keysOf(await resolve?.(new Request(`http://mock${path}`, init)))) {
+        const url = path.endsWith('/summary') ? SUMMARY_URL : `http://mock${path}`;
+        for (const key of keysOf(await resolve?.(new Request(url, init)))) {
           if (secrets.has(key)) leaked.push(`${method.toUpperCase()} ${path}: ${key}`);
         }
       }
     }
     expect(leaked).toEqual([]);
+  });
+});
+
+const SUMMARY_ROUTE = '/api/v1/students/me/units/{unitKey}/stages/{stageKey}/summary';
+const SUMMARY_URL = 'http://mock/api/v1/students/me/units/unit-1/stages/stage-1/summary';
+
+/** Conclui o Estágio 1 do mock para `email`: uma pulada, uma avaliada (80%) e o resto visto, 1 min cada. */
+function seedStage(email: string) {
+  const { activities } = mockRoutes['/api/v1/units/{unitKey}/stages/{stageKey}'].get(new Request('http://mock')).data;
+  activities.forEach((activity, index) =>
+    seedMockStudentRecord(email, {
+      activityKey: activity.activityKey,
+      ...(index === 0
+        ? { outcome: 'SKIPPED' as const, xpAwarded: 0 }
+        : index === 1
+          ? { outcome: 'GRADED' as const, resultPct: 80, xpAwarded: 8 }
+          : { outcome: 'VIEWED' as const, xpAwarded: 0 }),
+      studyTimeMs: 60_000,
+    }),
+  );
+  return activities.length;
+}
+
+describe('resumo do Estágio do Aluno no mock (2.7)', () => {
+  const summary = (url = SUMMARY_URL) => mockRoutes[SUMMARY_ROUTE].get(new Request(url));
+
+  it('Estágio concluído: 200 com os campos do contrato e o cálculo da API', async () => {
+    resetMockStudents();
+    resetMockStudentRecords();
+    await signupMock(ADULT);
+    expect(await problemOf(Promise.resolve().then(() => summary()))).toBe('409 STAGE_NOT_COMPLETED');
+    const total = seedStage(ADULT.email);
+    const { data } = summary();
+    const schema = (
+      openapi.components.schemas as unknown as Record<string, { properties: object; required?: string[] }>
+    ).StudentStageSummary!;
+    for (const key of Object.keys(data)) expect(Object.keys(schema.properties)).toContain(key);
+    for (const key of schema.required ?? []) expect(data).toHaveProperty(key);
+    expect(data).toEqual({
+      unitKey: 'unit-1',
+      stageKey: 'stage-1',
+      xpAwarded: 8,
+      averageResultPct: 80,
+      skippedCount: 1,
+      studyTimeMs: total * 60_000,
+    });
+  });
+
+  it('Unidade ou Estágio desconhecido: 404', async () => {
+    resetMockStudents();
+    await signupMock(ADULT);
+    const url = (unit: string, stage: string) => `http://mock/api/v1/students/me/units/${unit}/stages/${stage}/summary`;
+    expect(await problemOf(Promise.resolve().then(() => summary(url('unit-9', 'stage-1'))))).toBe('404 NOT_FOUND');
+    expect(await problemOf(Promise.resolve().then(() => summary(url('unit-1', 'stage-9'))))).toBe('404 NOT_FOUND');
   });
 });
 

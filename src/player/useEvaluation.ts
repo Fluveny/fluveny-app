@@ -163,7 +163,7 @@ export function useEvaluation({
   const session = usePlayerSession();
   const [ownClock] = useState(() => createStudyClock());
   const clock = session.clock ?? ownClock;
-  const { mode, onSaved, onStageLocked } = session;
+  const { mode, onSaved, onStageLocked, claimReplay } = session;
   const alive = useRef(true);
   const finished = useRef(false);
   useEffect(() => {
@@ -189,12 +189,17 @@ export function useEvaluation({
         answer: sent,
         studyTimeMs: clock.elapsed(),
       };
-      // O Aluno: sem `deviceId` (corpo fechado na API).
-      if (mode === 'student') return post(kind === 'attempt' ? STUDENT_ATTEMPT_PATH : STUDENT_REVEAL_PATH, fields);
+      // O Aluno: sem `deviceId` (corpo fechado na API). O refazer (2.7): `replay` só na primeira
+      // resposta da abertura (e nos reenvios dela); o reveal, nunca.
+      if (mode === 'student') {
+        if (kind === 'reveal') return post(STUDENT_REVEAL_PATH, fields);
+        const replay = claimReplay(activity.activityKey, attemptId);
+        return post(STUDENT_ATTEMPT_PATH, { ...fields, ...(replay ? { replay: true } : {}) });
+      }
       const deviceId = await deviceIdOf(store);
       return post(kind === 'attempt' ? ATTEMPT_PATH : REVEAL_PATH, { ...fields, ...(deviceId ? { deviceId } : {}) });
     },
-    [activity.activityKey, activity.type, versionId, clock, mode, store],
+    [activity.activityKey, activity.type, versionId, clock, mode, store, claimReplay],
   );
 
   const check = useCallback(

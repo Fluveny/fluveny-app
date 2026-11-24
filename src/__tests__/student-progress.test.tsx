@@ -661,6 +661,8 @@ describe('resumo do Estágio do Aluno (2.4)', () => {
         expect(client.getQueryData<{ results: unknown[] }>(PROGRESS_QUERY_KEY)?.results).toHaveLength(1),
       );
       override[`GET ${PROGRESS}`] = offline;
+      // O resumo do servidor (2.7) também sem rede: cai no cálculo local.
+      override[`GET /api/v1/students/me/units/unit-1/stages/stage-1/summary`] = offline;
       await answerChoice();
       expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
       await fireEvent.press(button(CONTINUE_LABEL));
