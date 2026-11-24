@@ -189,8 +189,11 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { flexGrow: 1 },
   scene: { flexGrow: 1, overflow: 'hidden', justifyContent: 'flex-end', alignItems: 'center' },
-  alex: { pointerEvents: 'none', marginBottom: -spacing[6] },
+  // A folha sobe o raio por cima da cena: atrás dos cantos arredondados aparece o quarto, não o azul da tela.
+  // O Alex sobe o mesmo tanto e continua cortado pela folha no mesmo ponto.
+  alex: { pointerEvents: 'none', marginBottom: size.welcomeSheetRadius - spacing[6] },
   sheet: {
+    marginTop: -size.welcomeSheetRadius,
     backgroundColor: color.surface,
     borderTopLeftRadius: size.welcomeSheetRadius,
     borderTopRightRadius: size.welcomeSheetRadius,
