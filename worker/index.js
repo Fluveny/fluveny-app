@@ -10,6 +10,15 @@
 // dela também fica atrás do Cloudflare, que, na subrequisição, o troca pelo IP do
 // Worker. Cabeçalhos de borda e de encaminhamento (`cf-*`, `x-forwarded-*`,
 // `x-real-ip`, `forwarded`, `true-client-ip`) não seguem para a API.
+//
+// O Cron Trigger (`triggers.crons` do wrangler.jsonc) chama o handler `scheduled`,
+// que faz `GET /api/v1/meta` direto no `API_ORIGIN` a cada 10 min, para a API do
+// Render free nunca chegar aos ~15 min parada. Com ela dormindo, o Render barra o
+// Worker com o desafio do Cloudflare (429), e quem a acorda é o `keep-warm.yml`
+// da API. O `/api/v1/meta` é aberto: o ping vai sem o segredo de proxy. Se a API
+// dormir mesmo assim (ping perdido, reinício do Render), as execuções falham até o
+// próximo `keep-warm.yml` (só das 8h às 23h de Brasília; de madrugada, até as 8h)
+// ou um deploy da API acordá-la; o `keep-warm.yml` também pode ser rodado à mão.
 
 // Só o handler sai do módulo: o runtime de Workers trata todo export nomeado como
 // handler e recusa a partida com uma constante exportada.
@@ -18,6 +27,8 @@ const CLIENT_IP_HEADER = 'X-Fluveny-Client-IP';
 const API_PREFIX = '/api/';
 const DROPPED_HEADERS = ['host', 'x-real-ip', 'forwarded', 'true-client-ip'];
 const DROPPED_PREFIXES = ['cf-', 'x-forwarded-'];
+const PING_PATH = '/api/v1/meta';
+const PING_TIMEOUT_MS = 60_000;
 
 /**
  * @typedef {object} Env
@@ -82,6 +93,33 @@ async function proxy(request, env) {
   }
 }
 
+/**
+ * Ping do Cron Trigger. Lança fora de 2xx e na falha de rede, para o Cloudflare
+ * marcar a execução como falha; a mensagem leva só o status, nunca o corpo.
+ * @param {Env} env
+ * @returns {Promise<void>}
+ */
+async function ping(env) {
+  const target = new URL(PING_PATH, env.API_ORIGIN);
+  let response;
+  try {
+    response = await fetch(target, {
+      method: 'GET',
+      redirect: 'manual',
+      signal: AbortSignal.timeout(PING_TIMEOUT_MS),
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.name : 'erro';
+    throw new Error(`Ping de ${PING_PATH} falhou na rede (${reason}).`);
+  }
+  // Libera a conexão sem ler o corpo; um corpo com erro não esconde o status.
+  await response.body?.cancel().catch(() => {});
+  if (!response.ok) {
+    throw new Error(`Ping de ${PING_PATH} respondeu ${response.status}.`);
+  }
+  console.log(`Ping de ${PING_PATH}: ${response.status}.`);
+}
+
 export default {
   /**
    * @param {Request} request
@@ -92,5 +130,14 @@ export default {
     const { pathname } = new URL(request.url);
     if (pathname.startsWith(API_PREFIX)) return proxy(request, env);
     return env.ASSETS.fetch(request);
+  },
+
+  /**
+   * @param {unknown} controller
+   * @param {Env} env
+   * @returns {Promise<void>}
+   */
+  async scheduled(controller, env) {
+    await ping(env);
   },
 };

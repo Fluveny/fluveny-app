@@ -1,6 +1,8 @@
 // Worker de homologação (AD-18, história 1.6): o build web (`dist/`) e o proxy de
 // `/api/*` na mesma origem. A CI publica a cada merge na `main` (job deploy-homolog).
 // O segredo de proxy não fica aqui: vai pelo `wrangler secret put PROXY_SECRET`.
+// O Cron Trigger (UTC) chama o handler `scheduled`, que pinga `/api/v1/meta` a cada
+// 10 min, 24 h por dia, para a API do Render free não dormir (até 744 das 750 h grátis).
 {
   "name": "fluveny-homolog",
   "main": "worker/index.js",
@@ -11,6 +13,9 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"],
+  },
+  "triggers": {
+    "crons": ["*/10 * * * *"],
   },
   "vars": {
     "API_ORIGIN": "https://fluveny-api-homolog.onrender.com",
