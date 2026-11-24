@@ -9,7 +9,15 @@ import { AccessibilityInfo, Platform } from 'react-native';
 import { RootStack } from '../../app/_layout';
 import SignIn, { EMAIL_FIELD, PASSWORD_FIELD, SESSION_ENDED, SIGN_IN_LABEL } from '../../app/(public)/entrar';
 import Root, { TRY_NOW } from '../../app/(public)/index';
-import SignUp from '../../app/(student)/cadastro';
+import SignUp, {
+  ACCEPT_LABEL,
+  BIRTH_FIELD,
+  CREATE_LABEL,
+  EMAIL_FIELD as SIGNUP_EMAIL_FIELD,
+  NAME_FIELD,
+  PASSWORD_FIELD as SIGNUP_PASSWORD_FIELD,
+  PRONOUNS_LATER,
+} from '../../app/(student)/cadastro';
 import StageTwoInvite from '../../app/(student)/convite';
 import Player, { BACK_HOME_LABEL } from '../../app/(student)/player';
 import { messageFor, NETWORK_ERROR, STAGE_LOCKED } from '../api/errors';
@@ -24,6 +32,7 @@ import {
   resetMockStudentRecords,
   resetMockStudents,
   resetMockVisitorRecords,
+  seedMockVisitorRecord,
 } from '../api/mocks/routes';
 import { AppProviders, createQueryClient } from '../AppProviders';
 import { returnPath } from '../auth/sessionEnd';
@@ -49,6 +58,7 @@ import { CLOSE_LABEL } from '../player/PlayerFrame';
 import { registry, type ActivityProps, type ActivityRegistry } from '../player/registry';
 import { CHECK_LABEL, CONTINUE_LABEL, REVEAL_LABEL } from '../player/useEvaluation';
 import { FEEDBACK_TITLES } from '../ui';
+import { visitorStore } from '../visitor/store';
 import { clearVisitorCache } from '../visitor/useVisitor';
 
 jest.mock('../observability/sentry', () => {
@@ -583,5 +593,34 @@ describe('Estágio travado (2.5)', () => {
     expect(await screen.findByText('1 DE 3')).toBeTruthy();
     await answerChoice();
     expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
+  });
+});
+
+describe('migração do Visitante (2.6)', () => {
+  it('do convite ao painel: s1 concluído, o XP do Visitante e a loja só com o deviceId', async () => {
+    const deviceId = await visitorStore.deviceId();
+    await visitorStore.setVariable('name', 'Ana');
+    await visitorStore.setVariable('country', 'Brazil');
+    let xp = 0;
+    for (const activity of MOCK_STAGE.activities) {
+      const receipt = seedMockVisitorRecord(deviceId, activity.activityKey, 10);
+      await visitorStore.recordReceipt(activity.activityKey, receipt);
+      await visitorStore.recordProgress({ activityKey: activity.activityKey, outcome: 'completed', xp: 10 });
+      xp += 10;
+    }
+    await openApp('/cadastro?de=convite');
+    await waitFor(() => expect(screen.getByLabelText(NAME_FIELD).props.value).toBe('Ana'));
+    await fireEvent.changeText(screen.getByLabelText(SIGNUP_EMAIL_FIELD), 'ana@exemplo.test');
+    await fireEvent.changeText(screen.getByLabelText(BIRTH_FIELD), '20051990');
+    await fireEvent.changeText(screen.getByLabelText(SIGNUP_PASSWORD_FIELD), 'segredo123');
+    await fireEvent.press(screen.getByRole('checkbox', { name: ACCEPT_LABEL }));
+    await fireEvent.press(button(CREATE_LABEL));
+    await fireEvent.press(await screen.findByRole('button', { name: PRONOUNS_LATER }));
+    expect(await screen.findByLabelText('Estágio 1, Meet & Greet, concluído')).toBeTruthy();
+    expect(screen.getByLabelText(`XP total: ${xp}`)).toBeTruthy();
+    expect(await visitorStore.receipts()).toEqual([]);
+    expect(await visitorStore.progress()).toEqual([]);
+    expect(await visitorStore.variables()).toEqual({});
+    expect(await visitorStore.deviceId()).toBe(deviceId);
   });
 });
