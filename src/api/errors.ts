@@ -47,6 +47,8 @@ export const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   // Conta (2.9). [ASSUMPTION: copy] Textos propostos na 2.9, a revisar com UX.
   CURRENT_PASSWORD_INVALID: 'A senha atual está incorreta.',
   EMAIL_CHANGE_LINK_INVALID: 'Este link não vale mais. Peça a troca de novo.',
+  // Exclusão da conta (2.10). [ASSUMPTION: copy] Texto proposto na 2.10, a revisar com UX.
+  ACCOUNT_DELETION_FAILED: 'Não conseguimos excluir sua conta agora. Tente de novo.',
   // Painel e sequência (2.5). [ASSUMPTION: copy] Texto proposto na 2.5, a revisar com UX.
   [STAGE_LOCKED]: 'Este Estágio ainda está bloqueado. Conclua o Estágio anterior para desbloquear.',
   CLIENT_HEADER_REQUIRED: GENERIC_MESSAGE,

@@ -1,18 +1,23 @@
 // Conta do Aluno (2.9): dados (nome, país, pronomes), troca de senha e pedido
-// de troca de e-mail. Senha e e-mail digitados só passam pelo corpo da
-// requisição: nunca na URL, na loja, em log ou no Sentry.
+// de troca de e-mail; desde a 2.10, a exclusão da conta. Senha e e-mail
+// digitados só passam pelo corpo da requisição: nunca na URL, na loja, em log
+// ou no Sentry.
 import type { QueryClient } from '@tanstack/react-query';
 
-import { ApiError, patch, postAccepted, postNoContent, type PatchBody } from '../api/client';
+import { ApiError, patch, postAccepted, postNoContent, type NoContentBody, type PatchBody } from '../api/client';
 import { UNKNOWN_ERROR } from '../api/errors';
 import { DASHBOARD_QUERY_KEY } from '../dashboard/dashboard';
 import { captureError } from '../observability/sentry';
+import { clearLocalAccount } from './sessionEnd';
 import { NAME_MAX } from './signupForm';
 import { STUDENT_QUERY_KEY, type StudentProfile } from './student';
 
 export const PROFILE_PATH = '/api/v1/students/me';
 export const CHANGE_PASSWORD_PATH = '/api/v1/students/me/password';
 export const EMAIL_CHANGE_PATH = '/api/v1/students/me/email';
+/** Senha atual errada (2.9, 2.10): 400, nunca 401; vai ao campo da senha. */
+export const CURRENT_PASSWORD_INVALID = 'CURRENT_PASSWORD_INVALID';
+export const DELETION_PATH = '/api/v1/students/me/deletion';
 
 export type ProfileChanges = Pick<PatchBody<'/api/v1/students/me'>, 'name' | 'country'>;
 
@@ -81,5 +86,22 @@ export async function requestEmailChange(
     return failure(error);
   }
   await client.refetchQueries({ queryKey: STUDENT_QUERY_KEY }).catch(captureError);
+  return { kind: 'ok' };
+}
+
+/**
+ * Exclui a conta na hora (2.10, FR-6) com a senha atual. Com o 204, ou o 404
+ * `NOT_FOUND` (a conta já não existe), apaga tudo o que ela deixou no aparelho, como o sair,
+ * sem chamar o logout (a API já encerrou as sessões). Nunca rejeita.
+ */
+export async function deleteAccount(client: QueryClient, currentPassword: string): Promise<AccountOutcome> {
+  const body: NoContentBody<typeof DELETION_PATH> = { currentPassword };
+  try {
+    await postNoContent(DELETION_PATH, body);
+  } catch (error) {
+    if (!(error instanceof ApiError && error.status === 404 && error.code === 'NOT_FOUND')) return failure(error);
+  }
+  // A conta já não existe: falha na limpeza local vai ao Sentry (sem a senha) e não prende a tela.
+  await clearLocalAccount(client).catch(captureError);
   return { kind: 'ok' };
 }

@@ -160,13 +160,14 @@ describe('mocks da API', () => {
         if (path.startsWith('/api/v1/visitor/attempts') || path.startsWith('/api/v1/students/me/attempts')) continue;
         // A redefinição de senha (2.8) responde sem corpo e pede um token emitido: os testes dela estão abaixo.
         if (path === '/api/v1/auth/password-reset') continue;
-        // As rotas da Conta (2.9) respondem sem corpo e pedem senha ou token: os testes delas são os do App.
+        // As rotas da Conta (2.9, 2.10) respondem sem corpo e pedem senha ou token: os testes delas são os do App.
         if (
           [
             '/api/v1/students/me/password',
             '/api/v1/students/me/email',
             '/api/v1/account/email-change/confirm',
             '/api/v1/students/me/dialogue-answers',
+            '/api/v1/students/me/deletion',
           ].includes(path)
         )
           continue;

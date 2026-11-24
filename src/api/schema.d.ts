@@ -257,6 +257,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/students/me/deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Exclui na hora a conta do Aluno da sessão, com a senha atual: perfil, Progresso, sessões (todas, em todos os aparelhos), links e e-mails na fila. Os eventos agregados ficam, sem ligação com a pessoa. Responde 204 sem corpo; no web, com o Set-Cookie que apaga o cookie (Max-Age=0). Um e-mail de confirmação, sem link, vai para o endereço da conta. Senha atual errada: 400 CURRENT_PASSWORD_INVALID (nunca 401); depois de 5 erros em 15 minutos, 429 TOO_MANY_REQUESTS com Retry-After. Campo desconhecido ou senha vazia: 400 VALIDATION_FAILED. Falha no meio: 503 ACCOUNT_DELETION_FAILED, e nada muda. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. */
+        post: operations["deleteMyAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/students/me/dialogue-answers": {
         parameters: {
             query?: never;
@@ -711,6 +728,9 @@ export interface components {
         };
         /** @description Texto do conteúdo: uma string ou as variantes {he, she, they}. */
         ContentText: string | components["schemas"]["PronounVariants"];
+        DeleteAccount: {
+            currentPassword: string;
+        };
         DialogueActivity: {
             activityKey: string;
             lines: components["schemas"]["DialogueLine"][];
@@ -1712,6 +1732,28 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiResponseStudentDashboard"];
                 };
+            };
+        };
+    };
+    deleteMyAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteAccount"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

@@ -1,9 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { AccessibilityInfo, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ACCOUNT_DELETED_REASON } from '../../src/auth/accountPaths';
 import { SIGN_IN_PATH } from '../../src/auth/sessionEnd';
 import { mayHaveSession, useCachedStudent, useStudent } from '../../src/auth/student';
 import { StudentDashboard } from '../../src/dashboard/StudentDashboard';
@@ -24,6 +25,8 @@ export const WELCOME_GOAL = 'Learn how to introduce yourself, talk about yoursel
 export const TRY_NOW = 'EXPERIMENTAR AGORA';
 export const SIGN_UP = 'CRIAR CONTA';
 export const SIGN_IN = 'ENTRAR';
+/** O aviso depois da exclusão da conta (`motivo=conta-excluida`, 2.10). [ASSUMPTION: copy] */
+export const ACCOUNT_DELETED = 'Sua conta foi excluída.';
 /** O convite ao cadastro, no lugar do Estágio 2 (1.20). */
 export const INVITE_PATH = '/convite';
 /** O cadastro (2.1). */
@@ -95,6 +98,14 @@ export function Welcome() {
   const online = useOnline();
   const { height } = useWindowDimensions();
   const { tryNow, busy } = useTryNow(online);
+  const { motivo } = useLocalSearchParams<{ motivo?: string }>();
+  // O aviso da conta excluída aparece uma vez: é anunciado e o `motivo` sai da URL (recarregar não o mostra de novo).
+  const [deleted] = useState(motivo === ACCOUNT_DELETED_REASON);
+  useEffect(() => {
+    if (motivo !== ACCOUNT_DELETED_REASON) return;
+    AccessibilityInfo.announceForAccessibility(ACCOUNT_DELETED);
+    router.setParams({ motivo: undefined });
+  }, [motivo, router]);
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       {online ? null : (
@@ -102,6 +113,11 @@ export function Welcome() {
           <StatusBanner tone="offline" text={OFFLINE_TEXT} />
         </View>
       )}
+      {deleted ? (
+        <View style={styles.banner}>
+          <StatusBanner tone="notice" text={ACCOUNT_DELETED} testID="welcome-account-deleted" />
+        </View>
+      ) : null}
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} bounces={false}>
         <View style={[styles.scene, { minHeight: Math.round(sceneHeight(height) * SCENE_SHARE) }]}>
           <Room />
