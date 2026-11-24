@@ -9,6 +9,7 @@ import { AccessibilityInfo, Platform } from 'react-native';
 import { RootStack } from '../../app/_layout';
 import SignIn, { EMAIL_FIELD, PASSWORD_FIELD, SESSION_ENDED, SIGN_IN_LABEL } from '../../app/(public)/entrar';
 import Root, { TRY_NOW } from '../../app/(public)/index';
+import Account from '../../app/(student)/conta';
 import SignUp, {
   ACCEPT_LABEL,
   BIRTH_FIELD,
@@ -42,6 +43,7 @@ import { CONFIRM_TO_RECOVER, SIGN_OUT_LABEL, studentGreeting } from '../auth/Stu
 import type { Dashboard, DashboardUnit } from '../dashboard/dashboard';
 import { focusUnit } from '../dashboard/dashboard';
 import {
+  ACCOUNT_LABEL,
   ALL_DONE,
   DASHBOARD_CONTINUE,
   DASHBOARD_RETRY,
@@ -155,6 +157,7 @@ async function openApp(initialUrl: string, student?: StudentProfile) {
       '(student)/player': Player,
       '(student)/convite': StageTwoInvite,
       '(student)/cadastro': SignUp,
+      '(student)/conta': Account,
     },
     { initialUrl },
   );
@@ -398,7 +401,8 @@ describe('painel do Aluno (2.5)', () => {
     expect(await screen.findByText(messageFor('INTERNAL_ERROR'))).toBeTruthy();
     expect(screen.getByRole('header', { name: studentGreeting('Ana') })).toBeTruthy();
     expect(screen.getByTestId('email-confirmation-banner')).toBeTruthy();
-    expect(screen.getByRole('button', { name: SIGN_OUT_LABEL })).toBeTruthy();
+    expect(screen.getByRole('button', { name: ACCOUNT_LABEL })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: SIGN_OUT_LABEL })).toBeNull();
     expect(captureError).toHaveBeenCalledWith(expect.objectContaining({ status: 500 }));
     delete override[`GET ${DASHBOARD}`];
     await fireEvent.press(button(DASHBOARD_RETRY));

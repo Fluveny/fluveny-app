@@ -44,6 +44,9 @@ export const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   LOGIN_THROTTLED: 'Muitas tentativas seguidas. Espere um pouco e tente de novo.',
   // Recuperação de senha (2.8). [ASSUMPTION] Texto proposto na 2.8, a revisar com UX.
   PASSWORD_RESET_LINK_INVALID: 'Este link de redefinição não vale mais. Peça outro.',
+  // Conta (2.9). [ASSUMPTION: copy] Textos propostos na 2.9, a revisar com UX.
+  CURRENT_PASSWORD_INVALID: 'A senha atual está incorreta.',
+  EMAIL_CHANGE_LINK_INVALID: 'Este link não vale mais. Peça a troca de novo.',
   // Painel e sequência (2.5). [ASSUMPTION: copy] Texto proposto na 2.5, a revisar com UX.
   [STAGE_LOCKED]: 'Este Estágio ainda está bloqueado. Conclua o Estágio anterior para desbloquear.',
   CLIENT_HEADER_REQUIRED: GENERIC_MESSAGE,

@@ -1,13 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Platform, StyleSheet, Text, View } from 'react-native';
 
+import { QueryClientContext } from '@tanstack/react-query';
+
+import { ApiError, putNoContent } from '../../api/client';
 import { messageFor, UNKNOWN_ERROR } from '../../api/errors';
+import { DASHBOARD_QUERY_KEY } from '../../dashboard/dashboard';
+import { STUDENT_QUERY_KEY, useCachedStudent, type StudentProfile } from '../../auth/student';
 import { captureError } from '../../observability/sentry';
 import { RenderedText, renderLabel, useRenderVars, type ContentText, type RenderContext } from '../../renderer';
 import { motion, SceneFrame, SpeechBubble, TextField, useReducedMotion, WordChip } from '../../ui';
 import { color, spacing, typography } from '../../ui/tokens';
 import { useVisitor } from '../../visitor/useVisitor';
 import countries from '../countries.json';
+import { usePlayerSession } from '../playerSession';
 import type { ActivityProps, ActivityView } from '../registry';
 
 type DialogueView = Extract<ActivityView, { type: 'dialogue' }>;
@@ -45,12 +51,18 @@ function plain(text: ContentText | undefined, { vars, pronoun }: RenderContext):
  * em balões, uma a uma a cada 650 ms (todas juntas com "remover animações").
  * Uma fala com `ask` pausa as falas e mostra a pergunta abaixo da cena: o nome
  * (campo de texto) ou o país (chips de escolha única). CONTINUAR, com a
- * resposta válida, grava a Variável do Aluno (só no aparelho) e retoma as
- * falas; depois da última, conclui com `viewed`. Sem correção, sem rede.
+ * resposta válida, grava a resposta e retoma as falas; depois da última,
+ * conclui com `viewed`. Sem correção. O Visitante grava a Variável só no
+ * aparelho, sem rede; o Aluno (2.9) grava no perfil (`PUT
+ * /students/me/dialogue-answers`) e, no 204, atualiza o perfil em cache.
  */
-export function DialogueActivity({ activity, setFooter, advance }: ActivityProps) {
+export function DialogueActivity({ activity, versionId, setFooter, advance }: ActivityProps) {
   const context = useRenderVars();
   const { variables, store } = useVisitor();
+  const { mode } = usePlayerSession();
+  const student = useCachedStudent();
+  // Fora de um `QueryClientProvider` (testes de uma Atividade solta), sem cliente: só o Visitante.
+  const client = useContext(QueryClientContext);
   const reduced = useReducedMotion();
   const view = activity as DialogueView;
   const lines = useMemo<DialogueLine[]>(() => (Array.isArray(view.lines) ? view.lines : []), [view.lines]);
@@ -63,8 +75,8 @@ export function DialogueActivity({ activity, setFooter, advance }: ActivityProps
   const [nameDraft, setNameDraft] = useState<string | undefined>(undefined);
   const [countryDraft, setCountryDraft] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
-  /** A gravação da resposta falhou: a pergunta fica, com a mensagem no rodapé. */
-  const [failed, setFailed] = useState(false);
+  /** A gravação da resposta falhou: a pergunta fica, com `messageFor(code)` no rodapé. */
+  const [failed, setFailed] = useState<string | null>(null);
 
   // A fala com pergunta sem resposta pausa as seguintes.
   const pauseAt = lines.findIndex((line) => line.ask && !answered.has(line.ask));
@@ -91,8 +103,18 @@ export function DialogueActivity({ activity, setFooter, advance }: ActivityProps
     if (text) AccessibilityInfo.announceForAccessibility(text);
   }, [count, lines, context]);
 
-  const name = nameDraft ?? variables.name ?? '';
-  const country = countryDraft ?? variables.country ?? '';
+  // O Aluno (2.9): o pré-preenchimento vem da conta antes das Variáveis do aparelho.
+  const asStudent = mode === 'student' && client !== undefined;
+  // O Aluno pré-preenche só da conta: as Variáveis do aparelho podem ser de outro Visitante.
+  const name = nameDraft ?? (asStudent ? student?.name : variables.name) ?? '';
+  const country = countryDraft ?? (asStudent ? student?.country : variables.country) ?? '';
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const answer = asking === 'name' ? name.trim() : asking === 'country' ? country : null;
   const valid =
     asking === 'name' ? validName(name) : asking === 'country' ? COUNTRIES.some((c) => c.name === country) : true;
@@ -100,22 +122,38 @@ export function DialogueActivity({ activity, setFooter, advance }: ActivityProps
   const onContinue = useCallback(async () => {
     if (asking && answer !== null) {
       setSaving(true);
-      setFailed(false);
+      setFailed(null);
       try {
-        // A resposta fica só no aparelho (nunca vai para a API).
-        await store.setVariable(asking, answer);
+        if (asStudent) {
+          // O Aluno grava no perfil (2.9); o Visitante, só no aparelho (nunca vai para a API).
+          await putNoContent('/api/v1/students/me/dialogue-answers', {
+            versionId,
+            activityKey: view.activityKey,
+            [asking]: answer,
+          });
+          client?.setQueryData<StudentProfile | null>(STUDENT_QUERY_KEY, (profile) =>
+            profile ? { ...profile, [asking]: answer } : profile,
+          );
+          // A saudação do painel traz o nome.
+          void client?.invalidateQueries({ queryKey: DASHBOARD_QUERY_KEY });
+        } else {
+          await store.setVariable(asking, answer);
+        }
       } catch (error) {
-        captureError(error);
-        setFailed(true);
+        if (!(error instanceof ApiError)) captureError(error);
+        if (mounted.current) {
+          setFailed(error instanceof ApiError ? error.code : UNKNOWN_ERROR);
+          setSaving(false);
+        }
         return;
-      } finally {
-        setSaving(false);
       }
+      if (!mounted.current) return;
+      setSaving(false);
       setAnswered((previous) => new Set(previous).add(asking));
       return;
     }
     advance({ outcome: 'viewed', xp: 0 });
-  }, [asking, answer, store, advance]);
+  }, [asking, answer, asStudent, versionId, view.activityKey, client, store, advance]);
 
   useEffect(() => {
     setFooter({
@@ -123,7 +161,7 @@ export function DialogueActivity({ activity, setFooter, advance }: ActivityProps
       disabled: entering || !valid,
       busy: saving,
       onPress: () => void onContinue(),
-      ...(failed ? { message: messageFor(UNKNOWN_ERROR) } : {}),
+      ...(failed ? { message: messageFor(failed) } : {}),
     });
   }, [setFooter, entering, valid, saving, failed, onContinue]);
 

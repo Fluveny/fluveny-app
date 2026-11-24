@@ -90,6 +90,15 @@
 // `next` na primeira Atividade sem registro, a média dos `GRADED` e a `unit-2`
 // "em breve", sem Estágios. `forceMockStageLocked(true)` faz a Tentativa, o
 // reveal e a conclusão do Aluno responderem `409 STAGE_LOCKED`, sem gravar nada.
+//
+// Conta (2.9): `PATCH /students/me` grava nome, país e pronomes (ausente não
+// muda, `null` limpa). `POST /students/me/password` (204) e `POST
+// /students/me/email` (202, grava o `pendingEmail` e emite um token de uso
+// único, `mockEmailChangeToken()`) conferem a senha atual (400
+// `CURRENT_PASSWORD_INVALID`); e-mail de outra conta (`seedMockAccount`) dá 409.
+// `POST /account/email-change/confirm` (204) troca o e-mail; token desconhecido
+// ou usado, 410; e-mail tomado antes, 409. `PUT /students/me/dialogue-answers`
+// (204) grava o campo que o Diálogo pergunta. `forceMockAccount` força o 429.
 import mockCountries from '../../player/countries.json';
 import type { components, paths } from '../schema';
 
@@ -1286,6 +1295,9 @@ export const MOCK_CREATED: ReadonlySet<string> = new Set(['POST /api/v1/auth/sig
 export const MOCK_NO_CONTENT: ReadonlySet<string> = new Set([
   'POST /api/v1/auth/logout',
   'POST /api/v1/auth/password-reset',
+  'POST /api/v1/students/me/password',
+  'POST /api/v1/account/email-change/confirm',
+  'PUT /api/v1/students/me/dialogue-answers',
 ]);
 
 type MockStudent = components['schemas']['StudentProfile'];
@@ -1314,6 +1326,12 @@ let lastPasswordResetToken: string | null = null;
 let passwordResetSeq = 0;
 /** Resposta forçada do pedido de recuperação (testes e mock manual): `429`. */
 let forcedRecovery: 'TOO_MANY_REQUESTS' | null = null;
+/** Os tokens de troca de e-mail válidos (2.9): a conta (e-mail atual) e o e-mail novo. Um por conta: o pedido novo substitui. */
+const emailChangeTokens = new Map<string, { email: string; newEmail: string }>();
+let lastEmailChangeToken: string | null = null;
+let emailChangeSeq = 0;
+/** Resposta forçada das rotas da Conta (testes e mock manual): `429` ou rede. */
+let forcedAccount: 'TOO_MANY_REQUESTS' | null = null;
 
 /** Esquece as contas, a sessão e as confirmações do mock (testes). */
 export function resetMockStudents() {
@@ -1329,6 +1347,30 @@ export function resetMockStudents() {
   lastPasswordResetToken = null;
   forcedRecovery = null;
   forcedStageLocked = false;
+  emailChangeTokens.clear();
+  lastEmailChangeToken = null;
+  forcedAccount = null;
+}
+
+/** O token do último link de troca de e-mail emitido pelo mock (2.9). */
+export function mockEmailChangeToken(): string | null {
+  return lastEmailChangeToken;
+}
+
+/** Força a resposta da troca de senha, do pedido de troca de e-mail e do PATCH do perfil: `429` ou nada. */
+export function forceMockAccount(code: 'TOO_MANY_REQUESTS' | null) {
+  forcedAccount = code;
+}
+
+/** Uma conta extra no mock, sem sessão (o e-mail que outra conta já tem, nos testes). */
+export function seedMockAccount(email: string, password: string) {
+  const key = email.toLowerCase();
+  mockAccounts.set(key, {
+    password,
+    student: { email: key, name: null, pronounSet: null, emailConfirmed: true, emailConfirmationOverdue: false },
+    deactivated: false,
+  });
+  confirmedEmails.add(key);
 }
 
 /** Marca que o prazo de 7 dias para confirmar o e-mail da conta já passou. */
@@ -1515,6 +1557,7 @@ async function mockSignup(request: Request) {
   const student: MockStudent = {
     email: key,
     name: name || null,
+    ...(typeof body.country === 'string' ? { country: body.country } : {}),
     pronounSet: null,
     emailConfirmed: false,
     emailConfirmationOverdue: false,
@@ -1653,23 +1696,156 @@ function mockResendConfirmation(request: Request): undefined {
   return undefined;
 }
 
-/** `PATCH /students/me`: só `pronounSet`, um dos três ou nulo. */
-async function mockUpdatePronouns(request: Request) {
+/** Grava o perfil do Aluno da sessão na conta e na sessão do mock. */
+function saveMockStudent(updated: MockStudent): MockStudent {
+  mockSession = { ...mockSession!, student: updated };
+  const account = mockAccounts.get(updated.email);
+  if (account) account.student = updated;
+  return currentProfile(updated);
+}
+
+const PROFILE_FIELDS = new Set(['name', 'country', 'pronounSet']);
+
+/** `PATCH /students/me` (2.9): nome, país e pronomes, todos opcionais, ao menos um; `null` limpa. */
+async function mockUpdateProfile(request: Request) {
   const student = mockStudentOf(request);
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (
     !body ||
     typeof body !== 'object' ||
-    Object.keys(body).some((key) => key !== 'pronounSet') ||
-    !(body.pronounSet === null || ['HE', 'SHE', 'THEY'].includes(body.pronounSet as string))
+    Object.keys(body).length === 0 ||
+    Object.keys(body).some((key) => !PROFILE_FIELDS.has(key)) ||
+    ('pronounSet' in body &&
+      !(body.pronounSet === null || ['HE', 'SHE', 'THEY'].includes(body.pronounSet as string))) ||
+    ('name' in body &&
+      body.name !== null &&
+      (typeof body.name !== 'string' || !body.name.trim() || body.name.trim().length > 60)) ||
+    ('country' in body &&
+      body.country !== null &&
+      (typeof body.country !== 'string' || !MOCK_COUNTRIES.has(body.country)))
   ) {
     throw new MockProblem(400, 'VALIDATION_FAILED');
   }
-  const updated: MockStudent = { ...student, pronounSet: body.pronounSet as MockStudent['pronounSet'] };
-  mockSession = { ...mockSession!, student: updated };
-  const account = mockAccounts.get(updated.email);
-  if (account) account.student = updated;
-  return { data: updated };
+  if (forcedAccount) throw new MockProblem(429, forcedAccount);
+  const updated: MockStudent = { ...student };
+  if ('pronounSet' in body) updated.pronounSet = body.pronounSet as MockStudent['pronounSet'];
+  if ('name' in body) updated.name = body.name === null ? null : (body.name as string).trim();
+  if ('country' in body) updated.country = body.country as string | null;
+  return { data: saveMockStudent(updated) };
+}
+
+/** A conta da sessão com a senha conferida: errada, 400 `CURRENT_PASSWORD_INVALID` (nunca 401). */
+function mockAccountWithPassword(student: MockStudent, password: unknown): MockAccount {
+  const account = mockAccounts.get(student.email);
+  if (!account || typeof password !== 'string' || account.password !== password) {
+    throw new MockProblem(400, 'CURRENT_PASSWORD_INVALID');
+  }
+  return account;
+}
+
+/** `POST /students/me/password` (2.9): 204; a sessão desta requisição segue. */
+async function mockChangePassword(request: Request): Promise<undefined> {
+  const student = mockStudentOf(request);
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  if (
+    !body ||
+    typeof body !== 'object' ||
+    Object.keys(body).some((key) => key !== 'currentPassword' && key !== 'newPassword') ||
+    typeof body.currentPassword !== 'string' ||
+    !mockPasswordOk(body.newPassword)
+  ) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  if (forcedAccount) throw new MockProblem(429, forcedAccount);
+  const account = mockAccountWithPassword(student, body.currentPassword);
+  account.password = body.newPassword as string;
+  return undefined;
+}
+
+/** `POST /students/me/email` (2.9): 202 e o `pendingEmail`; o pedido novo substitui o anterior. */
+async function mockRequestEmailChange(request: Request): Promise<undefined> {
+  const student = mockStudentOf(request);
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  const newEmail = typeof body?.newEmail === 'string' ? body.newEmail.trim().toLowerCase() : '';
+  if (
+    !body ||
+    typeof body !== 'object' ||
+    Object.keys(body).some((key) => key !== 'currentPassword' && key !== 'newEmail') ||
+    typeof body.currentPassword !== 'string' ||
+    !MOCK_EMAIL.test(newEmail) ||
+    newEmail.length > 254 ||
+    newEmail === student.email
+  ) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  if (forcedAccount) throw new MockProblem(429, forcedAccount);
+  mockAccountWithPassword(student, body.currentPassword);
+  if (mockAccounts.has(newEmail)) throw new MockProblem(409, 'EMAIL_ALREADY_REGISTERED');
+  for (const [token, owner] of emailChangeTokens) if (owner.email === student.email) emailChangeTokens.delete(token);
+  emailChangeSeq += 1;
+  const token = `mock-troca-${emailChangeSeq}`;
+  emailChangeTokens.set(token, { email: student.email, newEmail });
+  lastEmailChangeToken = token;
+  saveMockStudent({ ...student, pendingEmail: newEmail });
+  return undefined;
+}
+
+/** `POST /account/email-change/confirm` (2.9): pública; 204; token desconhecido ou usado, 410; e-mail tomado, 409. */
+async function mockConfirmEmailChange(request: Request): Promise<undefined> {
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  if (
+    !body ||
+    typeof body !== 'object' ||
+    Object.keys(body).some((key) => key !== 'token') ||
+    typeof body.token !== 'string' ||
+    !body.token.trim() ||
+    body.token.length > 128
+  ) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  const change = emailChangeTokens.get(body.token);
+  const account = change ? mockAccounts.get(change.email) : undefined;
+  if (!change || !account) throw new MockProblem(410, 'EMAIL_CHANGE_LINK_INVALID');
+  emailChangeTokens.delete(body.token);
+  if (mockAccounts.has(change.newEmail)) {
+    account.student = { ...account.student, pendingEmail: null };
+    if (mockSession?.student.email === change.email) mockSession = { ...mockSession, student: account.student };
+    throw new MockProblem(409, 'EMAIL_ALREADY_REGISTERED');
+  }
+  mockAccounts.delete(change.email);
+  account.student = { ...account.student, email: change.newEmail, pendingEmail: null };
+  mockAccounts.set(change.newEmail, account);
+  confirmedEmails.add(change.newEmail);
+  if (mockSession?.student.email === change.email) mockSession = { ...mockSession, student: account.student };
+  return undefined;
+}
+
+/** `PUT /students/me/dialogue-answers` (2.9): 204; só o campo que o Diálogo da versão pergunta. */
+async function mockSaveDialogueAnswers(request: Request): Promise<undefined> {
+  const student = mockStudentOf(request);
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  const activity = stage1Activities.find((item) => item.activityKey === body?.activityKey);
+  const asks = new Set(
+    activity?.type === 'dialogue' ? activity.lines.map((line) => line.ask).filter((ask) => ask !== undefined) : [],
+  );
+  if (
+    !body ||
+    typeof body !== 'object' ||
+    Object.keys(body).some((key) => !['versionId', 'activityKey', 'name', 'country'].includes(key)) ||
+    body.versionId !== VERSION_ID ||
+    (body.name === undefined && body.country === undefined) ||
+    (body.name !== undefined &&
+      (!asks.has('name') || typeof body.name !== 'string' || !body.name.trim() || body.name.length > 60)) ||
+    (body.country !== undefined &&
+      (!asks.has('country') || typeof body.country !== 'string' || !MOCK_COUNTRIES.has(body.country)))
+  ) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  const updated: MockStudent = { ...student };
+  if (typeof body.name === 'string') updated.name = body.name.trim();
+  if (typeof body.country === 'string') updated.country = body.country;
+  saveMockStudent(updated);
+  return undefined;
 }
 
 export const mockRoutes: MockRoutes = {
@@ -1716,7 +1892,7 @@ export const mockRoutes: MockRoutes = {
   },
   '/api/v1/students/me': {
     get: (request) => ({ data: mockStudentOf(request) }),
-    patch: (request) => mockUpdatePronouns(request),
+    patch: (request) => mockUpdateProfile(request),
   },
   '/api/v1/students/me/attempts': {
     post: (request) => gradeAttempt(request, false, 'student'),
@@ -1741,6 +1917,18 @@ export const mockRoutes: MockRoutes = {
   },
   '/api/v1/students/me/email-confirmation': {
     post: (request) => mockResendConfirmation(request),
+  },
+  '/api/v1/students/me/password': {
+    post: (request) => mockChangePassword(request),
+  },
+  '/api/v1/students/me/email': {
+    post: (request) => mockRequestEmailChange(request),
+  },
+  '/api/v1/account/email-change/confirm': {
+    post: (request) => mockConfirmEmailChange(request),
+  },
+  '/api/v1/students/me/dialogue-answers': {
+    put: (request) => mockSaveDialogueAnswers(request),
   },
   '/api/v1/account/email-confirmation': {
     post: (request) => mockConfirmEmail(request),

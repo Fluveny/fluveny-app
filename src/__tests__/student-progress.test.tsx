@@ -8,6 +8,7 @@ import { AccessibilityInfo, AppState, Platform, Text, type AppStateStatus } from
 import { RootStack } from '../../app/_layout';
 import SignIn, { EMAIL_FIELD, PASSWORD_FIELD, SESSION_ENDED, SIGN_IN_LABEL } from '../../app/(public)/entrar';
 import Root, { TRY_NOW } from '../../app/(public)/index';
+import Account from '../../app/(student)/conta';
 import SignUp from '../../app/(student)/cadastro';
 import StageTwoInvite from '../../app/(student)/convite';
 import Player, { RETRY_LABEL, SAVE_FAILED, SAVE_RETRY_LABEL, SAVING_LABEL } from '../../app/(student)/player';
@@ -153,6 +154,7 @@ async function openApp(initialUrl: string, student?: StudentProfile) {
       '(student)/player': Player,
       '(student)/convite': StageTwoInvite,
       '(student)/cadastro': SignUp,
+      '(student)/conta': Account,
     },
     { initialUrl },
   );
@@ -447,7 +449,7 @@ describe('conclusão e "salvar falhou" do Aluno (2.4)', () => {
     servedStage = { ...MOCK_STAGE, activities: [DIALOGUE, CHOICE] };
   });
 
-  it('Diálogo: CONTINUAR mostra SALVANDO… e depois avança; nome e país ficam no aparelho', async () => {
+  it('Diálogo: CONTINUAR mostra SALVANDO… e depois avança; nome e país vão ao perfil, não ao aparelho (2.9)', async () => {
     let release: () => void = () => {};
     const held = new Promise<void>((resolve) => (release = resolve));
     override[`POST ${COMPLETIONS}`] = async () => {
@@ -471,13 +473,22 @@ describe('conclusão e "salvar falhou" do Aluno (2.4)', () => {
       ['activityKey', 'attemptId', 'outcome', 'studyTimeMs', 'versionId'].sort(),
     );
     expect(completion!.body).toEqual(expect.objectContaining({ activityKey: DIALOGUE.activityKey, outcome: 'VIEWED' }));
-    // O Diálogo grava nome e país no aparelho (o renderizador); o Progresso, não.
-    expect(await visitorStore.variables()).toEqual(expect.objectContaining({ name: 'Zoraide', country: 'Brazil' }));
+    // Desde a 2.9, o Diálogo do Aluno grava nome e país no perfil (PUT), não no aparelho.
+    const answers = ofRoute('PUT', '/api/v1/students/me/dialogue-answers').map((request) => request.body);
+    expect(answers).toEqual([
+      expect.objectContaining({ activityKey: DIALOGUE.activityKey, name: 'Zoraide' }),
+      expect.objectContaining({ activityKey: DIALOGUE.activityKey, country: 'Brazil' }),
+    ]);
+    expect(client.getQueryData(STUDENT_QUERY_KEY)).toEqual(
+      expect.objectContaining({ name: 'Zoraide', country: 'Brazil' }),
+    );
+    expect(await visitorStore.variables()).not.toHaveProperty('name');
     expect(await visitorStore.progress()).toEqual([]);
     expect(await visitorStore.receipts()).toEqual([]);
     expectStudentOnly();
-    // Nenhum texto do aluno sai do aparelho.
-    expect(JSON.stringify(sent.map((request) => request.body))).not.toMatch(/Zoraide|Brazil/);
+    // Fora das respostas do Diálogo, nenhum texto do aluno sai.
+    const others = sent.filter((request) => !request.path.endsWith('/dialogue-answers'));
+    expect(JSON.stringify(others.map((request) => request.body))).not.toMatch(/Zoraide|Brazil/);
   });
 
   it('conclusão falha (500): TENTAR SALVAR DE NOVO com a linha vermelha, sem avançar; o toque reenvia o mesmo attemptId', async () => {
@@ -788,7 +799,8 @@ describe('painel e sair (2.4, 2.5)', () => {
     expect(client.getQueryData(PROGRESS_QUERY_KEY)).toEqual({ xpTotal: 0, results: [] });
     await fireEvent.press(button(CLOSE_LABEL));
     expect(await screen.findByTestId('student-dashboard')).toBeTruthy();
-    await fireEvent.press(screen.getByTestId('student-home-sign-out'));
+    await fireEvent.press(screen.getByTestId('dashboard-account'));
+    await fireEvent.press(await screen.findByTestId('student-home-sign-out'));
     expect(await screen.findByText(SIGN_OUT_BODY, { exact: false })).toBeTruthy();
     await fireEvent.press(button(SIGN_OUT_CONFIRM));
     expect(await screen.findByRole('button', { name: TRY_NOW })).toBeTruthy();

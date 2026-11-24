@@ -65,6 +65,9 @@ export function RootStack() {
         {/* Recuperar senha e o link de redefinição (2.8): públicas, com ou sem sessão. */}
         <Stack.Screen name="(public)/recuperar-senha" />
         <Stack.Screen name="(public)/redefinir-senha" />
+        {/* A Conta (2.9), logada, e o link da troca de e-mail: pública, com ou sem sessão. */}
+        <Stack.Screen name="(student)/conta" />
+        <Stack.Screen name="(public)/confirmar-novo-email" />
         {/* Catálogo do kit (1.8): só abre com __DEV__; no release, redireciona para /. */}
         <Stack.Screen name="kit" />
       </Stack.Protected>

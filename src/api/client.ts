@@ -155,6 +155,21 @@ type NoContentArgs<P extends NoContentPaths> = [NoContentBody<P>] extends [never
   ? [body?: undefined, init?: RequestInit]
   : [body: NoContentBody<P>, init?: RequestInit];
 
+type PutNoContentPaths = {
+  [P in keyof paths]: paths[P] extends {
+    put: { requestBody: { content: { 'application/json': unknown } }; responses: { 204: unknown } };
+  }
+    ? P
+    : never;
+}[keyof paths];
+
+/** O corpo JSON de `PUT path` de uma rota que responde 204 sem corpo. */
+export type PutBody<P extends PutNoContentPaths> = paths[P]['put'] extends {
+  requestBody: { content: { 'application/json': infer B } };
+}
+  ? B
+  : never;
+
 /**
  * Entrar e sair (2.3): o 401 deles não é sessão que acabou no meio. Entrar
  * mostra o próprio erro; o sair cuida da sessão local.
@@ -353,4 +368,15 @@ export function patch<P extends PatchPaths>(path: P, body: PatchBody<P>, init?: 
   const headers = new Headers(init?.headers);
   headers.set('Content-Type', 'application/json');
   return request<PatchData<P>>(path, { ...init, method: 'PATCH', headers, body: JSON.stringify(body) });
+}
+
+/** `PUT` de uma rota que responde `204` sem corpo (as respostas do Diálogo do Aluno, 2.9), com o corpo como JSON. */
+export function putNoContent<P extends PutNoContentPaths>(
+  path: P,
+  body: PutBody<P>,
+  init?: RequestInit,
+): Promise<void> {
+  const headers = new Headers(init?.headers);
+  headers.set('Content-Type', 'application/json');
+  return request<void>(path, { ...init, method: 'PUT', headers, body: JSON.stringify(body) }, readNothing);
 }
