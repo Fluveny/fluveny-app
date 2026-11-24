@@ -23,6 +23,7 @@ import ConfirmEmail from '../../app/(public)/confirmar-email';
 import Root, { SIGN_IN, WELCOME_TITLE } from '../../app/(public)/index';
 import PrivacyPolicy from '../../app/(public)/privacidade';
 import TermsOfUse from '../../app/(public)/termos';
+import Account from '../../app/(student)/conta';
 import SignUp, { SIGNUP_TITLE } from '../../app/(student)/cadastro';
 import StageTwoInvite from '../../app/(student)/convite';
 import Player from '../../app/(student)/player';
@@ -120,6 +121,7 @@ async function openApp(initialUrl = '/') {
       '(student)/player': Player,
       '(student)/convite': StageTwoInvite,
       '(student)/cadastro': SignUp,
+      '(student)/conta': Account,
     },
     { initialUrl },
   );
@@ -385,8 +387,16 @@ async function signedIn() {
   return visitorStore.deviceId();
 }
 
+/** Abre a Conta pelo ícone do painel (2.9), onde fica o Sair; já nela, não faz nada. */
+async function openAccount() {
+  if (screen.queryByTestId('account-screen')) return;
+  await fireEvent.press(await screen.findByRole('button', { name: 'Conta' }));
+  await screen.findByTestId('account-screen');
+}
+
 /** Toca "Sair" e confirma SAIR na folha. */
 async function confirmSignOut() {
+  await openAccount();
   await fireEvent.press(button(SIGN_OUT_LABEL));
   await fireEvent.press(await screen.findByTestId('sign-out-sheet-confirm'));
 }
@@ -394,12 +404,13 @@ async function confirmSignOut() {
 describe('Sair (2.3)', () => {
   it('"Sair" abre a folha; CANCELAR fecha sem POST e sem apagar nada', async () => {
     await signedIn();
+    await openAccount();
     await fireEvent.press(button(SIGN_OUT_LABEL));
     expect(await screen.findByText(`${SIGN_OUT_TITLE} ${SIGN_OUT_BODY}`)).toBeTruthy();
     await fireEvent.press(screen.getByTestId('sign-out-sheet-decline'));
     await waitFor(() => expect(screen.queryByText(`${SIGN_OUT_TITLE} ${SIGN_OUT_BODY}`)).toBeNull());
     expect(ofRoute('POST', LOGOUT)).toHaveLength(0);
-    expect(screen.getByRole('header', { name: studentGreeting('Ana') })).toBeTruthy();
+    expect(screen.getByTestId('account-screen')).toBeTruthy();
     expect(global.__secureStore.size).toBe(1);
     expect(await visitorStore.progress()).toHaveLength(1);
   });
@@ -408,6 +419,7 @@ describe('Sair (2.3)', () => {
     await signedIn();
     let answer!: (response: Response) => void;
     override[`POST ${LOGOUT}`] = () => new Promise<Response>((resolve) => (answer = resolve));
+    await openAccount();
     await fireEvent.press(button(SIGN_OUT_LABEL));
     const confirm = await screen.findByTestId('sign-out-sheet-confirm');
     await act(async () => {
@@ -478,10 +490,9 @@ describe('Sair (2.3)', () => {
     override[`POST ${LOGOUT}`] = () => Promise.reject(new TypeError('Network request failed'));
     await confirmSignOut();
     expect(await screen.findByText(messageFor(NETWORK_ERROR))).toBeTruthy();
-    expect(screen.getByRole('header', { name: studentGreeting('Ana') })).toBeTruthy();
+    expect(screen.getByTestId('account-screen')).toBeTruthy();
     expect(global.__secureStore.size).toBe(1);
     expect(await visitorStore.progress()).toHaveLength(1);
-    expect(screen.getByTestId('dashboard-play')).toBeTruthy();
   });
 });
 

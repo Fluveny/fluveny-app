@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/v1/account/email-change/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Confirma a troca de e-mail com o token do link enviado ao e-mail novo (uso único, vale 24 horas): o e-mail da conta passa a ser o novo, já confirmado. As sessões seguem. Responde 204 sem corpo. Token desconhecido, vencido, já usado ou de um pedido substituído: 410 EMAIL_CHANGE_LINK_INVALID. Outra conta pegou o e-mail antes: 409 EMAIL_ALREADY_REGISTERED, e o pedido é desfeito. Campo desconhecido dá 400. Acima do limite por IP, 429 TOO_MANY_REQUESTS com Retry-After. */
+        post: operations["confirmEmailChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/account/email-confirmation": {
         parameters: {
             query?: never;
@@ -168,7 +185,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** @description Grava os pronomes do Aluno da sessão; nulo volta ao padrão they/them. Campo desconhecido dá 400. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. */
+        /** @description Grava nome, país e pronomes do Aluno da sessão. Todos opcionais, ao menos um presente: ausente não muda; null limpa (pronomes voltam a they/them). name até 60 caracteres; country é o name em inglês de um país de countries.json. Fora disso, corpo vazio ou campo desconhecido: 400 VALIDATION_FAILED, sem gravar nada. Os pronomes novos valem na Tentativa seguinte. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. O operationId updateMyPronouns e o schema UpdatePronouns ficam da história 2.1, para não quebrar o contrato; a rota grava o perfil inteiro. */
         patch: operations["updateMyPronouns"];
         trace?: never;
     };
@@ -181,7 +198,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Corrige a Tentativa do Aluno e grava a primeira na Atividade, com o XP dela. expected e as justificativas só voltam no Acerto (100%). Reenviar o mesmo attemptId com o mesmo corpo devolve o XP gravado; outro attemptId (Tentar de novo, refazer) devolve o Feedback com xpAwarded 0, sem gravar. replay: true (opcional) marca o refazer de uma Atividade já concluída e publica o ACTIVITY_COMPLETED com firstAttempt false; sem registro, conta como primeira. Tipo divergente ou expositivo: 400 INVALID_ANSWER; versão ou Atividade inexistente: 404. Campo desconhecido dá 400. Estágio bloqueado na versão publicada (o anterior não está concluído): 409 STAGE_LOCKED, sem gravar nada (na Tentativa e no Ver resposta, antes de corrigir). O Estágio é o da Atividade na versão publicada, mesmo com versionId antigo; Atividade ou Estágio fora da versão publicada não trava. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions e events: 429 TOO_MANY_REQUESTS com Retry-After. */
+        /** @description Corrige a Tentativa do Aluno e grava a primeira na Atividade, com o XP dela. expected e as justificativas só voltam no Acerto (100%). Reenviar o mesmo attemptId com o mesmo corpo devolve o XP gravado; outro attemptId (Tentar de novo, refazer) devolve o Feedback com xpAwarded 0, sem gravar. replay: true (opcional) marca o refazer de uma Atividade já concluída e publica o ACTIVITY_COMPLETED com firstAttempt false; sem registro, conta como primeira. Tipo divergente ou expositivo: 400 INVALID_ANSWER; versão ou Atividade inexistente: 404. Campo desconhecido dá 400. Estágio bloqueado na versão publicada (o anterior não está concluído): 409 STAGE_LOCKED, sem gravar nada (na Tentativa e no Ver resposta, antes de corrigir). O Estágio é o da Atividade na versão publicada, mesmo com versionId antigo; Atividade ou Estágio fora da versão publicada não trava. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions, events e dialogue-answers: 429 TOO_MANY_REQUESTS com Retry-After. */
         post: operations["submitStudentAttempt"];
         delete?: never;
         options?: never;
@@ -198,7 +215,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Ver resposta: corrige a mesma Tentativa e devolve o Resultado com expected e as justificativas, sem XP e sem gravar. Exige o registro do Aluno na Atividade (na Resposta Livre, uma Tentativa do Extra Help), senão 409 ATTEMPT_REQUIRED. Tipo divergente ou expositivo: 400 INVALID_ANSWER; versão ou Atividade inexistente: 404. Campo desconhecido dá 400. Estágio bloqueado na versão publicada (o anterior não está concluído): 409 STAGE_LOCKED, sem gravar nada (na Tentativa e no Ver resposta, antes de corrigir). O Estágio é o da Atividade na versão publicada, mesmo com versionId antigo; Atividade ou Estágio fora da versão publicada não trava. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions e events: 429 TOO_MANY_REQUESTS com Retry-After. */
+        /** @description Ver resposta: corrige a mesma Tentativa e devolve o Resultado com expected e as justificativas, sem XP e sem gravar. Exige o registro do Aluno na Atividade (na Resposta Livre, uma Tentativa do Extra Help), senão 409 ATTEMPT_REQUIRED. Tipo divergente ou expositivo: 400 INVALID_ANSWER; versão ou Atividade inexistente: 404. Campo desconhecido dá 400. Estágio bloqueado na versão publicada (o anterior não está concluído): 409 STAGE_LOCKED, sem gravar nada (na Tentativa e no Ver resposta, antes de corrigir). O Estágio é o da Atividade na versão publicada, mesmo com versionId antigo; Atividade ou Estágio fora da versão publicada não trava. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions, events e dialogue-answers: 429 TOO_MANY_REQUESTS com Retry-After. */
         post: operations["revealStudentAttempt"];
         delete?: never;
         options?: never;
@@ -215,7 +232,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Conclui uma Atividade sem correção, sem XP, e grava a primeira na Atividade: os expositivos dialogue, cards, expression, grammar e free com VIEWED, e a speech pulada, com SKIPPED. Fora disso, 409 COMPLETION_NOT_ALLOWED. A conclusão VIEWED de um free devolve a modelAnswer. replay: true (opcional) marca o refazer, como em /attempts. Versão ou Atividade inexistente: 404. Campo desconhecido dá 400. Estágio bloqueado na versão publicada (o anterior não está concluído): 409 STAGE_LOCKED, sem gravar nada (na Tentativa e no Ver resposta, antes de corrigir). O Estágio é o da Atividade na versão publicada, mesmo com versionId antigo; Atividade ou Estágio fora da versão publicada não trava. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions e events: 429 TOO_MANY_REQUESTS com Retry-After. */
+        /** @description Conclui uma Atividade sem correção, sem XP, e grava a primeira na Atividade: os expositivos dialogue, cards, expression, grammar e free com VIEWED, e a speech pulada, com SKIPPED. Fora disso, 409 COMPLETION_NOT_ALLOWED. A conclusão VIEWED de um free devolve a modelAnswer. replay: true (opcional) marca o refazer, como em /attempts. Versão ou Atividade inexistente: 404. Campo desconhecido dá 400. Estágio bloqueado na versão publicada (o anterior não está concluído): 409 STAGE_LOCKED, sem gravar nada (na Tentativa e no Ver resposta, antes de corrigir). O Estágio é o da Atividade na versão publicada, mesmo com versionId antigo; Atividade ou Estágio fora da versão publicada não trava. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions, events e dialogue-answers: 429 TOO_MANY_REQUESTS com Retry-After. */
         post: operations["submitStudentCompletion"];
         delete?: never;
         options?: never;
@@ -234,6 +251,40 @@ export interface paths {
         get: operations["getMyDashboard"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/me/dialogue-answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Grava no perfil o nome e o país que o Aluno respondeu num Diálogo, os mesmos que o GET /students/me devolve. Só vale o campo que o Diálogo daquela versão pergunta (fala com ask); Atividade inexistente, que não é Diálogo, sem a fala do campo, sem nenhum campo, país fora de countries.json ou campo desconhecido: 400 VALIDATION_FAILED, sem gravar nada. Responde 204 sem corpo. Conta no limite de escritas do Aluno. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions, events e dialogue-answers: 429 TOO_MANY_REQUESTS com Retry-After. */
+        put: operations["saveMyDialogueAnswers"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/me/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Pede a troca do e-mail, com a senha atual: grava o pendingEmail e envia o link (vale 24 horas, uso único) ao e-mail novo e um aviso sem link ao atual. Responde 202 sem corpo; um pedido novo substitui o anterior. Senha atual errada: 400 CURRENT_PASSWORD_INVALID (nunca 401); depois de 5 erros em 15 minutos, 429 TOO_MANY_REQUESTS com Retry-After. E-mail igual ao atual ou inválido, ou campo desconhecido: 400 VALIDATION_FAILED. E-mail de outra conta: 409 EMAIL_ALREADY_REGISTERED. Mais de 1 pedido por minuto ou 5 por dia da conta: 429 TOO_MANY_REQUESTS com Retry-After. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. */
+        post: operations["requestMyEmailChange"];
         delete?: never;
         options?: never;
         head?: never;
@@ -266,8 +317,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Grava um evento do Aluno, sem PII, com a hora do servidor e o metricsId da conta. ACTIVITY_STARTED a cada abertura de Atividade, com versionId e activityKey; Atividade inexistente dá 404. Campo desconhecido dá 400. Responde 202 sem corpo. Se a gravação do evento falhar, 500. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions e events: 429 TOO_MANY_REQUESTS com Retry-After. */
+        /** @description Grava um evento do Aluno, sem PII, com a hora do servidor e o metricsId da conta. ACTIVITY_STARTED a cada abertura de Atividade, com versionId e activityKey; Atividade inexistente dá 404. Campo desconhecido dá 400. Responde 202 sem corpo. Se a gravação do evento falhar, 500. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions, events e dialogue-answers: 429 TOO_MANY_REQUESTS com Retry-After. */
         post: operations["recordStudentEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Troca a senha do Aluno da sessão, com a senha atual, e encerra todas as outras sessões da conta; a desta requisição segue. Responde 204 sem corpo. Senha atual errada: 400 CURRENT_PASSWORD_INVALID (nunca 401); depois de 5 erros em 15 minutos, 429 TOO_MANY_REQUESTS com Retry-After. Senha nova fora da regra ou campo desconhecido: 400 VALIDATION_FAILED. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. */
+        post: operations["changeMyPassword"];
         delete?: never;
         options?: never;
         head?: never;
@@ -557,6 +625,11 @@ export interface components {
              */
             type: "cards";
         };
+        ChangePassword: {
+            currentPassword: string;
+            /** @description De 8 a 64 caracteres, com pelo menos uma letra e um número. Senhas com muitos acentos ou emoji podem precisar ser mais curtas (o limite é de 72 bytes em UTF-8). */
+            newPassword: string;
+        };
         ChoiceActivity: {
             activityKey: string;
             items: components["schemas"]["ChoiceItem"][];
@@ -657,6 +730,13 @@ export interface components {
              * @enum {string}
              */
             type: "dialogue";
+        };
+        DialogueAnswer: {
+            activityKey: string;
+            /** @description O name em inglês de um país de countries.json. */
+            country?: string;
+            name?: string;
+            versionId: string;
         };
         DialogueLine: {
             /** @enum {string} */
@@ -949,6 +1029,11 @@ export interface components {
             she: string;
             they: string;
         };
+        RequestEmailChange: {
+            currentPassword: string;
+            /** Format: email */
+            newEmail: string;
+        };
         SignupRequest: {
             acceptedPrivacyVersion: string;
             acceptedTermsVersion: string;
@@ -1131,6 +1216,8 @@ export interface components {
             /** @description Se o e-mail já foi confirmado. */
             emailConfirmed: boolean;
             name?: string | null;
+            /** @description O e-mail novo pedido na troca de e-mail, até o Aluno abrir o link enviado a ele. Nulo sem troca pendente. */
+            pendingEmail?: string | null;
             /**
              * @description Nulo vale como THEY (they/them).
              * @enum {string|null}
@@ -1211,8 +1298,14 @@ export interface components {
             versionId: string;
         };
         UpdatePronouns: {
-            /** @enum {string|null} */
-            pronounSet: "HE" | "SHE" | "THEY" | null;
+            /** @description O name em inglês de um país de countries.json. Fora da lista, 400 VALIDATION_FAILED. */
+            country?: string | null;
+            name?: string | null;
+            /**
+             * @description Nulo volta ao padrão they/them.
+             * @enum {string|null}
+             */
+            pronounSet?: "HE" | "SHE" | "THEY" | null;
         };
         UsefulExpressionContent: {
             examples: components["schemas"]["ContentText"][];
@@ -1244,6 +1337,28 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    confirmEmailChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmEmail"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     confirmEmail: {
         parameters: {
             query?: never;
@@ -1600,6 +1715,50 @@ export interface operations {
             };
         };
     };
+    saveMyDialogueAnswers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DialogueAnswer"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    requestMyEmailChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestEmailChange"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     resendMyEmailConfirmation: {
         parameters: {
             query?: never;
@@ -1633,6 +1792,28 @@ export interface operations {
         responses: {
             /** @description Accepted */
             202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    changeMyPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePassword"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };

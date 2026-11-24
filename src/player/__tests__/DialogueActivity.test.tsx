@@ -4,11 +4,15 @@ import { useState } from 'react';
 import { AccessibilityInfo } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
 import { messageFor, UNKNOWN_ERROR } from '../../api/errors';
+import { STUDENT_QUERY_KEY, type StudentProfile } from '../../auth/student';
 import * as sentry from '../../observability/sentry';
 import { visitorStore } from '../../visitor/store';
 import { clearVisitorCache } from '../../visitor/useVisitor';
 import { PlayerFrame } from '../PlayerFrame';
+import { PlayerSessionContext, VISITOR_SESSION } from '../playerSession';
 import type { ActivityResult, ActivityView, FooterAction, SheetSpec } from '../registry';
 import {
   CONTINUE_LABEL,
@@ -63,7 +67,7 @@ const ASK_BOTH = dialogue([
 function Harness({ activity, advance }: { activity: ActivityView; advance: jest.Mock }) {
   const [footer, setFooter] = useState<FooterAction | null>(null);
   const [sheet, setSheet] = useState<SheetSpec | null>(null);
-  return (
+  const frame = (
     <SafeAreaProvider initialMetrics={METRICS}>
       <PlayerFrame
         stageNumber={1}
@@ -88,7 +92,18 @@ function Harness({ activity, advance }: { activity: ActivityView; advance: jest.
       </PlayerFrame>
     </SafeAreaProvider>
   );
+  if (!studentClient) return frame;
+  return (
+    <QueryClientProvider client={studentClient}>
+      <PlayerSessionContext.Provider value={{ ...VISITOR_SESSION, mode: 'student' }}>
+        {frame}
+      </PlayerSessionContext.Provider>
+    </QueryClientProvider>
+  );
 }
+
+/** Com um cliente, o Diálogo roda no modo Aluno (2.9), com o perfil no cache. */
+let studentClient: QueryClient | null = null;
 
 let reduceMotion = true;
 
@@ -112,6 +127,7 @@ beforeEach(() => {
   jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockImplementation(async () => reduceMotion);
   jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
   global.fetch = jest.fn() as jest.Mock;
+  studentClient = null;
   (sentry.captureError as jest.Mock).mockClear();
 });
 
@@ -330,6 +346,116 @@ describe('Diálogo: as duas perguntas', () => {
     await fireEvent.press(button());
     expect(advance).toHaveBeenCalledWith({ outcome: 'viewed', xp: 0 });
     expect(await visitorStore.variables()).toMatchObject({ name: 'Ana', country: 'Brazil' });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe('Diálogo do Aluno (2.9)', () => {
+  const PROFILE: StudentProfile = {
+    email: 'ana@exemplo.test',
+    name: 'Ana',
+    country: null,
+    pronounSet: null,
+    emailConfirmed: true,
+    emailConfirmationOverdue: false,
+  };
+
+  function asStudent(profile: StudentProfile = PROFILE) {
+    process.env.EXPO_PUBLIC_API_URL = 'https://api.exemplo.test';
+    studentClient = new QueryClient();
+    studentClient.setQueryData(STUDENT_QUERY_KEY, profile);
+  }
+
+  const bodies = () =>
+    (global.fetch as jest.Mock).mock.calls.map(([url, init]: [string, RequestInit]) => ({
+      url: String(url),
+      method: init.method,
+      body: JSON.parse(String(init.body)),
+    }));
+
+  it('ask name com perfil "Ana": campo pré-preenchido; CONTINUAR faz o PUT e atualiza o cache', async () => {
+    asStudent();
+    (global.fetch as jest.Mock).mockResolvedValue(new Response(null, { status: 204 }));
+    await open(ASK_NAME);
+    expect(screen.getByLabelText(NAME_LABEL).props.value).toBe('Ana');
+    await fireEvent.changeText(screen.getByLabelText(NAME_LABEL), 'Bia');
+    await fireEvent.press(button());
+    await waitFor(() => expect(line('l3')).toBeTruthy());
+    expect(bodies()).toEqual([
+      {
+        url: 'https://api.exemplo.test/api/v1/students/me/dialogue-answers',
+        method: 'PUT',
+        body: { versionId: 'v1', activityKey: 'meet-alex', name: 'Bia' },
+      },
+    ]);
+    expect(studentClient!.getQueryData<StudentProfile>(STUDENT_QUERY_KEY)?.name).toBe('Bia');
+    expect(await visitorStore.variables()).not.toHaveProperty('name');
+  });
+
+  it('conta sem nome: o campo vem vazio, sem a Variável do aparelho (de outro Visitante); o PUT invalida o painel', async () => {
+    await visitorStore.setVariable('name', 'Zé');
+    asStudent({ ...PROFILE, name: null });
+    studentClient!.setQueryData(['student', 'dashboard'], { name: null });
+    (global.fetch as jest.Mock).mockResolvedValue(new Response(null, { status: 204 }));
+    await open(ASK_NAME);
+    expect(screen.getByLabelText(NAME_LABEL).props.value).toBe('');
+    expect(button()).toBeDisabled();
+    await fireEvent.changeText(screen.getByLabelText(NAME_LABEL), 'Bia');
+    await fireEvent.press(button());
+    await waitFor(() => expect(line('l3')).toBeTruthy());
+    expect(studentClient!.getQueryState(['student', 'dashboard'])?.isInvalidated).toBe(true);
+  });
+
+  it('desmontado durante o PUT: sem avançar nem mudar estado', async () => {
+    asStudent();
+    let answer!: (response: Response) => void;
+    (global.fetch as jest.Mock).mockImplementation(() => new Promise<Response>((resolve) => (answer = resolve)));
+    const { advance } = await open(ASK_NAME);
+    await fireEvent.press(button());
+    await act(async () => screen.unmount());
+    await act(async () => answer(new Response(null, { status: 204 })));
+    expect(advance).not.toHaveBeenCalled();
+    // Depois do PUT, o cache recebe o valor mesmo com a tela fechada.
+    expect(studentClient!.getQueryData<StudentProfile>(STUDENT_QUERY_KEY)?.name).toBe('Ana');
+  });
+
+  it('ask country: o país da conta vem selecionado e vai no PUT', async () => {
+    asStudent({ ...PROFILE, country: 'Brazil' });
+    (global.fetch as jest.Mock).mockResolvedValue(new Response(null, { status: 204 }));
+    await open(ASK_COUNTRY);
+    expect(country('BR').props.accessibilityState).toMatchObject({ selected: true });
+    await fireEvent.press(button());
+    await waitFor(() => expect(line('l2')).toBeTruthy());
+    expect(bodies()[0]!.body).toEqual({ versionId: 'v1', activityKey: 'meet-alex', country: 'Brazil' });
+  });
+
+  it('PUT falha: messageFor do código, a pergunta fica e nada vai ao aparelho', async () => {
+    asStudent();
+    (global.fetch as jest.Mock).mockResolvedValue(
+      new Response(JSON.stringify({ code: 'TOO_MANY_REQUESTS' }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/problem+json' },
+      }),
+    );
+    await open(ASK_NAME);
+    await fireEvent.press(button());
+    expect(await screen.findByText(messageFor('TOO_MANY_REQUESTS'))).toBeTruthy();
+    expect(line('l3')).toBeNull();
+    expect(screen.getByLabelText(NAME_LABEL)).toBeTruthy();
+    expect(studentClient!.getQueryData<StudentProfile>(STUDENT_QUERY_KEY)?.name).toBe('Ana');
+    expect(sentry.captureError).not.toHaveBeenCalled();
+  });
+
+  it('Visitante: só no aparelho, nenhuma requisição com nome ou país', async () => {
+    const { advance } = await open(ASK_BOTH);
+    await fireEvent.changeText(screen.getByLabelText(NAME_LABEL), 'Ana');
+    await fireEvent.press(button());
+    await waitFor(() => expect(screen.getByTestId('dialogue-ask-country')).toBeTruthy());
+    await fireEvent.press(country('BR'));
+    await fireEvent.press(button());
+    await waitFor(() => expect(shownLines()).toHaveLength(3));
+    await fireEvent.press(button());
+    expect(advance).toHaveBeenCalled();
     expect(global.fetch).not.toHaveBeenCalled();
   });
 });

@@ -23,7 +23,7 @@ export const RESEND_LABEL = 'REENVIAR';
 /** Depois dos 7 dias sem confirmar (`emailConfirmationOverdue`, 2.8, UX-DR117): a frase da UX. */
 export const CONFIRM_TO_RECOVER = 'Confirme seu e-mail para poder recuperar a senha.';
 
-/** O sair (2.3), discreto no fim do painel (2.5); a 2.9 o move para a Conta. */
+/** O sair (2.3), discreto; desde a 2.9, na Conta. */
 export const SIGN_OUT_LABEL = 'Sair';
 // A folha de confirmação do sair: desde a 2.4, o Progresso do Aluno fica na conta, e o sair apaga
 // só o que está no aparelho (a loja e o cache). [ASSUMPTION: copy] Textos propostos na 2.3 e na 2.4, a revisar com UX.

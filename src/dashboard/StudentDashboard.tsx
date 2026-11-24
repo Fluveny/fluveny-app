@@ -5,14 +5,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError } from '../api/client';
 import { messageFor } from '../api/errors';
-import { ConfirmationBanner, SignOut, studentGreeting } from '../auth/StudentHome';
+import { ACCOUNT_PATH } from '../auth/accountPaths';
+import { ConfirmationBanner, studentGreeting } from '../auth/StudentHome';
 import type { StudentProfile } from '../auth/student';
 import { useOnline } from '../network/useOnline';
 import { OFFLINE_LABEL, OFFLINE_TEXT } from '../network/text';
 import { playerHref } from '../player/playerRoute';
 import { reportReadFailure } from '../player/studentProgress';
 import { renderPlain, useRenderVars, type RenderContext } from '../renderer';
-import { Button, Card, Icon, ProgressBar, StatusBanner, XpChip } from '../ui';
+import { Button, Card, Icon, Pressable3D, ProgressBar, StatusBanner, XpChip } from '../ui';
 import { color, fontFamily, size, spacing, typography } from '../ui/tokens';
 import {
   comingSoonUnits,
@@ -25,6 +26,9 @@ import {
 
 // Copy do painel (2.5, UX-DR100 a UX-DR102, EXPERIENCE.md Voice and Tone).
 /** O subtítulo do cabeçalho (EXPERIENCE.md, Voice and Tone; UX-DR100). */
+/** O botão de perfil do cabeçalho (2.9), que abre a Conta. [ASSUMPTION: copy] */
+export const ACCOUNT_LABEL = 'Conta';
+const ACCOUNT_ICON = 26;
 export const DASHBOARD_SUBTITLE = 'Bora continuar o seu primeiro dia?';
 export const DASHBOARD_START = 'COMEÇAR';
 export const DASHBOARD_CONTINUE = 'CONTINUAR';
@@ -127,6 +131,16 @@ export function StudentDashboard({ student }: { student: StudentProfile }) {
               {unit?.next ? <Text style={styles.subtitle}>{DASHBOARD_SUBTITLE}</Text> : null}
             </View>
             {data ? <XpChip xp={data.xpTotal} /> : null}
+            <Pressable3D
+              accessibilityLabel={ACCOUNT_LABEL}
+              onPress={() => router.navigate(ACCOUNT_PATH)}
+              edge={{ color: color.blue, height: 0 }}
+              minHeight={size.touchMin}
+              style={styles.account}
+              testID="dashboard-account"
+            >
+              <Icon name="user" size={ACCOUNT_ICON} color={color.surface} />
+            </Pressable3D>
           </View>
         </SafeAreaView>
         <View style={styles.body}>
@@ -153,7 +167,6 @@ export function StudentDashboard({ student }: { student: StudentProfile }) {
               />
             </View>
           )}
-          <SignOut />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -371,6 +384,7 @@ const styles = StyleSheet.create({
   },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3] },
   headerText: { flex: 1, gap: spacing[1] },
+  account: { width: size.touchMin, alignItems: 'center', justifyContent: 'center', marginTop: -spacing[2] },
   greeting: { ...typography.display, color: color.surface },
   subtitle: { ...typography.bodyStrong, color: color.surface },
   body: { paddingHorizontal: spacing.screenX, paddingTop: spacing[4], paddingBottom: spacing[4], gap: spacing[3] },
