@@ -149,13 +149,18 @@ export function DialogueActivity({ activity, versionId, setFooter, advance }: Ac
       }
       if (!mounted.current) return;
       setSaving(false);
+      // A pergunta é a última fala: a resposta já conclui, sem um CONTINUAR a mais.
+      if (pauseAt === lines.length - 1) {
+        advance({ outcome: 'viewed', xp: 0 });
+        return;
+      }
       setAnswered((previous) => new Set(previous).add(asking));
       // A cena vira a página: a fala seguinte entra na hora, sem a tela vazia.
       setShown((value) => Math.min(value + 1, lines.length));
       return;
     }
     advance({ outcome: 'viewed', xp: 0 });
-  }, [asking, answer, asStudent, versionId, view.activityKey, client, store, advance]);
+  }, [asking, answer, pauseAt, lines.length, asStudent, versionId, view.activityKey, client, store, advance]);
 
   useEffect(() => {
     setFooter({

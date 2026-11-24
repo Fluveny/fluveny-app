@@ -324,15 +324,13 @@ describe('Diálogo: pergunta do país', () => {
 });
 
 describe('Diálogo: a pergunta é a última fala', () => {
-  it('depois da resposta a fala fica na cena e o próximo CONTINUAR conclui', async () => {
+  it('CONTINUAR grava a resposta e já conclui', async () => {
     const { advance } = await open(ASK_LAST);
     await fireEvent.changeText(screen.getByLabelText(NAME_LABEL), 'Ana');
     await fireEvent.press(button());
-    await waitFor(() => expect(screen.queryByLabelText(NAME_LABEL)).toBeNull());
-    expect(shownLines()).toEqual(['dialogue-line-l1']);
-    expect(advance).not.toHaveBeenCalled();
-    await fireEvent.press(button());
-    expect(advance).toHaveBeenCalledWith({ outcome: 'viewed', xp: 0 });
+    await waitFor(() => expect(advance).toHaveBeenCalledWith({ outcome: 'viewed', xp: 0 }));
+    expect(advance).toHaveBeenCalledTimes(1);
+    expect(await visitorStore.getVariable('name')).toBe('Ana');
   });
 });
 
