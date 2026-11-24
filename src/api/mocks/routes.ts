@@ -99,6 +99,11 @@
 // `POST /account/email-change/confirm` (204) troca o e-mail; token desconhecido
 // ou usado, 410; e-mail tomado antes, 409. `PUT /students/me/dialogue-answers`
 // (204) grava o campo que o Diálogo pergunta. `forceMockAccount` força o 429.
+//
+// Exclusão da conta (2.10): `POST /students/me/deletion` (204) confere a senha
+// atual (400 `CURRENT_PASSWORD_INVALID`), apaga a conta e encerra a sessão.
+// `forceMockAccount` força o 429; `forceMockDeletion` força o 503
+// `ACCOUNT_DELETION_FAILED` ou o 404 (conta já excluída), sem apagar nada.
 import mockCountries from '../../player/countries.json';
 import type { components, paths } from '../schema';
 
@@ -1298,6 +1303,7 @@ export const MOCK_NO_CONTENT: ReadonlySet<string> = new Set([
   'POST /api/v1/students/me/password',
   'POST /api/v1/account/email-change/confirm',
   'PUT /api/v1/students/me/dialogue-answers',
+  'POST /api/v1/students/me/deletion',
 ]);
 
 type MockStudent = components['schemas']['StudentProfile'];
@@ -1332,6 +1338,8 @@ let lastEmailChangeToken: string | null = null;
 let emailChangeSeq = 0;
 /** Resposta forçada das rotas da Conta (testes e mock manual): `429` ou rede. */
 let forcedAccount: 'TOO_MANY_REQUESTS' | null = null;
+/** Resposta forçada da exclusão da conta (2.10): `503` ou `404`. */
+let forcedDeletion: 'ACCOUNT_DELETION_FAILED' | 'NOT_FOUND' | null = null;
 
 /** Esquece as contas, a sessão e as confirmações do mock (testes). */
 export function resetMockStudents() {
@@ -1350,6 +1358,17 @@ export function resetMockStudents() {
   emailChangeTokens.clear();
   lastEmailChangeToken = null;
   forcedAccount = null;
+  forcedDeletion = null;
+}
+
+/** Força a resposta da exclusão da conta: `503 ACCOUNT_DELETION_FAILED`, `404 NOT_FOUND` ou nada. */
+export function forceMockDeletion(code: 'ACCOUNT_DELETION_FAILED' | 'NOT_FOUND' | null) {
+  forcedDeletion = code;
+}
+
+/** Se a conta ainda existe no mock (2.10). */
+export function mockAccountExists(email: string): boolean {
+  return mockAccounts.has(email.toLowerCase());
 }
 
 /** O token do último link de troca de e-mail emitido pelo mock (2.9). */
@@ -1762,6 +1781,29 @@ async function mockChangePassword(request: Request): Promise<undefined> {
   return undefined;
 }
 
+/** `POST /students/me/deletion` (2.10): 204; apaga a conta e encerra a sessão. */
+async function mockDeleteAccount(request: Request): Promise<undefined> {
+  const student = mockStudentOf(request);
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  if (
+    !body ||
+    typeof body !== 'object' ||
+    Object.keys(body).some((key) => key !== 'currentPassword') ||
+    typeof body.currentPassword !== 'string' ||
+    !body.currentPassword
+  ) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  if (forcedDeletion === 'NOT_FOUND') throw new MockProblem(404, 'NOT_FOUND');
+  if (forcedAccount) throw new MockProblem(429, forcedAccount);
+  mockAccountWithPassword(student, body.currentPassword);
+  if (forcedDeletion) throw new MockProblem(503, forcedDeletion);
+  mockAccounts.delete(student.email);
+  confirmedEmails.delete(student.email);
+  mockSession = null;
+  return undefined;
+}
+
 /** `POST /students/me/email` (2.9): 202 e o `pendingEmail`; o pedido novo substitui o anterior. */
 async function mockRequestEmailChange(request: Request): Promise<undefined> {
   const student = mockStudentOf(request);
@@ -1920,6 +1962,9 @@ export const mockRoutes: MockRoutes = {
   },
   '/api/v1/students/me/password': {
     post: (request) => mockChangePassword(request),
+  },
+  '/api/v1/students/me/deletion': {
+    post: (request) => mockDeleteAccount(request),
   },
   '/api/v1/students/me/email': {
     post: (request) => mockRequestEmailChange(request),

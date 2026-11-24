@@ -8,7 +8,15 @@ import { messageFor, NETWORK_ERROR } from '../api/errors';
 import countries from '../player/countries.json';
 import { Button, Card, StatusBanner, TextField, TextLink, WordChip } from '../ui';
 import { color, spacing, typography } from '../ui/tokens';
-import { accountNameOk, changePassword, profileChanges, requestEmailChange, updateProfile } from './account';
+import {
+  accountNameOk,
+  changePassword,
+  CURRENT_PASSWORD_INVALID,
+  profileChanges,
+  requestEmailChange,
+  updateProfile,
+} from './account';
+import { DeleteAccount } from './DeleteAccount';
 import { useLeave } from './FormFrame';
 import { EMAIL_MAX, EMAIL_PROBLEM, emailOk, NAME_MAX, PASSWORD_HINT, PASSWORD_PROBLEM, passwordOk } from './signupForm';
 import { savePronouns, type PronounSet, type StudentProfile } from './student';
@@ -52,7 +60,6 @@ export const emailRequested = (email: string) => `Enviamos um link para ${email}
 
 /** Os países, como no Diálogo (a `countries.json` da API). */
 const COUNTRIES: readonly { code: string; name: string }[] = countries;
-const CURRENT_PASSWORD_INVALID = 'CURRENT_PASSWORD_INVALID';
 const KEYBOARD_AVOIDING = Platform.OS !== 'web';
 
 const codeOf = (error: unknown) => (error instanceof ApiError ? error.code : NETWORK_ERROR);
@@ -88,8 +95,8 @@ function useOnce() {
 
 /**
  * A Conta do Aluno (2.9, FR-5, UX-DR108): tela rolável em `canvas`, com as
- * seções Seus dados, Pronomes, E-mail e Senha, o Sair (2.3) e o espaço da
- * exclusão (2.10). Senha e e-mail digitados ficam só no estado da tela.
+ * seções Seus dados, Pronomes, E-mail e Senha, o Sair (2.3) e a exclusão
+ * da conta (2.10). Senha e e-mail digitados ficam só no estado da tela.
  */
 export function AccountScreen({ student }: { student: StudentProfile }) {
   const leave = useLeave();
@@ -108,8 +115,7 @@ export function AccountScreen({ student }: { student: StudentProfile }) {
           <EmailSection student={student} />
           <PasswordSection />
           <SignOut />
-          {/* A exclusão da conta (2.10) entra aqui. */}
-          <View testID="account-deletion-slot" />
+          <DeleteAccount />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

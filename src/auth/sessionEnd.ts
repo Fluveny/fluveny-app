@@ -106,6 +106,15 @@ export async function signOut(client: QueryClient): Promise<void> {
   } catch (error) {
     if (!(error instanceof ApiError && error.status === 401)) throw error;
   }
+  await clearLocalAccount(client);
+}
+
+/**
+ * Apaga tudo o que a conta deixou no aparelho, sem falar com a API: o Aluno do
+ * cache (antes de tudo), o token, a loja (menos o `deviceId`) e todo o cache.
+ * Usada pelo sair (2.3) e pela exclusão da conta (2.10).
+ */
+export async function clearLocalAccount(client: QueryClient): Promise<void> {
   // Sem Aluno no cache logo de cara: um 401 de outra requisição durante a limpeza não leva a Entrar.
   client.setQueryData(STUDENT_QUERY_KEY, null);
   await forgetToken();
