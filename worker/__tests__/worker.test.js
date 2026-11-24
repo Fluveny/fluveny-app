@@ -2,6 +2,9 @@
  * @jest-environment node
  */
 // Matriz da spec da 1.6 (parte do App): o Worker de homologação.
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import * as workerModule from '../index';
 
 const PROXY_HEADER = 'X-Fluveny-Proxy';
@@ -171,5 +174,73 @@ describe('Worker de homologação', () => {
     const response = await worker.fetch(new Request(`${ORIGIN}/api/v1/units`), env());
     expect(response.status).toBe(502);
     expect(response.headers.get('Content-Type')).toBe('application/problem+json');
+  });
+});
+
+describe('Cron Trigger do Worker (ping da API)', () => {
+  beforeEach(() => {
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('chama GET /api/v1/meta direto no API_ORIGIN, sem o segredo de proxy', async () => {
+    await worker.scheduled({ cron: '*/10 * * * *' }, env());
+
+    const { target, init, headers } = sent();
+    expect(target).toBe(`${API_ORIGIN}/api/v1/meta`);
+    expect(init.method).toBe('GET');
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+    expect(headers.has(PROXY_HEADER)).toBe(false);
+    expect(headers.has(CLIENT_IP_HEADER)).toBe(false);
+  });
+
+  it.each([429, 500, 503])('resposta %p lança erro com o status, sem o corpo', async (status) => {
+    upstream.mockResolvedValueOnce(new Response('<html>desafio secreto</html>', { status }));
+    const error = await worker.scheduled({ cron: '*/10 * * * *' }, env()).then(
+      () => null,
+      (e) => e,
+    );
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toContain(String(status));
+    expect(error.message).not.toContain('desafio');
+  });
+
+  it('não segue redirecionamento: 302 lança erro com o status', async () => {
+    upstream.mockResolvedValueOnce(
+      new Response(null, { status: 302, headers: { Location: 'https://outro.example/' } }),
+    );
+    await expect(worker.scheduled({ cron: '*/10 * * * *' }, env())).rejects.toThrow('302');
+    expect(sent().init.redirect).toBe('manual');
+  });
+
+  it('falha de rede lança erro sem o texto original', async () => {
+    upstream.mockRejectedValueOnce(new TypeError('fetch failed'));
+    const error = await worker.scheduled({ cron: '*/10 * * * *' }, env()).then(
+      () => null,
+      (e) => e,
+    );
+    expect(error.message).toMatch(/rede/);
+    expect(error.message).not.toContain('fetch failed');
+  });
+
+  it('timeout lança erro citando TimeoutError', async () => {
+    upstream.mockRejectedValueOnce(new DOMException('The operation timed out.', 'TimeoutError'));
+    await expect(worker.scheduled({ cron: '*/10 * * * *' }, env())).rejects.toThrow(/TimeoutError/);
+  });
+
+  it('o wrangler.jsonc declara o cron de 10 em 10 min', () => {
+    const source = readFileSync(join(__dirname, '..', '..', 'wrangler.jsonc'), 'utf8');
+    const json = source.replace(/^\s*\/\/.*$/gm, '').replace(/,(\s*[}\]])/g, '$1');
+    expect(JSON.parse(json).triggers.crons).toEqual(['*/10 * * * *']);
+  });
+
+  it('não muda o proxy de /api/*', async () => {
+    await worker.fetch(new Request(`${ORIGIN}/api/v1/units`), env());
+    const { target, headers } = sent();
+    expect(target).toBe(`${API_ORIGIN}/api/v1/units`);
+    expect(headers.get(PROXY_HEADER)).toBe(SECRET);
   });
 });
