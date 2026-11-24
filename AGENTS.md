@@ -155,3 +155,8 @@ App do Fluveny: um único projeto Expo (SDK 58, Expo Router, TypeScript ~6.0) pa
 - `STAGE_LOCKED` (409 na Tentativa, no reveal ou na conclusão do Aluno): o `PlayerSession.onStageLocked` troca a tela por `messageFor('STAGE_LOCKED')` com VOLTAR AO INÍCIO (`dismissTo('/')`, de pé também sem rede) e invalida o painel. Não repete, não grava e não vai ao Sentry (`reportSaveFailure` o ignora).
 - Mock: `GET /students/me/dashboard` calculado dos registros do Aluno (401 sem sessão): `unit-1` com `stage-1` e `unit-2` "em breve". `forceMockStageLocked(true)` faz as gravações do Aluno responderem 409 `STAGE_LOCKED` (os resets o desligam).
 - Testes: `src/__tests__/student-dashboard.test.tsx` (a matriz da 2.5).
+
+## Migração do Visitante (2.6)
+
+- `src/visitor/migration.ts`: o `signUp` (`src/auth/student.ts`) chama `visitorSignupFields` antes do POST (`visitor: {deviceId, receipts}` só com recibos, na ordem gravada, sem repetidos, sem os de mais de 1024 caracteres, até 200; `country` só se for um `name` da `countries.json`) e `finishVisitorMigration` só depois do 201 (`clear()` da loja, menos o `deviceId`; `clearVisitorCache`; invalida `dashboard` e `progress`; falha no `clear` vai ao Sentry e não bloqueia). Sem resposta (rede, 5xx, 409), a loja não muda. Vale com ou sem `?de=convite`. O login não migra.
+- Mock: o `signup` aceita `country` e `visitor` e grava no Progresso do Aluno os registros dos recibos emitidos para aquele `deviceId` (uma vez cada). `seedMockVisitorRecord` cria um registro e o recibo nos testes.

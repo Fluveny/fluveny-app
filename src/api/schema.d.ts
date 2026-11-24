@@ -130,7 +130,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Cria a conta do Aluno adulto, já ativa, e entra. Exige X-Fluveny-Client: web ou android (senão 400 CLIENT_HEADER_REQUIRED). No web, a sessão vai só no cookie fluveny_session (HttpOnly; Secure; SameSite=Lax; Path=/api; 30 dias); no Android, só no sessionToken do corpo. Senha fora da regra, aceite vazio ou data de nascimento inválida dão 400 VALIDATION_FAILED; menor de 12, 422 AGE_BELOW_MINIMUM; de 12 a 17, 422 GUARDIAN_CONSENT_REQUIRED; e-mail já cadastrado, 409 EMAIL_ALREADY_REGISTERED. */
+        /** @description Cria a conta do Aluno adulto, já ativa, e entra. Exige X-Fluveny-Client: web ou android (senão 400 CLIENT_HEADER_REQUIRED). No web, a sessão vai só no cookie fluveny_session (HttpOnly; Secure; SameSite=Lax; Path=/api; 30 dias); no Android, só no sessionToken do corpo. Senha fora da regra, aceite vazio ou data de nascimento inválida dão 400 VALIDATION_FAILED; menor de 12, 422 AGE_BELOW_MINIMUM; de 12 a 17, 422 GUARDIAN_CONSENT_REQUIRED; e-mail já cadastrado, 409 EMAIL_ALREADY_REGISTERED. country fora de countries.json dá 400 VALIDATION_FAILED no campo country. Vindo do convite do Visitante, visitor leva o deviceId e os recibos das rotas do Visitante: os válidos viram o Progresso e o XP da conta, na mesma transação do cadastro, e os inválidos (adulterados, de outro aparelho, com mais de 90 dias, reemitidos, já usados ou repetidos) são descartados sem erro. A resposta é a mesma com ou sem recibos descartados; o App limpa a loja do Visitante depois do 201. */
         post: operations["signup"];
         delete?: never;
         options?: never;
@@ -933,16 +933,25 @@ export interface components {
             acceptedTermsVersion: string;
             /** Format: date */
             birthDate: string;
+            /** @description O name em inglês de um país de countries.json, como o App grava no Diálogo. Fora da lista, 400 VALIDATION_FAILED. */
+            country?: string;
             /** Format: email */
             email: string;
             name?: string;
             /** @description De 8 a 64 caracteres, com pelo menos uma letra e um número. Senhas com muitos acentos ou emoji podem precisar ser mais curtas (o limite é de 72 bytes em UTF-8). */
             password: string;
+            /** @description Só vindo do convite do Visitante: o aparelho e os recibos das rotas do Visitante, para migrar o Progresso e o XP. */
+            visitor?: components["schemas"]["SignupVisitor"];
         };
         SignupResponse: {
             /** @description Só no Android (X-Fluveny-Client: android). No web, o token vai só no cookie fluveny_session. */
             sessionToken?: string;
             student: components["schemas"]["StudentProfile"];
+        };
+        SignupVisitor: {
+            /** Format: uuid */
+            deviceId: string;
+            receipts: string[];
         };
         SpeechActivity: {
             activityKey: string;
@@ -1089,6 +1098,8 @@ export interface components {
             versionId: string;
         };
         StudentProfile: {
+            /** @description O país informado no cadastro: o name em inglês de um país de countries.json. Nulo se o Aluno não informou. */
+            country?: string | null;
             email: string;
             /** @description Se o e-mail segue sem confirmar 7 dias ou mais depois do cadastro (relógio do servidor). Com true, o App mostra a faixa "Confirme seu e-mail para poder recuperar a senha." com o Reenviar; até confirmar, a recuperação de senha não envia nada. */
             emailConfirmationOverdue: boolean;

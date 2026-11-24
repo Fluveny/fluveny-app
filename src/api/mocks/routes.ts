@@ -90,6 +90,7 @@
 // `next` na primeira Atividade sem registro, a média dos `GRADED` e a `unit-2`
 // "em breve", sem Estágios. `forceMockStageLocked(true)` faz a Tentativa, o
 // reveal e a conclusão do Aluno responderem `409 STAGE_LOCKED`, sem gravar nada.
+import mockCountries from '../../player/countries.json';
 import type { components, paths } from '../schema';
 
 export const MOCK_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
@@ -651,13 +652,24 @@ const stage1Activities: ActivityView[] = [
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** A primeira Tentativa ou conclusão de um aparelho numa Atividade, como a `visitor_attempts` da API. */
-type FirstRecord = { attemptId: string; outcome: string; resultPct: number; receipt: string };
+type FirstRecord = { attemptId: string; outcome: string; resultPct: number; receipt: string; xp: number };
 const firstRecords = new Map<string, FirstRecord>();
+/** Recibos já migrados num cadastro (2.6): não migram de novo. */
+const usedReceipts = new Set<string>();
 let receiptSeq = 0;
+
+/**
+ * Grava, como a rota do Visitante, a primeira resposta de um aparelho numa
+ * Atividade com `xp` e devolve o recibo (testes da migração, 2.6).
+ */
+export function seedMockVisitorRecord(deviceId: string, activityKey: string, xp: number, resultPct = 100): string {
+  return receiptFor(deviceId, activityKey, `seed-${activityKey}`, 'GRADED', resultPct, xp)!;
+}
 
 /** Esquece as Tentativas e conclusões gravadas (testes). */
 export function resetMockVisitorRecords() {
   firstRecords.clear();
+  usedReceipts.clear();
 }
 
 /**
@@ -723,7 +735,7 @@ function settle(
   xp: number,
 ): { receipt?: string; xpAwarded: number } {
   if (who.kind === 'visitor') {
-    const receipt = receiptFor(who.deviceId, activityKey, attemptId, outcome, resultPct ?? 0);
+    const receipt = receiptFor(who.deviceId, activityKey, attemptId, outcome, resultPct ?? 0, xp);
     return { ...(receipt ? { receipt } : {}), xpAwarded: xp };
   }
   const key = `${who.email}|${activityKey}`;
@@ -783,6 +795,7 @@ function receiptFor(
   attemptId: unknown,
   outcome: string,
   resultPct: number,
+  xp: number,
 ): string | undefined {
   if (!deviceId || typeof attemptId !== 'string') return undefined;
   const key = `${deviceId}|${activityKey}`;
@@ -791,7 +804,7 @@ function receiptFor(
     receiptSeq += 1;
     // Falso e opaco: o App não decodifica, só guarda.
     const receipt = `v1.mock-${receiptSeq.toString(36)}-${Date.now().toString(36)}.unsigned`;
-    firstRecords.set(key, { attemptId, outcome, resultPct, receipt });
+    firstRecords.set(key, { attemptId, outcome, resultPct, receipt, xp });
     return receipt;
   }
   return saved.attemptId === attemptId && saved.outcome === outcome && saved.resultPct === resultPct
@@ -1325,6 +1338,8 @@ const SIGNUP_FIELDS = new Set([
   'name',
   'acceptedTermsVersion',
   'acceptedPrivacyVersion',
+  'country',
+  'visitor',
 ]);
 const MOCK_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -1352,6 +1367,51 @@ function mockAge(value: unknown, today = new Date()): number | null {
   const [ty, tm, td] = [today.getFullYear(), today.getMonth() + 1, today.getDate()];
   if (year < 1900 || year > ty || (year === ty && (month > tm || (month === tm && day > td)))) return null;
   return ty - year - (tm < month || (tm === month && td < day) ? 1 : 0);
+}
+
+const MOCK_COUNTRIES: ReadonlySet<string> = new Set(mockCountries.map((country: { name: string }) => country.name));
+
+/** O `visitor` do cadastro (2.6): `deviceId` UUID e até 200 recibos de até 1024 caracteres; fora disso, 400. */
+function mockVisitorOf(value: unknown): { deviceId: string; receipts: string[] } | undefined {
+  if (value === undefined) return undefined;
+  const visitor = value as { deviceId?: unknown; receipts?: unknown } | null;
+  if (
+    !visitor ||
+    typeof visitor !== 'object' ||
+    typeof visitor.deviceId !== 'string' ||
+    !UUID.test(visitor.deviceId) ||
+    !Array.isArray(visitor.receipts) ||
+    visitor.receipts.length > 200 ||
+    visitor.receipts.some((receipt) => typeof receipt !== 'string' || receipt.length > 1024)
+  ) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
+  return { deviceId: visitor.deviceId, receipts: visitor.receipts as string[] };
+}
+
+/**
+ * Migra os recibos do Visitante para o Progresso da conta, como a API (2.6):
+ * só os emitidos para esse `deviceId`, uma vez cada; o resto é descartado sem erro.
+ */
+function migrateMockReceipts(email: string, { deviceId, receipts }: { deviceId: string; receipts: string[] }) {
+  const wanted = new Set(receipts);
+  for (const [key, record] of firstRecords) {
+    if (!wanted.has(record.receipt) || usedReceipts.has(record.receipt) || !key.startsWith(`${deviceId}|`)) continue;
+    const activityKey = key.slice(deviceId.length + 1);
+    const outcome = record.outcome === 'VIEWED' || record.outcome === 'SKIPPED' ? record.outcome : 'GRADED';
+    if (!studentRecords.has(`${email}|${activityKey}`)) {
+      studentRecords.set(`${email}|${activityKey}`, {
+        activityKey,
+        attemptId: record.attemptId,
+        outcome,
+        ...(outcome === 'GRADED' ? { resultPct: record.resultPct } : {}),
+        xpAwarded: record.xp,
+        studyTimeMs: 0,
+      });
+    }
+    // Recibo usado não migra de novo.
+    usedReceipts.add(record.receipt);
+  }
 }
 
 /** Cadastro do Aluno adulto, como o `SignupController` e o `RegisterStudent` da API. */
@@ -1387,7 +1447,12 @@ async function mockSignup(request: Request) {
     emailConfirmed: false,
     emailConfirmationOverdue: false,
   };
+  const visitor = mockVisitorOf(body.visitor);
+  if (body.country !== undefined && (typeof body.country !== 'string' || !MOCK_COUNTRIES.has(body.country))) {
+    throw new MockProblem(400, 'VALIDATION_FAILED');
+  }
   mockAccounts.set(key, { password: body.password as string, student, deactivated: false });
+  if (visitor) migrateMockReceipts(key, visitor);
   issueConfirmationToken(key);
   return openMockSession(student, client);
 }

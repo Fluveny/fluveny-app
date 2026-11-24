@@ -523,3 +523,84 @@ describe('cadastro do Aluno adulto (2.1)', () => {
     expect(ofRoute('POST', '/api/v1/auth/signup')).toHaveLength(0);
   });
 });
+
+describe('migração do Visitante no cadastro (2.6)', () => {
+  /** Um Visitante com país e `count` recibos gravados no aparelho. */
+  async function visitorWith(count: number, country = 'Brazil') {
+    await visitorStore.setVariable('name', 'Ana');
+    await visitorStore.setVariable('country', country);
+    for (let i = 0; i < count; i += 1) await visitorStore.recordReceipt(`a${i}`, `v1.r${i}`);
+    return visitorStore.deviceId();
+  }
+
+  it('do convite: corpo com name, country e visitor; 201 limpa a loja menos o deviceId', async () => {
+    const deviceId = await visitorWith(13);
+    await openApp('/cadastro?de=convite');
+    expect(await screen.findByText(INVITE_NOTICE)).toBeTruthy();
+    await waitFor(() => expect(screen.getByLabelText(NAME_FIELD).props.value).toBe('Ana'));
+    await fill({ name: 'Ana' });
+    await fireEvent.press(button(CREATE_LABEL));
+    expect(await screen.findByRole('header', { name: PRONOUNS_TITLE })).toBeTruthy();
+    const [signup] = ofRoute('POST', '/api/v1/auth/signup');
+    expect(signup!.body).toMatchObject({
+      name: 'Ana',
+      country: 'Brazil',
+      visitor: { deviceId, receipts: Array.from({ length: 13 }, (_, i) => `v1.r${i}`) },
+    });
+    expect(await visitorStore.receipts()).toEqual([]);
+    expect(await visitorStore.variables()).toEqual({});
+    expect(await visitorStore.deviceId()).toBe(deviceId);
+    await fireEvent.press(button(PRONOUNS_LATER));
+    expect(await screen.findByRole('header', { name: studentGreeting('Ana') })).toBeTruthy();
+  });
+
+  it('sem convite, com recibos: visitor vai; sem recibos: corpo da 2.1', async () => {
+    await visitorWith(5, 'Atlantis');
+    await openApp('/cadastro');
+    await fill();
+    await fireEvent.press(button(CREATE_LABEL));
+    await screen.findByRole('header', { name: PRONOUNS_TITLE });
+    const [signup] = ofRoute('POST', '/api/v1/auth/signup');
+    expect((signup!.body as { visitor: { receipts: string[] } }).visitor.receipts).toHaveLength(5);
+    expect(signup!.body).not.toHaveProperty('country');
+    await fireEvent.press(button(PRONOUNS_LATER));
+    await screen.findByRole('header', { name: studentGreeting('Ana') });
+  });
+
+  it('sem recibos: o corpo da 2.1, sem visitor', async () => {
+    await signUpFromWelcome();
+    await screen.findByRole('header', { name: PRONOUNS_TITLE });
+    const [signup] = ofRoute('POST', '/api/v1/auth/signup');
+    expect(signup!.body).toEqual({
+      email: 'Ana@Exemplo.test',
+      password: 'segredo123',
+      birthDate: '1990-05-20',
+      name: 'Ana',
+      acceptedTermsVersion: TERMS_VERSION,
+      acceptedPrivacyVersion: PRIVACY_VERSION,
+    });
+  });
+
+  it('sem rede, 500 e 409 depois: a loja fica intacta', async () => {
+    await visitorWith(3);
+    override['POST /api/v1/auth/signup'] = () => {
+      throw new TypeError('Network request failed');
+    };
+    await openApp('/cadastro');
+    await fill();
+    await fireEvent.press(button(CREATE_LABEL));
+    expect(await screen.findByText(messageFor(NETWORK_ERROR))).toBeTruthy();
+    expect(await visitorStore.receipts()).toHaveLength(3);
+    override['POST /api/v1/auth/signup'] = () => json({ code: 'UNKNOWN_ERROR' }, 500);
+    await fireEvent.press(button(CREATE_LABEL));
+    await waitFor(() => expect(ofRoute('POST', '/api/v1/auth/signup')).toHaveLength(2));
+    expect(await screen.findByRole('button', { name: CREATE_LABEL })).toBeEnabled();
+    expect(await visitorStore.receipts()).toHaveLength(3);
+    override['POST /api/v1/auth/signup'] = () => json({ code: 'EMAIL_ALREADY_REGISTERED' }, 409);
+    await fireEvent.press(button(CREATE_LABEL));
+    expect(await screen.findByText(messageFor('EMAIL_ALREADY_REGISTERED'))).toBeTruthy();
+    expect(screen.getByRole('button', { name: SIGN_IN_LINK })).toBeTruthy();
+    expect(await visitorStore.receipts()).toHaveLength(3);
+    expect(await visitorStore.getVariable('country')).toBe('Brazil');
+  });
+});

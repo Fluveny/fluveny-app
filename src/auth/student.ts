@@ -18,6 +18,8 @@ import {
 } from '../api/client';
 import { visitorStore } from '../visitor/store';
 import type { Pronoun } from '../visitor/types';
+import { captureError } from '../observability/sentry';
+import { finishVisitorMigration, visitorSignupFields, type VisitorSignupFields } from '../visitor/migration';
 import { clearVisitorCache } from '../visitor/useVisitor';
 import { clearSessionToken, saveSessionToken, storedSessionToken } from './session';
 
@@ -103,10 +105,28 @@ export function useCachedStudent(): StudentProfile | null {
 /**
  * Cria a conta e já entra: no Android, guarda o `sessionToken` no armazenamento
  * seguro antes de tudo; no web, a sessão é o cookie que a API mandou. O perfil
- * vai para o cache.
+ * vai para o cache. Com recibos no aparelho, migra o Progresso do Visitante
+ * (2.6): `visitor` e `country` vêm da loja, e ela é limpa (menos o `deviceId`)
+ * só depois do 201. Sem resposta (rede, 5xx, 409), a loja não muda.
  */
-export async function signUp(client: QueryClient, body: SignupBody): Promise<StudentProfile> {
-  return startSession(client, await post('/api/v1/auth/signup', body));
+export async function signUp(
+  client: QueryClient,
+  body: Omit<SignupBody, 'country' | 'visitor'>,
+): Promise<StudentProfile> {
+  let fields: VisitorSignupFields = {};
+  try {
+    fields = await visitorSignupFields(visitorStore);
+  } catch (error) {
+    // A loja não leu: o cadastro segue sem migrar (o erro da loja não leva recibo).
+    captureError(error);
+  }
+  const session = await post('/api/v1/auth/signup', { ...body, ...fields });
+  // A conta já existe: a limpeza roda mesmo se a sessão falhar, e nunca rejeita.
+  try {
+    return await startSession(client, session);
+  } finally {
+    await finishVisitorMigration(client, visitorStore);
+  }
 }
 
 /** O e-mail do Aluno cuja sessão venceu no meio do uso (só em memória): a loja e o cache ainda são dele. */
