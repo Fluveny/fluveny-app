@@ -20,6 +20,34 @@ export type StageSummary = {
 
 const MINUTE_MS = 60_000;
 
+/** Os minutos de estudo de um tempo somado: arredondados, no mínimo 1 com algum tempo, 0 sem nenhum. */
+export function minutesOf(timeMs: number): number {
+  return timeMs > 0 ? Math.max(1, Math.round(timeMs / MINUTE_MS)) : 0;
+}
+
+/** O resumo do Estágio do Aluno como vem da API (2.7). */
+export type StudentStageSummaryData = {
+  xpAwarded: number;
+  averageResultPct?: number;
+  skippedCount: number;
+  studyTimeMs: number;
+};
+
+/**
+ * O resumo do Aluno (`GET /students/me/units/{unitKey}/stages/{stageKey}/summary`)
+ * nos números da tela: a média ausente vira `null` ("–").
+ */
+export function fromStudentSummary(data: StudentStageSummaryData): StageSummary {
+  const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+  return {
+    xp: finite(data.xpAwarded) ? data.xpAwarded : 0,
+    resultPct: finite(data.averageResultPct) ? data.averageResultPct : null,
+    // Sem tempo na resposta, como o Progresso sem tempo do `summarizeStage`: sem o cartão.
+    minutes: finite(data.studyTimeMs) ? minutesOf(data.studyTimeMs) : null,
+    skipped: finite(data.skippedCount) ? data.skippedCount : 0,
+  };
+}
+
 function entriesOf(progress: readonly ProgressEntry[], activityKeys: readonly string[]): ProgressEntry[] {
   const keys = new Set(activityKeys);
   return progress.filter((entry) => keys.has(entry.activityKey));
@@ -43,7 +71,7 @@ export function summarizeStage(progress: readonly ProgressEntry[], activityKeys:
   return {
     xp: entries.reduce((sum, entry) => sum + entry.xp, 0),
     resultPct: graded.length > 0 ? Math.round(graded.reduce((sum, pct) => sum + pct, 0) / graded.length) : null,
-    minutes: timed.length === 0 ? null : timeMs > 0 ? Math.max(1, Math.round(timeMs / MINUTE_MS)) : 0,
+    minutes: timed.length === 0 ? null : minutesOf(timeMs),
     skipped: entries.filter((entry) => entry.outcome === 'skipped').length,
   };
 }

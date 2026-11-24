@@ -25,12 +25,25 @@ export type PlayerSession = {
   onSaved: () => void;
   /** A API recusou a gravação do Aluno com `409 STAGE_LOCKED` (2.5): o player troca a tela pelo aviso. */
   onStageLocked: () => void;
+  /**
+   * O refazer (2.7): a resposta com este `attemptId` leva `replay: true`? Só na
+   * primeira resposta de uma abertura de Atividade que já tinha registro do
+   * Aluno (e nos reenvios dela, com o mesmo id). A primeira chamada da abertura
+   * fixa o id; as outras respostas (Tentar de novo) e o Visitante dão `false`.
+   */
+  claimReplay: (activityKey: string, attemptId: string) => boolean;
 };
 
 const noop = () => {};
 
 /** Fora do player: o Visitante, sem relógio do player. */
-export const VISITOR_SESSION: PlayerSession = { mode: 'visitor', clock: null, onSaved: noop, onStageLocked: noop };
+export const VISITOR_SESSION: PlayerSession = {
+  mode: 'visitor',
+  clock: null,
+  onSaved: noop,
+  onStageLocked: noop,
+  claimReplay: () => false,
+};
 
 export const PlayerSessionContext = createContext<PlayerSession>(VISITOR_SESSION);
 

@@ -181,7 +181,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Corrige a Tentativa do Aluno e grava a primeira na Atividade, com o XP dela. expected e as justificativas só voltam no Acerto (100%). Reenviar o mesmo attemptId com o mesmo corpo devolve o XP gravado; outro attemptId (Tentar de novo, refazer) devolve o Feedback com xpAwarded 0, sem gravar. Tipo divergente ou expositivo: 400 INVALID_ANSWER; versão ou Atividade inexistente: 404. Campo desconhecido dá 400. Estágio bloqueado na versão publicada (o anterior não está concluído): 409 STAGE_LOCKED, sem gravar nada (na Tentativa e no Ver resposta, antes de corrigir). O Estágio é o da Atividade na versão publicada, mesmo com versionId antigo; Atividade ou Estágio fora da versão publicada não trava. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions e events: 429 TOO_MANY_REQUESTS com Retry-After. */
+        /** @description Corrige a Tentativa do Aluno e grava a primeira na Atividade, com o XP dela. expected e as justificativas só voltam no Acerto (100%). Reenviar o mesmo attemptId com o mesmo corpo devolve o XP gravado; outro attemptId (Tentar de novo, refazer) devolve o Feedback com xpAwarded 0, sem gravar. replay: true (opcional) marca o refazer de uma Atividade já concluída e publica o ACTIVITY_COMPLETED com firstAttempt false; sem registro, conta como primeira. Tipo divergente ou expositivo: 400 INVALID_ANSWER; versão ou Atividade inexistente: 404. Campo desconhecido dá 400. Estágio bloqueado na versão publicada (o anterior não está concluído): 409 STAGE_LOCKED, sem gravar nada (na Tentativa e no Ver resposta, antes de corrigir). O Estágio é o da Atividade na versão publicada, mesmo com versionId antigo; Atividade ou Estágio fora da versão publicada não trava. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions e events: 429 TOO_MANY_REQUESTS com Retry-After. */
         post: operations["submitStudentAttempt"];
         delete?: never;
         options?: never;
@@ -215,7 +215,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Conclui uma Atividade sem correção, sem XP, e grava a primeira na Atividade: os expositivos dialogue, cards, expression, grammar e free com VIEWED, e a speech pulada, com SKIPPED. Fora disso, 409 COMPLETION_NOT_ALLOWED. A conclusão VIEWED de um free devolve a modelAnswer. Versão ou Atividade inexistente: 404. Campo desconhecido dá 400. Estágio bloqueado na versão publicada (o anterior não está concluído): 409 STAGE_LOCKED, sem gravar nada (na Tentativa e no Ver resposta, antes de corrigir). O Estágio é o da Atividade na versão publicada, mesmo com versionId antigo; Atividade ou Estágio fora da versão publicada não trava. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions e events: 429 TOO_MANY_REQUESTS com Retry-After. */
+        /** @description Conclui uma Atividade sem correção, sem XP, e grava a primeira na Atividade: os expositivos dialogue, cards, expression, grammar e free com VIEWED, e a speech pulada, com SKIPPED. Fora disso, 409 COMPLETION_NOT_ALLOWED. A conclusão VIEWED de um free devolve a modelAnswer. replay: true (opcional) marca o refazer, como em /attempts. Versão ou Atividade inexistente: 404. Campo desconhecido dá 400. Estágio bloqueado na versão publicada (o anterior não está concluído): 409 STAGE_LOCKED, sem gravar nada (na Tentativa e no Ver resposta, antes de corrigir). O Estágio é o da Atividade na versão publicada, mesmo com versionId antigo; Atividade ou Estágio fora da versão publicada não trava. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. Com a sessão do navegador (cookie), exige X-Fluveny-Client, senão 403 CLIENT_HEADER_REQUIRED. Mais de 60 escritas por minuto do Aluno, somando attempts, attempts/reveal, completions e events: 429 TOO_MANY_REQUESTS com Retry-After. */
         post: operations["submitStudentCompletion"];
         delete?: never;
         options?: never;
@@ -283,6 +283,23 @@ export interface paths {
         };
         /** @description O Progresso do Aluno da sessão: o XP total (soma de todos os registros, inclusive de Atividades removidas) e a primeira conclusão de cada Atividade. resultPct só no GRADED. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. */
         get: operations["getMyProgress"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/me/units/{unitKey}/stages/{stageKey}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description O resumo do Estágio concluído (Estágio: check!): a soma do XP, o Resultado médio das Atividades corrigidas (ausente sem nenhuma), as puladas e a soma do tempo de estudo, em milissegundos. Entram os registros das Atividades do Estágio na versão publicada, gravados em qualquer versão; os números são os da primeira conclusão, e refazer não muda o resumo. A leitura reconcilia as conclusões da Unidade como o /dashboard. Estágio não concluído: 409 STAGE_NOT_COMPLETED. Unidade ou Estágio fora da versão publicada: 404 NOT_FOUND. Sem sessão, com sessão vencida ou de conta fora de ACTIVE: 401 com WWW-Authenticate. */
+        get: operations["getMyStageSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -459,6 +476,10 @@ export interface components {
         };
         ApiResponseStudentProgress: {
             data: components["schemas"]["StudentProgress"];
+            message?: string;
+        };
+        ApiResponseStudentStageSummary: {
+            data: components["schemas"]["StudentStageSummary"];
             message?: string;
         };
         ApiResponseUnitStudentView: {
@@ -1033,6 +1054,8 @@ export interface components {
             answer: components["schemas"]["Answer"];
             /** Format: uuid */
             attemptId: string;
+            /** @description true só na primeira resposta (e nos reenvios dela) de uma abertura de Atividade que já tinha registro: o refazer (2.7). */
+            replay?: boolean;
             /** Format: int64 */
             studyTimeMs: number;
             type: string;
@@ -1044,6 +1067,8 @@ export interface components {
             attemptId: string;
             /** @enum {string} */
             outcome: "VIEWED" | "SKIPPED";
+            /** @description true só na primeira resposta (e nos reenvios dela) de uma abertura de Atividade que já tinha registro: o refazer (2.7). */
+            replay?: boolean;
             /** Format: int64 */
             studyTimeMs: number;
             versionId: string;
@@ -1119,6 +1144,21 @@ export interface components {
         };
         /** @enum {string} */
         StudentStageState: "COMPLETED" | "CURRENT" | "LOCKED";
+        StudentStageSummary: {
+            /**
+             * Format: int32
+             * @description A média arredondada das Atividades corrigidas. Ausente sem nenhuma.
+             */
+            averageResultPct?: number;
+            /** Format: int32 */
+            skippedCount: number;
+            stageKey: string;
+            /** Format: int64 */
+            studyTimeMs: number;
+            unitKey: string;
+            /** Format: int64 */
+            xpAwarded: number;
+        };
         UnitBundleContent: {
             media: {
                 [key: string]: components["schemas"]["MediaContent"];
@@ -1616,6 +1656,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseStudentProgress"];
+                };
+            };
+        };
+    };
+    getMyStageSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                unitKey: string;
+                stageKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseStudentStageSummary"];
                 };
             };
         };

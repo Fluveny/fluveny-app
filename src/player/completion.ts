@@ -46,6 +46,8 @@ export type CompletionRequest = {
   /** O mesmo id ao repetir o envio depois de uma falha (idempotência, AD-9). */
   attemptId: string;
   studyTimeMs: number;
+  /** O refazer do Aluno (2.7): a primeira resposta da abertura de uma Atividade já registrada. */
+  replay?: boolean;
 };
 
 /**
@@ -61,6 +63,7 @@ export async function completeActivity({
   outcome,
   attemptId,
   studyTimeMs,
+  replay = false,
 }: CompletionRequest): Promise<CompletionResult> {
   if (mode === 'student') {
     return post(STUDENT_COMPLETION_PATH, {
@@ -69,6 +72,7 @@ export async function completeActivity({
       activityKey,
       outcome: OUTCOME[outcome],
       studyTimeMs: Math.max(0, Math.round(studyTimeMs)),
+      ...(replay ? { replay: true } : {}),
     });
   }
   const deviceId = await store.deviceId();
@@ -106,6 +110,8 @@ export type CompletionSession = {
   onSaved: () => void;
   /** `409 STAGE_LOCKED` do Aluno (2.5): sem mensagem no rodapé, o player troca a tela. */
   onStageLocked?: () => void;
+  /** O refazer (2.7), como o `PlayerSession.claimReplay`; sem ele, nunca `replay`. */
+  claimReplay?: (activityKey: string, attemptId: string) => boolean;
 };
 
 /**
@@ -126,6 +132,7 @@ export function useCompletion(
   const clock = session?.clock ?? ownClock;
   const onSaved = session?.onSaved ?? noop;
   const onStageLocked = session?.onStageLocked ?? noop;
+  const claimReplay = session?.claimReplay;
   const [completing, setCompleting] = useState(false);
   const [failure, setFailure] = useState<{ activityKey: string; code: string; retryable: boolean } | null>(null);
   const running = useRef(false);
@@ -158,6 +165,7 @@ export function useCompletion(
           outcome,
           attemptId: pending.current.attemptId,
           studyTimeMs: clock.elapsed(),
+          replay: mode === 'student' && claimReplay ? claimReplay(activityKey, pending.current.attemptId) : false,
         });
         pending.current = null;
       } catch (error) {
@@ -178,7 +186,7 @@ export function useCompletion(
       // Saiu durante o envio: o recibo ficou, o Progresso não (como o ✕ depois do Resultado).
       return alive.current ? { status: 'done', result } : { status: 'gone' };
     },
-    [store, activityKey, versionId, mode, clock, onSaved, onStageLocked],
+    [store, activityKey, versionId, mode, clock, onSaved, onStageLocked, claimReplay],
   );
 
   /** Esquece a falha (a Resposta Livre trocou pelo Extra Help, 1.18: a mensagem do ENVIAR não vale mais). */

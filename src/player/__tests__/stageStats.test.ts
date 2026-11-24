@@ -1,5 +1,5 @@
 import type { ProgressEntry } from '../../visitor/types';
-import { isStageComplete, skippedLine, summarizeStage } from '../stageStats';
+import { fromStudentSummary, isStageComplete, skippedLine, summarizeStage } from '../stageStats';
 
 const KEYS = ['a1', 'a2', 'a3', 'a4'];
 
@@ -45,5 +45,30 @@ describe('números do Resumo do Estágio (1.20)', () => {
     expect(skippedLine(0)).toBeNull();
     expect(skippedLine(1)).toBe('1 atividade de fala pulada. Você pode refazer quando quiser.');
     expect(skippedLine(2)).toBe('2 atividades de fala puladas. Você pode refazer quando quiser.');
+  });
+});
+
+describe('fromStudentSummary (2.7)', () => {
+  it('sem média: null; puladas passam; minutos arredondados, mínimo 1, 0 sem tempo', () => {
+    expect(fromStudentSummary({ xpAwarded: 7, skippedCount: 2, studyTimeMs: 150_000 })).toEqual({
+      xp: 7,
+      resultPct: null,
+      minutes: 3,
+      skipped: 2,
+    });
+    expect(fromStudentSummary({ xpAwarded: 0, averageResultPct: 67, skippedCount: 0, studyTimeMs: 1 }).minutes).toBe(1);
+    expect(fromStudentSummary({ xpAwarded: 0, averageResultPct: 67, skippedCount: 0, studyTimeMs: 0 })).toEqual({
+      xp: 0,
+      resultPct: 67,
+      minutes: 0,
+      skipped: 0,
+    });
+  });
+
+  it('valor fora do contrato: média e minutos null, XP e puladas 0', () => {
+    const odd = { xpAwarded: NaN, averageResultPct: Infinity, skippedCount: NaN } as unknown as Parameters<
+      typeof fromStudentSummary
+    >[0];
+    expect(fromStudentSummary(odd)).toEqual({ xp: 0, resultPct: null, minutes: null, skipped: 0 });
   });
 });
