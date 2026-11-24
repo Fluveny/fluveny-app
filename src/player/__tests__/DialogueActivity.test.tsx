@@ -58,6 +58,9 @@ const ASK_COUNTRY = dialogue([
   { lineKey: 'l2', speaker: 'Alex', text: '{country}? Cool!' },
 ]);
 
+/** Como o conteúdo da API: uma fala só, com a pergunta. */
+const ASK_LAST = dialogue([{ lineKey: 'l1', speaker: 'Alex', text: "Hi, I'm Alex. What's your name?", ask: 'name' }]);
+
 const ASK_BOTH = dialogue([
   { lineKey: 'l1', speaker: 'Alex', text: "What's your name?", ask: 'name' },
   { lineKey: 'l2', speaker: 'Alex', text: 'Hi, {name}! Where are you from?', ask: 'country' },
@@ -317,6 +320,19 @@ describe('Diálogo: pergunta do país', () => {
     await open(ASK_COUNTRY);
     await waitFor(() => expect(country('BR').props.accessibilityState).toMatchObject({ selected: true }));
     expect(button()).toBeEnabled();
+  });
+});
+
+describe('Diálogo: a pergunta é a última fala', () => {
+  it('depois da resposta a fala fica na cena e o próximo CONTINUAR conclui', async () => {
+    const { advance } = await open(ASK_LAST);
+    await fireEvent.changeText(screen.getByLabelText(NAME_LABEL), 'Ana');
+    await fireEvent.press(button());
+    await waitFor(() => expect(screen.queryByLabelText(NAME_LABEL)).toBeNull());
+    expect(shownLines()).toEqual(['dialogue-line-l1']);
+    expect(advance).not.toHaveBeenCalled();
+    await fireEvent.press(button());
+    expect(advance).toHaveBeenCalledWith({ outcome: 'viewed', xp: 0 });
   });
 });
 
