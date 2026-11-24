@@ -20,11 +20,14 @@ import SignUp, {
   PRONOUNS_LATER,
 } from '../../app/(student)/cadastro';
 import StageTwoInvite from '../../app/(student)/convite';
-import Player, { BACK_HOME_LABEL } from '../../app/(student)/player';
+import Player, { BACK_HOME_LABEL, SAVE_FAILED } from '../../app/(student)/player';
 import { messageFor, NETWORK_ERROR, STAGE_LOCKED } from '../api/errors';
 import { mockResponse } from '../api/mocks/handlers';
 import {
+  confirmMockGuardian,
   expireMockSession,
+  forceMockMigration,
+  mockGuardianEmail,
   forceMockStageLocked,
   markMockConfirmationOverdue,
   MOCK_CREATED,
@@ -36,6 +39,18 @@ import {
   seedMockVisitorRecord,
 } from '../api/mocks/routes';
 import { AppProviders, createQueryClient } from '../AppProviders';
+import {
+  GUARDIAN_CANCEL_LABEL,
+  GUARDIAN_FIX_LABEL,
+  GUARDIAN_FIXED,
+  GUARDIAN_NEW_FIELD,
+  GUARDIAN_PENDING_TEXT,
+  GUARDIAN_RESEND_LABEL,
+  GUARDIAN_RESENT,
+  GUARDIAN_SEND_LABEL,
+} from '../auth/GuardianBanner';
+import { markGuardianPending, resetConsentMigration } from '../auth/guardianConsent';
+import { GUARDIAN_SAME } from '../auth/signupForm';
 import { returnPath } from '../auth/sessionEnd';
 import { forgetCachedSession } from '../auth/session';
 import { STUDENT_QUERY_KEY, type StudentProfile } from '../auth/student';
@@ -78,6 +93,8 @@ const DASHBOARD = '/api/v1/students/me/dashboard';
 const ATTEMPTS = '/api/v1/students/me/attempts';
 const COMPLETIONS = '/api/v1/students/me/completions';
 const STAGE_PATH = '/api/v1/units/unit-1/stages/stage-1';
+const RESEND = '/api/v1/students/me/guardian-consent/resend';
+const MIGRATION = '/api/v1/students/me/visitor-migration';
 
 const MOCK_STAGE = mockRoutes['/api/v1/units/{unitKey}/stages/{stageKey}'].get(new Request('http://mock')).data;
 type StageActivity = (typeof MOCK_STAGE.activities)[number];
@@ -226,6 +243,7 @@ beforeEach(() => {
   resetMockStudents();
   resetMockStudentRecords();
   resetMockVisitorRecords();
+  resetConsentMigration();
   override = {};
   sent.length = 0;
   servedStage = { ...MOCK_STAGE, activities: [CHOICE, CHOICES[1]!, CHOICES[2]!] };
@@ -626,5 +644,252 @@ describe('migração do Visitante (2.6)', () => {
     expect(await visitorStore.progress()).toEqual([]);
     expect(await visitorStore.variables()).toEqual({});
     expect(await visitorStore.deviceId()).toBe(deviceId);
+  });
+});
+
+describe('adolescente com consentimento do responsável (2.11)', () => {
+  const TEEN = { ...ADULT, email: 'bia@exemplo.test', name: 'Bia', birthDate: '', guardianEmail: 'mae@exemplo.test' };
+
+  /** Uma conta de 15 anos, pendente, com sessão no mock (Android). */
+  async function teenSignedUp(): Promise<StudentProfile> {
+    const today = new Date();
+    const birthDate = `${today.getFullYear() - 15}-01-01`;
+    const { data } = await mockRoutes['/api/v1/auth/signup'].post(
+      new Request('http://mock/api/v1/auth/signup', {
+        method: 'POST',
+        headers: { 'X-Fluveny-Client': 'android' },
+        body: JSON.stringify({ ...TEEN, birthDate }),
+      }),
+    );
+    global.__secureStore.set('fluveny.session', data.sessionToken!);
+    forgetCachedSession();
+    // O cadastro do App marca a conta pendente neste aparelho (só ela migra depois).
+    await markGuardianPending(data.student.email);
+    return data.student;
+  }
+
+  /** O Estágio 1 jogado como Visitante: recibos e Progresso na loja. */
+  async function playedStageOne() {
+    const deviceId = await visitorStore.deviceId();
+    for (const activity of MOCK_STAGE.activities) {
+      const receipt = seedMockVisitorRecord(deviceId, activity.activityKey, 10);
+      await visitorStore.recordReceipt(activity.activityKey, receipt);
+      await visitorStore.recordProgress({
+        activityKey: activity.activityKey,
+        outcome: 'completed',
+        xp: 10,
+        resultPct: 100,
+      });
+    }
+    return deviceId;
+  }
+
+  it('pendente: faixa ouro acima da do e-mail, só o Progresso do aparelho e nenhuma migração', async () => {
+    const student = await teenSignedUp();
+    expect(student.status).toBe('PENDING_GUARDIAN_CONSENT');
+    await visitorStore.recordProgress({ activityKey: CHOICE.activityKey, outcome: 'completed', xp: 7, resultPct: 70 });
+    await visitorStore.recordReceipt(CHOICE.activityKey, 'recibo-local');
+    await openApp('/', student);
+    expect(await screen.findByText(GUARDIAN_PENDING_TEXT)).toBeTruthy();
+    expect(screen.getByTestId('email-confirmation-banner')).toBeTruthy();
+    expect(await screen.findByLabelText('XP total: 7')).toBeTruthy();
+    expect(screen.getByLabelText('Resultado médio: 70%')).toBeTruthy();
+    expect(button(DASHBOARD_CONTINUE)).toBeTruthy();
+    expect(ofRoute('POST', MIGRATION)).toHaveLength(0);
+    expect(await visitorStore.receipts()).toHaveLength(1);
+  });
+
+  it('reenviar: 202 e depois a espera do Retry-After (429)', async () => {
+    const student = await teenSignedUp();
+    await openApp('/', student);
+    await fireEvent.press(await screen.findByRole('button', { name: GUARDIAN_RESEND_LABEL }));
+    expect(await screen.findByText(`${GUARDIAN_PENDING_TEXT} ${GUARDIAN_RESENT}`)).toBeTruthy();
+    await fireEvent.press(button(GUARDIAN_RESEND_LABEL));
+    expect(await screen.findByText(/Espere \d+ segundos para enviar de novo\./)).toBeTruthy();
+    // Até o prazo do Retry-After, o reenvio fica desabilitado.
+    expect(button(GUARDIAN_RESEND_LABEL)).toBeDisabled();
+    expect(ofRoute('POST', RESEND)).toHaveLength(2);
+    expect(ofRoute('POST', RESEND)[0]!.body).toBeUndefined();
+  });
+
+  it('corrigir o e-mail: igual ao próprio não envia; outro vai no resend, 202 e o campo fecha', async () => {
+    const student = await teenSignedUp();
+    await openApp('/', student);
+    await fireEvent.press(await screen.findByRole('button', { name: GUARDIAN_FIX_LABEL }));
+    await fireEvent.changeText(screen.getByLabelText(GUARDIAN_NEW_FIELD), 'BIA@exemplo.test');
+    await fireEvent.press(button(GUARDIAN_SEND_LABEL));
+    expect(await screen.findByText(GUARDIAN_SAME)).toBeTruthy();
+    expect(ofRoute('POST', RESEND)).toHaveLength(0);
+    await fireEvent.changeText(screen.getByLabelText(GUARDIAN_NEW_FIELD), 'pai@exemplo.test');
+    await fireEvent.press(button(GUARDIAN_SEND_LABEL));
+    expect(await screen.findByText(`${GUARDIAN_PENDING_TEXT} ${GUARDIAN_FIXED}`)).toBeTruthy();
+    expect(ofRoute('POST', RESEND)[0]!.body).toEqual({ guardianEmail: 'pai@exemplo.test' });
+    expect(screen.queryByLabelText(GUARDIAN_NEW_FIELD)).toBeNull();
+    expect(mockGuardianEmail(student.email)).toBe('pai@exemplo.test');
+  });
+
+  it('corrigir o e-mail: Cancelar fecha o campo; com ele aberto, o reenvio fica desabilitado', async () => {
+    const student = await teenSignedUp();
+    await openApp('/', student);
+    await fireEvent.press(await screen.findByRole('button', { name: GUARDIAN_FIX_LABEL }));
+    expect(button(GUARDIAN_RESEND_LABEL)).toBeDisabled();
+    await fireEvent.press(button(GUARDIAN_CANCEL_LABEL));
+    expect(screen.queryByLabelText(GUARDIAN_NEW_FIELD)).toBeNull();
+    expect(button(GUARDIAN_RESEND_LABEL)).toBeEnabled();
+  });
+
+  it('reenviar com a conta já ativa (409): o aviso, o perfil relido e a faixa some', async () => {
+    const student = await teenSignedUp();
+    await openApp('/', student);
+    await fireEvent.press(await screen.findByRole('button', { name: GUARDIAN_FIX_LABEL }));
+    confirmMockGuardian(student.email);
+    await fireEvent.changeText(screen.getByLabelText(GUARDIAN_NEW_FIELD), 'pai@exemplo.test');
+    await fireEvent.press(button(GUARDIAN_SEND_LABEL));
+    await waitFor(() => expect(screen.queryByText(GUARDIAN_PENDING_TEXT, { exact: false })).toBeNull());
+    expect(screen.queryByLabelText(GUARDIAN_NEW_FIELD)).toBeNull();
+    expect(ofRoute('GET', '/api/v1/students/me').length).toBeGreaterThan(0);
+  });
+
+  it('pendente: os Estágios depois do 1 aparecem travados', async () => {
+    const student = await teenSignedUp();
+    answering(
+      dashboard({
+        stagesTotal: 2,
+        stages: [
+          { stageKey: 'stage-1', title: 'Meet & Greet', state: 'CURRENT' },
+          { stageKey: 'stage-2', title: 'Second', state: 'CURRENT' },
+        ],
+      }),
+    );
+    await openApp('/', student);
+    expect(await screen.findByLabelText(`Estágio 2, Second. ${LOCKED_HINT}`)).toBeTruthy();
+    expect(screen.getByLabelText('Estágio 1, Meet & Greet, atual')).toBeTruthy();
+  });
+
+  it('403 GUARDIAN_CONSENT_PENDING no reveal: troca para Visitante, sem mensagem e sem Sentry', async () => {
+    const student = await signedUp();
+    override[`POST ${ATTEMPTS}/reveal`] = () => json({ code: 'GUARDIAN_CONSENT_PENDING' }, 403);
+    await openApp('/player', student);
+    expect(await screen.findByText('1 DE 3')).toBeTruthy();
+    for (const [item, letter] of ['B', 'B', 'B'].entries()) {
+      await fireEvent.press(screen.getByTestId(`choice-${CHOICE.items[item]!.itemKey}-${letter}`));
+    }
+    await fireEvent.press(button(CHECK_LABEL));
+    expect(await screen.findByText(FEEDBACK_TITLES.wrong)).toBeTruthy();
+    const before = ofRoute('GET', '/api/v1/students/me').length;
+    await fireEvent.press(button(REVEAL_LABEL));
+    await waitFor(() => expect(ofRoute('GET', '/api/v1/students/me').length).toBeGreaterThan(before));
+    expect(screen.queryByText(messageFor('GUARDIAN_CONSENT_PENDING'))).toBeNull();
+    expect(screen.getByText('1 DE 3')).toBeTruthy();
+    expect(captureError).not.toHaveBeenCalled();
+  });
+
+  it('403 GUARDIAN_CONSENT_PENDING na conclusão: troca para Visitante, sem rodapé de erro e sem Sentry', async () => {
+    servedStage = { ...MOCK_STAGE, activities: [DIALOGUE, CHOICE] };
+    const types = registry as ActivityRegistry;
+    const previous = types.dialogue;
+    types.dialogue = function Viewed({ setFooter, advance }: ActivityProps) {
+      useEffect(() => {
+        setFooter({ label: 'PULAR', onPress: () => void advance({ outcome: 'viewed', xp: 0 }) });
+      }, [setFooter, advance]);
+      return null;
+    };
+    try {
+      const student = await signedUp();
+      override[`POST ${COMPLETIONS}`] = () => json({ code: 'GUARDIAN_CONSENT_PENDING' }, 403);
+      await openApp('/player', student);
+      expect(await screen.findByText('1 DE 2')).toBeTruthy();
+      await fireEvent.press(button('PULAR'));
+      await waitFor(() => expect(ofRoute('POST', COMPLETIONS)).toHaveLength(1));
+      expect(screen.queryByText(messageFor('GUARDIAN_CONSENT_PENDING'))).toBeNull();
+      expect(screen.queryByText(SAVE_FAILED)).toBeNull();
+      // Já como Visitante: o PULAR de novo vai pela rota do Visitante e avança.
+      await fireEvent.press(await screen.findByRole('button', { name: 'PULAR' }));
+      await waitFor(() => expect(ofRoute('POST', '/api/v1/visitor/completions')).toHaveLength(1));
+      expect(await screen.findByText('2 DE 2')).toBeTruthy();
+      expect(captureError).not.toHaveBeenCalled();
+    } finally {
+      types.dialogue = previous!;
+    }
+  });
+
+  it('corrigir o e-mail: 400 da API aparece no campo', async () => {
+    const student = await teenSignedUp();
+    override[`POST ${RESEND}`] = () => json({ code: 'VALIDATION_FAILED' }, 400);
+    await openApp('/', student);
+    await fireEvent.press(await screen.findByRole('button', { name: GUARDIAN_FIX_LABEL }));
+    await fireEvent.changeText(screen.getByLabelText(GUARDIAN_NEW_FIELD), 'pai@exemplo.test');
+    await fireEvent.press(button(GUARDIAN_SEND_LABEL));
+    expect(await screen.findByText(messageFor('VALIDATION_FAILED'))).toBeTruthy();
+    expect(screen.getByLabelText(GUARDIAN_NEW_FIELD)).toBeTruthy();
+  });
+
+  it('jogar pendente: o player usa as rotas do Visitante e guarda o recibo na loja', async () => {
+    const student = await teenSignedUp();
+    await openApp('/', student);
+    await fireEvent.press(await screen.findByRole('button', { name: DASHBOARD_START }));
+    expect(await screen.findByText('1 DE 3')).toBeTruthy();
+    await answerChoice();
+    expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
+    expect(ofRoute('POST', '/api/v1/visitor/attempts')).toHaveLength(1);
+    expect(ofRoute('POST', ATTEMPTS)).toHaveLength(0);
+    expect(await visitorStore.receipts()).toHaveLength(1);
+  });
+
+  it('403 GUARDIAN_CONSENT_PENDING no meio (aberto como Aluno): troca para Visitante na mesma Atividade', async () => {
+    const student = await teenSignedUp();
+    // O perfil em cache ainda diz ACTIVE (lido antes da mudança): o player abre como Aluno.
+    await openApp('/player?unidade=unit-1&estagio=stage-1', { ...student, status: 'ACTIVE' });
+    expect(await screen.findByText('1 DE 3')).toBeTruthy();
+    await answerChoice();
+    await waitFor(() => expect(ofRoute('POST', ATTEMPTS)).toHaveLength(1));
+    // A mesma Atividade, com a resposta destravada: o VERIFICAR de novo vai pela rota do Visitante.
+    await waitFor(() => expect(button(CHECK_LABEL)).toBeTruthy());
+    expect(screen.getByText('1 DE 3')).toBeTruthy();
+    await fireEvent.press(button(CHECK_LABEL));
+    expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
+    expect(ofRoute('POST', '/api/v1/visitor/attempts')).toHaveLength(1);
+    expect(await visitorStore.receipts()).toHaveLength(1);
+    expect(captureError).not.toHaveBeenCalled();
+  });
+
+  it('volta ativo: migra os recibos, a loja fica só com o deviceId e o painel mostra s1 concluído', async () => {
+    const student = await teenSignedUp();
+    const deviceId = await playedStageOne();
+    confirmMockGuardian(student.email);
+    await openApp('/', { ...student, status: 'ACTIVE' });
+    await waitFor(() => expect(ofRoute('POST', MIGRATION)).toHaveLength(1));
+    expect(ofRoute('POST', MIGRATION)[0]!.body).toEqual({
+      deviceId,
+      receipts: MOCK_STAGE.activities.map((activity) => expect.any(String)),
+    });
+    expect(await screen.findByLabelText('Estágio 1, Meet & Greet, concluído')).toBeTruthy();
+    expect(screen.queryByText(GUARDIAN_PENDING_TEXT)).toBeNull();
+    await waitFor(async () => expect(await visitorStore.receipts()).toEqual([]));
+    expect(await visitorStore.progress()).toEqual([]);
+    expect(await visitorStore.deviceId()).toBe(deviceId);
+  });
+
+  it('migração falha (500): a loja fica e a próxima leitura do perfil tenta de novo', async () => {
+    const student = await teenSignedUp();
+    await playedStageOne();
+    confirmMockGuardian(student.email);
+    forceMockMigration('INTERNAL_ERROR');
+    await openApp('/', { ...student, status: 'ACTIVE' });
+    await waitFor(() => expect(ofRoute('POST', MIGRATION)).toHaveLength(1));
+    expect(await visitorStore.receipts()).toHaveLength(MOCK_STAGE.activities.length);
+    forceMockMigration(null);
+    await act(async () => {
+      await client.refetchQueries({ queryKey: STUDENT_QUERY_KEY });
+    });
+    await waitFor(() => expect(ofRoute('POST', MIGRATION)).toHaveLength(2));
+    await waitFor(async () => expect(await visitorStore.receipts()).toEqual([]));
+  });
+
+  it('ativo sem recibos: nenhuma chamada', async () => {
+    const student = await signedUp();
+    await openApp('/', student);
+    expect(await screen.findByRole('header', { name: studentGreeting('Ana') })).toBeTruthy();
+    expect(ofRoute('POST', MIGRATION)).toHaveLength(0);
   });
 });

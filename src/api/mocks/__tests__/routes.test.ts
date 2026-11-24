@@ -168,6 +168,10 @@ describe('mocks da API', () => {
             '/api/v1/account/email-change/confirm',
             '/api/v1/students/me/dialogue-answers',
             '/api/v1/students/me/deletion',
+            // O consentimento do responsável (2.11): os testes dele são os do App.
+            '/api/v1/students/me/guardian-consent/resend',
+            '/api/v1/account/guardian-consent/confirm',
+            '/api/v1/students/me/visitor-migration',
           ].includes(path)
         )
           continue;
@@ -336,6 +340,7 @@ describe('mock do cadastro e da sessão (2.1)', () => {
         email: ADULT.email,
         name: 'Ana',
         pronounSet: null,
+        status: 'ACTIVE',
         emailConfirmed: false,
         emailConfirmationOverdue: false,
       },

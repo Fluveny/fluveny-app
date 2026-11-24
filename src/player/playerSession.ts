@@ -11,7 +11,7 @@
 import { createContext, useContext } from 'react';
 
 import { ApiError } from '../api/client';
-import { STAGE_LOCKED } from '../api/errors';
+import { GUARDIAN_CONSENT_PENDING, STAGE_LOCKED } from '../api/errors';
 
 import type { StudyClock } from './studyClock';
 
@@ -25,6 +25,11 @@ export type PlayerSession = {
   onSaved: () => void;
   /** A API recusou a gravação do Aluno com `409 STAGE_LOCKED` (2.5): o player troca a tela pelo aviso. */
   onStageLocked: () => void;
+  /**
+   * A API recusou a gravação do Aluno com `403 GUARDIAN_CONSENT_PENDING` (2.11): o
+   * player passa ao modo Visitante, na mesma Atividade, e relê o perfil.
+   */
+  onGuardianPending?: () => void;
   /**
    * O refazer (2.7): a resposta com este `attemptId` leva `replay: true`? Só na
    * primeira resposta de uma abertura de Atividade que já tinha registro do
@@ -54,3 +59,8 @@ export function isStageLocked(error: unknown): boolean {
 
 /** O modo, o relógio e o aviso de gravação do player em volta. */
 export const usePlayerSession = () => useContext(PlayerSessionContext);
+
+/** O adolescente à espera do responsável (2.11): a gravação do Aluno foi recusada; o player troca para Visitante. */
+export function isGuardianPending(error: unknown): boolean {
+  return error instanceof ApiError && error.code === GUARDIAN_CONSENT_PENDING;
+}

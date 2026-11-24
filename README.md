@@ -187,6 +187,19 @@ Toda requisição leva `X-App-Version` com o `version` do `app.json`. Na abertur
 - Todo texto do conteúdo passa pelo renderizador (`src/renderer`, AD-8): `render(text, vars, pronoun)` escolhe a variante de pronome (`they` sem pronome salvo) e troca os placeholders (`{name}`) pelas Variáveis do Aluno, com as regras do `ContentRenderer.java` da API; todos os vetores do `render-vectors.json` rodam no jest. Na tela, use `<RenderedText text vars pronoun style />`, com `vars` e `pronoun` do `useRenderVars()`: `**negrito**` em Montserrat 800, `[[rótulo|chave]]` só com o rótulo e a Variável do Aluno em ouro. O valor do aluno nunca vira formatação. Onde só cabe texto puro (o título do Estágio), use `renderPlain`.
 - Nos testes, o `jest.setup.js` troca o `expo-sqlite` por um SQLite em memória do Node (`node:sqlite`) e simula o `expo-network` (`global.__setNetwork`).
 
+## Adolescente com consentimento do responsável (2.11)
+
+De 12 a 17 anos, o cadastro pede o e-mail do responsável e a conta nasce `PENDING_GUARDIAN_CONSENT`: o adolescente joga como Visitante (Estágio 1, recibos no aparelho), vê a faixa ouro do painel e, quando o perfil volta `ACTIVE`, o App migra os recibos (`POST /students/me/visitor-migration`) e só então limpa a loja. Todo o fluxo é [ASSUMPTION: mecanismo a validar com a coordenação]. Mock: `/consentimento?token=valido` autoriza a última conta pendente.
+
+### Textos para revisão jurídica (NFR24)
+
+Marcados no código com `// REVISÃO JURÍDICA (NFR24)` e `[ASSUMPTION: copy]`:
+
+- Cadastro (`src/auth/signupForm.ts`): "E-mail do seu responsável", "Vamos pedir para ele confirmar por e-mail.", "Escreva o e-mail do seu responsável.", "Use o e-mail do seu responsável."
+- Faixa do painel (`src/auth/GuardianBanner.tsx`): "Seu progresso fica só neste aparelho até seu responsável confirmar pelo e-mail.", "Reenviar e-mail", "Enviamos de novo.", "Corrigir e-mail do responsável", "Novo e-mail do responsável", "Enviamos para o novo e-mail."
+- Página do responsável (`app/(public)/consentimento.tsx`): "Confirmando a autorização…", "Pronto! A conta foi autorizada.", "O estudante já pode continuar no Fluveny.", "Este link não vale mais.", "Peça ao estudante para reenviar o e-mail."
+- Erros (`src/api/errors.ts`): `GUARDIAN_CONSENT_REQUIRED`, `GUARDIAN_CONSENT_PENDING`, `GUARDIAN_CONSENT_TOKEN_INVALID`, `GUARDIAN_CONSENT_NOT_PENDING`.
+
 ## Convenções
 
 - **Tokens:** cores, tipografia, raios, espaços e sombra sólida ficam em `src/ui/tokens`, escritos a partir do frontmatter do DESIGN.md (cópia em `src/ui/tokens/design.yaml`, atualizada com `npm run design:sync`). O teste dos tokens compara cada valor com o YAML. Cor literal (hex, `rgb()`, `hsl()`) fora de `src/ui/tokens` e das ilustrações (`src/ui/art`) falha o lint.

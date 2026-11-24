@@ -1064,6 +1064,7 @@ describe('fim do Estágio, convite e eventos do Visitante (1.20)', () => {
       pronounSet: null,
       emailConfirmed: true,
       emailConfirmationOverdue: false,
+      status: 'ACTIVE',
     });
     expect(screen.queryByTestId('stage-invite')).toBeNull();
     expect(screen.queryByRole('button', { name: INVITE_SIGN_UP })).toBeNull();
@@ -1079,6 +1080,7 @@ describe('fim do Estágio, convite e eventos do Visitante (1.20)', () => {
       pronounSet: null,
       emailConfirmed: true,
       emailConfirmationOverdue: false,
+      status: 'ACTIVE',
     });
     expect(await screen.findByRole('header', { name: 'Hi, Ana!' })).toBeTruthy();
     expect(screen).toHavePathname('/');

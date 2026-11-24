@@ -549,6 +549,13 @@ describe('sessão que vence no uso (2.3)', () => {
     expect(client.getQueryData(['outra', 'consulta'])).toBeUndefined();
   });
 
+  it('login de um adulto com recibos de Visitante no aparelho: não migra (2.6, 2.11)', async () => {
+    await signedIn();
+    await act(async () => {});
+    expect(ofRoute('POST', '/api/v1/students/me/visitor-migration')).toHaveLength(0);
+    expect(await visitorStore.receipts()).toHaveLength(1);
+  });
+
   it('a mesma conta entra de novo: a loja fica', async () => {
     await signedIn();
     expireMockSession();

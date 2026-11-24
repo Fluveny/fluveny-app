@@ -74,6 +74,7 @@ describe('Confirmar a troca de e-mail (2.9)', () => {
       pendingEmail: NEW_EMAIL,
       emailConfirmed: true,
       emailConfirmationOverdue: false,
+      status: 'ACTIVE',
     });
     expect(await screen.findByRole('header', { name: CHANGED_TITLE })).toBeTruthy();
     expect(screen).toHavePathname('/confirmar-novo-email');

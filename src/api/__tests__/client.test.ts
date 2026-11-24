@@ -126,9 +126,7 @@ describe('catálogo de erros', () => {
   it('tem texto para os códigos do cadastro e da sessão (2.1)', () => {
     expect(messageFor('EMAIL_ALREADY_REGISTERED')).toMatch(/entrar ou recuperar a senha/);
     expect(messageFor('AGE_BELOW_MINIMUM')).toBe('O Fluveny é para quem tem 12 anos ou mais.');
-    expect(messageFor('GUARDIAN_CONSENT_REQUIRED')).toBe(
-      'Por enquanto, o cadastro é só para quem tem 18 anos ou mais.',
-    );
+    expect(messageFor('GUARDIAN_CONSENT_REQUIRED')).toMatch(/e-mail do seu responsável/);
     expect(ERROR_MESSAGES.CLIENT_HEADER_REQUIRED).toBe(GENERIC_MESSAGE);
   });
 

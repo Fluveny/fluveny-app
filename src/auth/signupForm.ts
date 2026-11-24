@@ -20,7 +20,12 @@ export const PASSWORD_PROBLEM =
   'A senha precisa ter de 8 a 64 caracteres, com pelo menos uma letra e um número. Senhas com muitos acentos ou emoji podem precisar ser mais curtas.';
 export const PASSWORD_HINT = 'De 8 a 64 caracteres, com pelo menos uma letra e um número.';
 export const AGE_BELOW_TEXT = 'O Fluveny é para quem tem 12 anos ou mais.';
-export const ADULT_ONLY_TEXT = 'Por enquanto, o cadastro é só para quem tem 18 anos ou mais.';
+// Responsável do adolescente (2.11). [ASSUMPTION: copy]
+// REVISÃO JURÍDICA (NFR24)
+export const GUARDIAN_FIELD = 'E-mail do seu responsável';
+export const GUARDIAN_HINT = 'Vamos pedir para ele confirmar por e-mail.';
+export const GUARDIAN_REQUIRED = 'Escreva o e-mail do seu responsável.';
+export const GUARDIAN_SAME = 'Use o e-mail do seu responsável.';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -90,7 +95,25 @@ export function emailOk(email: string): boolean {
   return value.length <= EMAIL_MAX && EMAIL.test(value);
 }
 
-export type SignupValues = { name: string; email: string; birthDate: string; password: string; accepted: boolean };
+export type SignupValues = {
+  name: string;
+  email: string;
+  birthDate: string;
+  password: string;
+  accepted: boolean;
+  /** Só conta na faixa `teen` (2.11). */
+  guardianEmail?: string;
+};
+
+const normalized = (email: string) => email.trim().toLowerCase();
+
+/** O que falta no e-mail do responsável: vazio, formato, ou igual ao do adolescente. */
+export function guardianEmailProblem(guardianEmail: string, ownEmail: string): string | undefined {
+  if (!guardianEmail.trim()) return GUARDIAN_REQUIRED;
+  if (!emailOk(guardianEmail)) return EMAIL_PROBLEM;
+  if (normalized(guardianEmail) === normalized(ownEmail)) return GUARDIAN_SAME;
+  return undefined;
+}
 
 /** A faixa de idade da data digitada, quando ela está completa e existe. */
 export type AgeBand = 'below' | 'teen' | 'adult';
@@ -102,10 +125,12 @@ export function ageBand(birthDate: string, today?: Date): AgeBand | null {
   return age < MINIMUM_AGE ? 'below' : age < ADULT_AGE ? 'teen' : 'adult';
 }
 
-export type SignupProblems = Partial<Record<'email' | 'birthDate' | 'password', string>> & { accepted?: true };
+export type SignupProblems = Partial<Record<'email' | 'birthDate' | 'password' | 'guardianEmail', string>> & {
+  accepted?: true;
+};
 
 /**
- * O que falta em cada campo; vazio quando dá para enviar. O adolescente não envia (2.11).
+ * O que falta em cada campo; vazio quando dá para enviar. O adolescente precisa do e-mail do responsável (2.11).
  * Sem aceite, `accepted` só barra o envio: a tela já deixa o CRIAR CONTA desabilitado.
  */
 export function signupProblems(values: SignupValues, today?: Date): SignupProblems {
@@ -117,7 +142,10 @@ export function signupProblems(values: SignupValues, today?: Date): SignupProble
     const band = ageBand(values.birthDate, today);
     if (band === null) problems.birthDate = DATE_PROBLEM;
     else if (band === 'below') problems.birthDate = AGE_BELOW_TEXT;
-    else if (band === 'teen') problems.birthDate = ADULT_ONLY_TEXT;
+    else if (band === 'teen') {
+      const guardian = guardianEmailProblem(values.guardianEmail ?? '', values.email);
+      if (guardian) problems.guardianEmail = guardian;
+    }
   }
   if (!passwordOk(values.password)) problems.password = PASSWORD_PROBLEM;
   if (!values.accepted) problems.accepted = true;

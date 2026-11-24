@@ -68,6 +68,8 @@ export function RootStack() {
         {/* A Conta (2.9), logada, e o link da troca de e-mail: pública, com ou sem sessão. */}
         <Stack.Screen name="(student)/conta" />
         <Stack.Screen name="(public)/confirmar-novo-email" />
+        {/* O link do responsável do adolescente (2.11): pública, sem exigir nem mexer na sessão. */}
+        <Stack.Screen name="(public)/consentimento" />
         {/* Catálogo do kit (1.8): só abre com __DEV__; no release, redireciona para /. */}
         <Stack.Screen name="kit" />
       </Stack.Protected>

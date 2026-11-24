@@ -11,7 +11,7 @@ import { DASHBOARD_QUERY_KEY } from '../dashboard/dashboard';
 import { captureError } from '../observability/sentry';
 import countries from '../player/countries.json';
 import { PROGRESS_QUERY_KEY } from '../player/studentProgress';
-import type { VisitorStore } from './types';
+import type { ReceiptEntry, VisitorStore } from './types';
 import { clearVisitorCache } from './useVisitor';
 
 type SignupBody = PostBody<'/api/v1/auth/signup'>;
@@ -24,12 +24,11 @@ export const MAX_RECEIPT_LENGTH = 1024;
 const COUNTRY_NAMES: ReadonlySet<string> = new Set(countries.map((country: { name: string }) => country.name));
 
 /**
- * Os campos do cadastro que vêm do aparelho: `country` só se for um `name` da
- * `countries.json`; `visitor` só com ao menos um recibo, na ordem gravada, sem
- * repetidos, sem os de mais de 1024 caracteres e no máximo 200.
+ * Os recibos que vão para a API: na ordem gravada, sem repetidos, sem os de
+ * mais de 1024 caracteres e no máximo 200 (o cadastro, 2.6, e a migração
+ * depois do consentimento do responsável, 2.11).
  */
-export async function visitorSignupFields(store: VisitorStore): Promise<VisitorSignupFields> {
-  const [entries, variables] = await Promise.all([store.receipts(), store.variables()]);
+export function migrationReceipts(entries: readonly ReceiptEntry[]): string[] {
   const seen = new Set<string>();
   const receipts: string[] = [];
   for (const { receipt } of entries) {
@@ -38,6 +37,17 @@ export async function visitorSignupFields(store: VisitorStore): Promise<VisitorS
     seen.add(receipt);
     receipts.push(receipt);
   }
+  return receipts;
+}
+
+/**
+ * Os campos do cadastro que vêm do aparelho: `country` só se for um `name` da
+ * `countries.json`; `visitor` só com ao menos um recibo, na ordem gravada, sem
+ * repetidos, sem os de mais de 1024 caracteres e no máximo 200.
+ */
+export async function visitorSignupFields(store: VisitorStore): Promise<VisitorSignupFields> {
+  const [entries, variables] = await Promise.all([store.receipts(), store.variables()]);
+  const receipts = migrationReceipts(entries);
   const country = variables.country;
   return {
     ...(country && COUNTRY_NAMES.has(country) ? { country } : {}),
