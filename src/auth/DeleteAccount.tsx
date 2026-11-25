@@ -10,15 +10,15 @@ import { CURRENT_PASSWORD_INVALID, deleteAccount } from './account';
 import { ACCOUNT_DELETED_REASON } from './accountPaths';
 
 // Exclusão da conta (2.10, FR-6). [ASSUMPTION: copy] Textos propostos na 2.10, sujeitos à revisão jurídica (NFR24).
-export const DELETE_SECTION = 'Excluir conta';
+export const DELETE_SECTION = 'Delete account';
 export const DELETE_BODY =
-  'A exclusão é definitiva. Apagamos seus dados, seu progresso e suas respostas. Não dá para desfazer.';
-export const DELETE_PASSWORD_FIELD = 'Senha atual';
-export const DELETE_LABEL = 'EXCLUIR CONTA';
+  "Deleting is permanent. We erase your details, your progress and your answers. You can't undo it.";
+export const DELETE_PASSWORD_FIELD = 'Current password';
+export const DELETE_LABEL = 'DELETE ACCOUNT';
 export const DELETE_SHEET_TEXT =
-  'Excluir sua conta? Seus dados pessoais, seu progresso e suas respostas serão apagados agora, neste e em todos os aparelhos. Não dá para desfazer.';
-export const DELETE_CONFIRM = 'EXCLUIR';
-export const DELETE_CANCEL = 'CANCELAR';
+  "Delete your account? Your personal details, your progress and your answers will be erased now, on this and every other device. You can't undo it.";
+export const DELETE_CONFIRM = 'DELETE';
+export const DELETE_CANCEL = 'CANCEL';
 
 /**
  * A seção Excluir conta da Conta (2.10): senha atual, EXCLUIR CONTA (desabilitado

@@ -22,11 +22,11 @@ export const SPEECH_LANG = 'en-US';
 /** Nada transcrito neste tempo: para e volta ao início (UX-DR114). */
 export const SILENCE_MS = 7000;
 /** O aviso de quando nada foi ouvido (UX-DR114). */
-export const SILENCE_MESSAGE = 'Não ouvimos nada. Toque e tente de novo.';
+export const SILENCE_MESSAGE = "We didn't hear anything. Tap and try again.";
 /** O reconhecedor precisou da rede e ela falhou (o texto do `messageFor`). */
 export const NETWORK_MESSAGE = messageFor(NETWORK_ERROR);
 /** O microfone não abriu (captura, ou `start`/`stop` lançou). */
-export const CAPTURE_MESSAGE = 'Não conseguimos usar o microfone. Tente de novo.';
+export const CAPTURE_MESSAGE = "We couldn't use the microphone. Try again.";
 /** Quanto esperar o `end` de uma sessão abortada antes de começar outra. */
 const DRAIN_MS = 1000;
 

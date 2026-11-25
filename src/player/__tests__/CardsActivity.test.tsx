@@ -77,7 +77,7 @@ describe('Cartões de expressões (1.14)', () => {
     expect(resolveActivity('cards')).toBe(CardsActivity);
   });
 
-  it('3 blocos: "Bloco 1 de 3" + PRÓXIMO BLOCO; no 3, CONTINUAR conclui com viewed', async () => {
+  it('3 blocos: "Block 1 of 3" + PRÓXIMO BLOCO; no 3, CONTINUAR conclui com viewed', async () => {
     const { advance } = await open();
     expect(screen.getByText('Greetings & Introductions')).toBeTruthy();
     expect(screen.getByText(blockLine(1, 3))).toBeTruthy();
@@ -89,15 +89,15 @@ describe('Cartões de expressões (1.14)', () => {
     expect(announce).not.toHaveBeenCalled();
 
     await fireEvent.press(action(NEXT_BLOCK_LABEL));
-    expect(screen.getByText('Bloco 2 de 3')).toBeTruthy();
-    expect(announce).toHaveBeenLastCalledWith('Bloco 2 de 3');
+    expect(screen.getByText('Block 2 of 3')).toBeTruthy();
+    expect(announce).toHaveBeenLastCalledWith('Block 2 of 3');
     // Sem emoji: só o título e os itens.
     expect(screen.getByText('Introducing yourself')).toBeTruthy();
     expect(screen.queryByText('👋', { includeHiddenElements: true })).toBeNull();
     expect(screen.getByText("Hi, I'm {name}.")).toBeTruthy();
 
     await fireEvent.press(action(NEXT_BLOCK_LABEL));
-    expect(screen.getByText('Bloco 3 de 3')).toBeTruthy();
+    expect(screen.getByText('Block 3 of 3')).toBeTruthy();
     expect(screen.queryByRole('button', { name: NEXT_BLOCK_LABEL })).toBeNull();
     expect(advance).not.toHaveBeenCalled();
     await fireEvent.press(action(CONTINUE_LABEL));
@@ -108,22 +108,22 @@ describe('Cartões de expressões (1.14)', () => {
     await open();
     expect(segment(2)).toBeDisabled();
     await fireEvent.press(segment(3));
-    expect(screen.getByText('Bloco 1 de 3')).toBeTruthy();
+    expect(screen.getByText('Block 1 of 3')).toBeTruthy();
 
     await fireEvent.press(action(NEXT_BLOCK_LABEL));
     await fireEvent.press(action(NEXT_BLOCK_LABEL));
-    expect(screen.getByText('Bloco 3 de 3')).toBeTruthy();
+    expect(screen.getByText('Block 3 of 3')).toBeTruthy();
     expect(segment(3).props.accessibilityState).toMatchObject({ selected: true });
 
     await fireEvent.press(segment(1));
-    expect(screen.getByText('Bloco 1 de 3')).toBeTruthy();
+    expect(screen.getByText('Block 1 of 3')).toBeTruthy();
     expect(screen.getByText('Saying hello')).toBeTruthy();
-    expect(announce).toHaveBeenLastCalledWith('Bloco 1 de 3');
+    expect(announce).toHaveBeenLastCalledWith('Block 1 of 3');
     // Fora do último, o rodapé volta a PRÓXIMO BLOCO; os vistos continuam tocáveis.
     expect(action(NEXT_BLOCK_LABEL)).toBeTruthy();
     expect(segment(3)).toBeEnabled();
     await fireEvent.press(segment(3));
-    expect(screen.getByText('Bloco 3 de 3')).toBeTruthy();
+    expect(screen.getByText('Block 3 of 3')).toBeTruthy();
   });
 
   it('um bloco só: sem indicador, e CONTINUAR direto', async () => {

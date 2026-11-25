@@ -25,7 +25,7 @@ type Props = {
  * nunca parecer vazia, brilho no terço superior, anima em 450 ms (sem animação
  * com "remover animações").
  */
-export function ProgressBar({ value, accessibilityLabel = 'Progresso', testID = 'progress-bar', style }: Props) {
+export function ProgressBar({ value, accessibilityLabel = 'Progress', testID = 'progress-bar', style }: Props) {
   const target = clampProgress(value);
   const [width] = useState(() => new Animated.Value(target));
   const reduced = useReducedMotion();

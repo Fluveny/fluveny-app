@@ -228,8 +228,8 @@ describe('Entrar (2.3)', () => {
   it('senha errada (401): mensagem genérica, campos preenchidos e nada de ir a Entrar de novo', async () => {
     await mockAccount();
     await signInFromWelcome(ADULT.email, 'errada123');
-    expect(await screen.findByText('E-mail ou senha incorretos.')).toBeTruthy();
-    expect(messageFor('INVALID_CREDENTIALS')).toBe('E-mail ou senha incorretos.');
+    expect(await screen.findByText("The email or password isn't right.")).toBeTruthy();
+    expect(messageFor('INVALID_CREDENTIALS')).toBe("The email or password isn't right.");
     expect(screen.getByLabelText(EMAIL_FIELD).props.value).toBe(ADULT.email);
     expect(screen.getByLabelText(PASSWORD_FIELD).props.value).toBe('errada123');
     expect(screen).toHavePathname('/entrar');
@@ -237,18 +237,18 @@ describe('Entrar (2.3)', () => {
     expect(screen.queryByText(SESSION_ENDED)).toBeNull();
   });
 
-  it('conta desativada (403): "Esta conta está desativada."', async () => {
+  it('conta desativada (403): "This account is deactivated."', async () => {
     await mockAccount();
     deactivateMockAccount(ADULT.email);
     await signInFromWelcome();
-    expect(await screen.findByText('Esta conta está desativada.')).toBeTruthy();
+    expect(await screen.findByText('This account is deactivated.')).toBeTruthy();
   });
 
   it('atraso (429 LOGIN_THROTTLED): a mensagem de espera', async () => {
     await mockAccount();
     forceMockLogin('LOGIN_THROTTLED');
     await signInFromWelcome();
-    expect(await screen.findByText('Muitas tentativas seguidas. Espere um pouco e tente de novo.')).toBeTruthy();
+    expect(await screen.findByText('Too many tries in a row. Wait a bit and try again.')).toBeTruthy();
   });
 
   it('sem rede: messageFor(NETWORK_ERROR), e os campos ficam', async () => {
@@ -361,7 +361,7 @@ describe('Entrar (2.3)', () => {
     expect(captureError).toHaveBeenCalledWith(expect.objectContaining({ message: 'keystore' }));
   });
 
-  it('"Esqueci minha senha" leva a Recuperar senha (2.8); "Criar conta", ao cadastro', async () => {
+  it('"I forgot my password" leva a Recuperar senha (2.8); "Create account", ao cadastro', async () => {
     await openApp();
     await fireEvent.press(await screen.findByRole('button', { name: SIGN_IN }));
     await screen.findByRole('header', { name: SIGN_IN_TITLE });
@@ -390,7 +390,7 @@ async function signedIn() {
 /** Abre a Conta pelo ícone do painel (2.9), onde fica o Sair; já nela, não faz nada. */
 async function openAccount() {
   if (screen.queryByTestId('account-screen')) return;
-  await fireEvent.press(await screen.findByRole('button', { name: 'Conta' }));
+  await fireEvent.press(await screen.findByRole('button', { name: 'Account' }));
   await screen.findByTestId('account-screen');
 }
 

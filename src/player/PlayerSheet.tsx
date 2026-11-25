@@ -5,8 +5,8 @@ import { FeedbackSheet, type FeedbackAction } from '../ui';
 import { color, typography } from '../ui/tokens';
 import type { SheetSpec } from './registry';
 
-/** "A gente ouviu: “hi alex i'm julia”" (EXPERIENCE.md, Voice and Tone). */
-export const heardLine = (transcript: string) => `A gente ouviu: “${transcript}”`;
+/** "We heard: “hi alex i'm julia”" (EXPERIENCE.md, Voice and Tone). */
+export const heardLine = (transcript: string) => `We heard: “${transcript}”`;
 
 /**
  * A folha de feedback no lugar do rodapé. Na Fala, mostra o que o aluno disse

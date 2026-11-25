@@ -39,16 +39,16 @@ import { sendVisitorEvent } from '../../src/visitor/events';
 import type { ProgressEntry } from '../../src/visitor/types';
 import { useVisitor } from '../../src/visitor/useVisitor';
 
-export const RETRY_LABEL = 'TENTAR DE NOVO';
-export const LOADING_LABEL = 'Carregando o Estágio';
+export const RETRY_LABEL = 'TRY AGAIN';
+export const LOADING_LABEL = 'Loading the stage';
 
 // Salvar falhou, só no modo Aluno (2.4, UX-DR111): a ação que disparou a conclusão.
-export const SAVING_LABEL = 'SALVANDO…';
-export const SAVE_RETRY_LABEL = 'TENTAR SALVAR DE NOVO';
-export const SAVE_FAILED = 'Não conseguimos salvar sua resposta. Nada foi perdido.';
+export const SAVING_LABEL = 'SAVING…';
+export const SAVE_RETRY_LABEL = 'TRY SAVING AGAIN';
+export const SAVE_FAILED = "We couldn't save your answer. Nothing was lost.";
 
 /** O Estágio travado (2.5): a ação que volta ao painel. [ASSUMPTION: copy] */
-export const BACK_HOME_LABEL = 'VOLTAR AO INÍCIO';
+export const BACK_HOME_LABEL = 'BACK TO HOME';
 
 /** O modo pelo Aluno da sessão: com perfil, o Aluno; `null`, o Visitante; sem resposta ainda, indefinido. */
 function modeOf(student: StudentProfile | null | undefined): PlayerMode | null {

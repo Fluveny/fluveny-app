@@ -66,7 +66,7 @@ afterEach(() => {
 });
 
 describe('Confirmar a troca de e-mail (2.9)', () => {
-  it('token válido: URL sem token; 1 POST; "E-mail trocado."; perfil invalidado com sessão; IR PARA O INÍCIO', async () => {
+  it('token válido: URL sem token; 1 POST; "Email changed."; perfil invalidado com sessão; IR PARA O INÍCIO', async () => {
     const token = await pendingChange();
     const client = await openApp(`/confirmar-novo-email?token=${token}`, {
       email: ADULT.email,

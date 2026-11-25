@@ -32,8 +32,8 @@ describe('Card (UX-DR26 a UX-DR30)', () => {
       </>,
     );
     expect(screen.queryByRole('button')).toBeNull();
-    expect(screen.getByLabelText('certo')).toBeTruthy();
-    expect(screen.getByLabelText('errado')).toBeTruthy();
+    expect(screen.getByLabelText('right')).toBeTruthy();
+    expect(screen.getByLabelText('wrong')).toBeTruthy();
     expect(screen.getByTestId('icon-check', { includeHiddenElements: true })).toBeTruthy();
     expect(screen.getByTestId('icon-x', { includeHiddenElements: true })).toBeTruthy();
   });
@@ -44,7 +44,7 @@ describe('Card (UX-DR26 a UX-DR30)', () => {
         <Text>She are from Brazil</Text>
       </Card>,
     );
-    const card = screen.getByRole('button', { name: 'She are from Brazil, errado' });
+    const card = screen.getByRole('button', { name: 'She are from Brazil, wrong' });
     expect(touchHeight(card)).toBeGreaterThanOrEqual(size.touchMin);
     expect(screen.getByTestId('icon-x', { includeHiddenElements: true })).toBeTruthy();
   });

@@ -13,14 +13,14 @@ import { useRevealField } from '../PlayerFrame';
 
 type FreeView = Extract<ActivityView, { type: 'free' }>;
 
-export const SEND_LABEL = 'ENVIAR';
+export const SEND_LABEL = 'SEND';
 export const EXTRA_HELP_LABEL = 'EXTRA HELP';
-export const ANSWER_LABEL = 'Sua resposta';
+export const ANSWER_LABEL = 'Your answer';
 export const ANSWER_PLACEHOLDER = 'Type your answer…';
-export const EXTRA_HELP_HINT = 'Travou? O Extra Help transforma a pergunta num exercício guiado.';
-export const YOU_WROTE = 'Você escreveu';
-export const MODEL_ANSWER = 'Uma resposta possível';
-export const COMPARE = 'Compare com a sua. Não existe uma única resposta certa aqui.';
+export const EXTRA_HELP_HINT = 'Stuck? Extra Help turns the question into a guided exercise.';
+export const YOU_WROTE = 'You wrote';
+export const MODEL_ANSWER = 'One possible answer';
+export const COMPARE = "Compare it with yours. There's no single right answer here.";
 
 /** ENVIAR pede ao menos 2 caracteres, sem contar os espaços nas pontas (UX-DR77). */
 export const MIN_ANSWER = 2;

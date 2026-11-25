@@ -12,13 +12,13 @@ export const PASSWORD_MAX_BYTES = 72;
 /** O Fluveny é só para maiores de idade (FR-2, 2.12). */
 export const MINIMUM_AGE = 18;
 
-export const EMAIL_PROBLEM = 'Confira o e-mail: ele precisa ter o formato nome@exemplo.com.';
-export const DATE_FORMAT_PROBLEM = 'Escreva a data como DD/MM/AAAA.';
-export const DATE_PROBLEM = 'Confira a data de nascimento.';
+export const EMAIL_PROBLEM = 'Check your email: it needs to look like name@example.com.';
+export const DATE_FORMAT_PROBLEM = 'Write the date as DD/MM/YYYY.';
+export const DATE_PROBLEM = 'Check your date of birth.';
 /** A mesma frase da `PasswordPolicy` da API. */
 export const PASSWORD_PROBLEM =
-  'A senha precisa ter de 8 a 64 caracteres, com pelo menos uma letra e um número. Senhas com muitos acentos ou emoji podem precisar ser mais curtas.';
-export const PASSWORD_HINT = 'De 8 a 64 caracteres, com pelo menos uma letra e um número.';
+  'Your password needs 8 to 64 characters, with at least one letter and one number. Passwords with many accents or emoji may need to be shorter.';
+export const PASSWORD_HINT = '8 to 64 characters, with at least one letter and one number.';
 /** Em inglês, como todo o App do Aluno (o resto da tela muda na 1.23). */
 export const AGE_BELOW_TEXT = 'Fluveny is for people 18 and older.';
 

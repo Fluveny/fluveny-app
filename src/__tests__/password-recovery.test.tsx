@@ -226,7 +226,7 @@ afterEach(() => {
 });
 
 describe('Recuperar senha (2.8)', () => {
-  it('atalho: "Esqueci minha senha" abre /recuperar-senha com o campo vazio e o texto', async () => {
+  it('atalho: "I forgot my password" abre /recuperar-senha com o campo vazio e o texto', async () => {
     await openApp('/entrar');
     await screen.findByRole('header', { name: SIGN_IN_TITLE });
     await fireEvent.press(button(FORGOT_LINK));
@@ -286,7 +286,7 @@ describe('Recuperar senha (2.8)', () => {
     expect(await screen.findByRole('header', { name: SENT_TITLE })).toBeTruthy();
   });
 
-  it('enviar de novo: outro POST com o mesmo e-mail e "Enviamos de novo."; VOLTAR PARA ENTRAR', async () => {
+  it('enviar de novo: outro POST com o mesmo e-mail e "We sent it again."; VOLTAR PARA ENTRAR', async () => {
     await openApp('/recuperar-senha');
     await typeEmail(ADULT.email);
     await fireEvent.press(button(SEND_LINK_LABEL));
@@ -302,7 +302,7 @@ describe('Recuperar senha (2.8)', () => {
     expect(screen).toHavePathname('/entrar');
   });
 
-  it('429 em "Enviar de novo": messageFor(TOO_MANY_REQUESTS), sem "Enviamos de novo."', async () => {
+  it('429 em "Send again": messageFor(TOO_MANY_REQUESTS), sem "We sent it again."', async () => {
     await openApp('/recuperar-senha');
     await typeEmail(ADULT.email);
     await fireEvent.press(button(SEND_LINK_LABEL));
@@ -333,7 +333,7 @@ describe('Recuperar senha (2.8)', () => {
     expect(screen.getByLabelText(EMAIL_FIELD).props.value).toBe(ADULT.email);
   });
 
-  it('"Entrar" no rodapé leva a /entrar', async () => {
+  it('"Sign in" no rodapé leva a /entrar', async () => {
     await openApp('/recuperar-senha');
     await screen.findByRole('header', { name: RECOVER_TITLE });
     await fireEvent.press(button(SIGN_IN_LINK));
@@ -499,7 +499,7 @@ describe('/redefinir-senha (2.8)', () => {
     await typePassword(NEW_PASSWORD);
     await fireEvent.press(button(SAVE_PASSWORD_LABEL));
     expect(await screen.findByRole('header', { name: INVALID_TITLE })).toBeTruthy();
-    expect(messageFor('PASSWORD_RESET_LINK_INVALID')).toBe('Este link de redefinição não vale mais. Peça outro.');
+    expect(messageFor('PASSWORD_RESET_LINK_INVALID')).toBe("This reset link doesn't work anymore. Ask for a new one.");
     await act(async () => router.replace('/redefinir-senha'));
     expect(await screen.findByRole('header', { name: INVALID_TITLE })).toBeTruthy();
     expect(ofRoute('POST', RESET)).toHaveLength(1);
@@ -599,7 +599,7 @@ async function mockAccountProfile(): Promise<StudentProfile> {
 }
 
 describe('faixa do e-mail não confirmado depois dos 7 dias (2.8, UX-DR117)', () => {
-  it('vencida: "Confirme seu e-mail para poder recuperar a senha." com REENVIAR, e o reenvio da 2.2', async () => {
+  it('vencida: "Confirm your email so you can recover your password." com REENVIAR, e o reenvio da 2.2', async () => {
     await mockAccount();
     markMockConfirmationOverdue(ADULT.email);
     const student = await mockAccountProfile();
@@ -608,7 +608,7 @@ describe('faixa do e-mail não confirmado depois dos 7 dias (2.8, UX-DR117)', ()
     expect(await screen.findByText(CONFIRM_TO_RECOVER)).toBeTruthy();
     expect(screen.queryByText(confirmationSent(ADULT.email))).toBeNull();
     await fireEvent.press(button(RESEND_LABEL));
-    expect(await screen.findByText(/Enviamos outro link para/)).toBeTruthy();
+    expect(await screen.findByText(/We sent another link to/)).toBeTruthy();
   });
 
   it('recente: o texto da 2.2', async () => {

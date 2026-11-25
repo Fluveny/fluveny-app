@@ -18,9 +18,9 @@ import { color, size, spacing, typography } from '../ui/tokens';
 import { PlayerSheet } from './PlayerSheet';
 import type { FooterAction, SheetSpec } from './registry';
 
-export const CLOSE_LABEL = 'Sair';
+export const CLOSE_LABEL = 'Close';
 export { OFFLINE_LABEL };
-export const PROGRESS_LABEL = 'Posição no Estágio';
+export const PROGRESS_LABEL = 'Position in the stage';
 
 /** O teclado empurra o conteúdo e o rodapé só no nativo; no web, o navegador cuida. */
 const KEYBOARD_AVOIDING = Platform.OS !== 'web';
@@ -60,10 +60,9 @@ export function revealDelta(field: { y: number; height: number }, top: number, b
 const CLOSE_ICON = 22;
 
 /** "ESTÁGIO 1 · Meet & Greet". */
-export const stageLine = (number: number, title: string) =>
-  title ? `ESTÁGIO ${number} · ${title}` : `ESTÁGIO ${number}`;
+export const stageLine = (number: number, title: string) => (title ? `STAGE ${number} · ${title}` : `STAGE ${number}`);
 /** "2 DE 13". */
-export const positionLine = (position: number, total: number) => `${position} DE ${total}`;
+export const positionLine = (position: number, total: number) => `${position} OF ${total}`;
 
 /** ✕ do topo do player: `muted` (não `faint`, que reprova no AA), área de 48 dp. */
 export function CloseButton({ onPress }: { onPress: () => void }) {

@@ -9,7 +9,7 @@ import TermsOfUse from '../../app/(public)/termos';
 import UpdateRequired, { UPDATE_TITLE } from '../../app/atualize';
 import { META_QUERY_KEY } from '../api/meta';
 import { COLD_START_TEXT } from '../ColdStartScreen';
-import { LEGAL_BACK, versionLine } from '../legal/LegalScreen';
+import { LEGAL_BACK, LEGAL_LANGUAGE_NOTE, versionLine } from '../legal/LegalScreen';
 import { PRIVACY_LINK, TERMS_LINK } from '../legal/paths';
 import { PRIVACY_POLICY } from '../legal/privacy';
 import { TERMS_OF_USE } from '../legal/terms';
@@ -77,7 +77,10 @@ describe('política e termos (1.21)', () => {
     await open('/');
     await fireEvent.press(await screen.findByRole('button', { name: PRIVACY_LINK }));
     expect(screen).toHavePathname('/privacidade');
-    expect(screen.getByRole('header', { name: PRIVACY_POLICY.title })).toBeTruthy();
+    expect(screen.getByRole('header', { name: PRIVACY_LINK })).toBeTruthy();
+    // 1.23: a moldura em inglês; o texto jurídico continua só em pt-BR.
+    expect(screen.getByText(LEGAL_LANGUAGE_NOTE)).toBeTruthy();
+    expect(screen.getByText(PRIVACY_POLICY.title)).toBeTruthy();
     expect(screen.getByText(PROVISIONAL_NOTICE)).toBeTruthy();
     expect(screen.getByTestId('legal-version')).toHaveTextContent(versionLine(PRIVACY_POLICY));
     for (const section of PRIVACY_POLICY.sections) expect(screen.getByText(section.title)).toBeTruthy();
@@ -88,7 +91,7 @@ describe('política e termos (1.21)', () => {
     await open('/');
     await fireEvent.press(await screen.findByRole('button', { name: TERMS_LINK }));
     expect(screen).toHavePathname('/termos');
-    expect(screen.getByRole('header', { name: TERMS_OF_USE.title })).toBeTruthy();
+    expect(screen.getByRole('header', { name: TERMS_LINK })).toBeTruthy();
     expect(screen.getByText(PROVISIONAL_NOTICE)).toBeTruthy();
     expect(screen.getByTestId('legal-version')).toHaveTextContent(versionLine(TERMS_OF_USE));
   });
@@ -97,7 +100,7 @@ describe('política e termos (1.21)', () => {
     // O /meta nunca responde: sem o atalho, a splash seguraria a tela até o teto.
     global.fetch = jest.fn(() => new Promise<Response>(() => {}));
     await open('/privacidade');
-    expect(screen.getByRole('header', { name: PRIVACY_POLICY.title })).toBeTruthy();
+    expect(screen.getByRole('header', { name: PRIVACY_LINK })).toBeTruthy();
     expect(screen.getByText(PROVISIONAL_NOTICE)).toBeTruthy();
   });
 
@@ -105,7 +108,7 @@ describe('política e termos (1.21)', () => {
     jest.useFakeTimers();
     global.fetch = jest.fn(() => new Promise<Response>(() => {}));
     await open('/privacidade');
-    expect(screen.getByRole('header', { name: PRIVACY_POLICY.title })).toBeTruthy();
+    expect(screen.getByRole('header', { name: PRIVACY_LINK })).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: LEGAL_BACK }));
     expect(screen.queryByText(WELCOME_TITLE)).toBeNull();
     await act(async () => {
@@ -120,7 +123,7 @@ describe('política e termos (1.21)', () => {
     await open('/privacidade');
     await waitFor(() => expect(queryClient.getQueryData(META_QUERY_KEY)).toBeDefined());
     await act(async () => {});
-    expect(screen.getByRole('header', { name: PRIVACY_POLICY.title })).toBeTruthy();
+    expect(screen.getByRole('header', { name: PRIVACY_LINK })).toBeTruthy();
     expect(screen).toHavePathname('/privacidade');
     expect(screen.queryByText(UPDATE_TITLE)).toBeNull();
     // O /meta chegou e bloqueia o resto: VOLTAR leva à tela de atualizar.
@@ -133,7 +136,7 @@ describe('política e termos (1.21)', () => {
     await open('/termos');
     await waitFor(() => expect(queryClient.getQueryData(META_QUERY_KEY)).toBeDefined());
     await act(async () => {});
-    expect(screen.getByRole('header', { name: TERMS_OF_USE.title })).toBeTruthy();
+    expect(screen.getByRole('header', { name: TERMS_LINK })).toBeTruthy();
     expect(screen).toHavePathname('/termos');
   });
 

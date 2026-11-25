@@ -287,7 +287,7 @@ describe('cadastro do Aluno adulto (2.1)', () => {
     expect(sent.filter((request) => request.url.includes('/visitor/'))).toEqual([]);
   });
 
-  it('"Escolher depois" segue sem gravar; sem nome, "Hi, friend!"', async () => {
+  it('"Choose later" segue sem gravar; sem nome, "Hi, friend!"', async () => {
     await signUpFromWelcome({ name: '' });
     await fireEvent.press(await screen.findByRole('button', { name: PRONOUNS_LATER }));
     expect(await screen.findByRole('header', { name: 'Hi, friend!' })).toBeTruthy();
@@ -331,7 +331,7 @@ describe('cadastro do Aluno adulto (2.1)', () => {
     expect(screen.getByRole('button', { name: PRIVACY_LINK })).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: TERMS_LINK }));
     expect(screen).toHavePathname('/termos');
-    expect(screen.getByRole('header', { name: TERMS_OF_USE.title })).toBeTruthy();
+    expect(screen.getByRole('header', { name: TERMS_LINK })).toBeTruthy();
     expect(ofRoute('POST', '/api/v1/auth/signup')).toHaveLength(0);
   });
 
@@ -380,7 +380,7 @@ describe('cadastro do Aluno adulto (2.1)', () => {
     expect(screen.getByLabelText(EMAIL_FIELD).props.value).toBe(ADULT.email);
   });
 
-  it('e-mail repetido (409): mensagem sem culpa, "Entrar" abre Entrar (2.3) e "Recuperar senha", "Em breve"', async () => {
+  it('e-mail repetido (409): mensagem sem culpa, "Sign in" abre Entrar (2.3) e "Reset password", "Coming soon"', async () => {
     await signUpFromWelcome();
     await fireEvent.press(await screen.findByRole('button', { name: PRONOUNS_LATER }));
     await screen.findByRole('header', { name: studentGreeting('Ana') });

@@ -10,13 +10,13 @@ import { Button } from '../src/ui/Button';
 import { color, spacing, typography } from '../src/ui/tokens';
 
 // [ASSUMPTION] Proposta mínima da 1.3 (Decisão 1): texto e forma a revisar com UX.
-export const UPDATE_TITLE = 'Tem versão nova do Fluveny';
-export const UPDATE_BODY = 'Atualize o app para continuar de onde parou.';
-export const UPDATE_BUTTON = 'ATUALIZAR';
+export const UPDATE_TITLE = 'A new version of Fluveny is out';
+export const UPDATE_BODY = 'Update the app to pick up where you left off.';
+export const UPDATE_BUTTON = 'UPDATE';
 // [ASSUMPTION] Loop 1: o reload no web já foi tentado há pouco (a versão nova ainda não chegou).
-export const UPDATE_PENDING = 'Ainda estamos publicando a versão nova. Tente de novo em alguns minutos.';
+export const UPDATE_PENDING = "We're still publishing the new version. Try again in a few minutes.";
 // [ASSUMPTION] Loop 2: a loja não abriu no Android.
-export const STORE_FAILED = 'Não conseguimos abrir a loja. Procure Fluveny na Google Play.';
+export const STORE_FAILED = "We couldn't open the store. Look for Fluveny on Google Play.";
 
 /** Chave do `sessionStorage` com o horário (ms) do último reload tentado nesta sessão. */
 export const RELOAD_KEY = 'fluveny:update-reloaded';

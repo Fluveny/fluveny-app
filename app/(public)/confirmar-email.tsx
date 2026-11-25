@@ -18,14 +18,14 @@ import { Alex, AlexWave, Button } from '../../src/ui';
 import { color, size, spacing, typography } from '../../src/ui/tokens';
 
 // Copy da confirmação de e-mail (2.2). [ASSUMPTION] Textos propostos na 2.2, a revisar com UX.
-export const CONFIRMING_TEXT = 'Confirmando seu e-mail…';
-export const CONFIRMED_TITLE = 'E-mail confirmado!';
-export const CONFIRMED_BODY = 'Agora você pode recuperar a senha se esquecer.';
-export const CONTINUE_LABEL = 'CONTINUAR';
-export const INVALID_TITLE = 'Este link não vale mais.';
-export const INVALID_BODY = 'Peça um novo e-mail de confirmação na tela inicial do Fluveny.';
-export const GO_HOME_LABEL = 'IR PARA O INÍCIO';
-export const RETRY_LABEL = 'TENTAR DE NOVO';
+export const CONFIRMING_TEXT = 'Confirming your email…';
+export const CONFIRMED_TITLE = 'Email confirmed!';
+export const CONFIRMED_BODY = 'Now you can reset your password if you forget it.';
+export const CONTINUE_LABEL = 'CONTINUE';
+export const INVALID_TITLE = "This link doesn't work anymore.";
+export const INVALID_BODY = 'Ask for a new confirmation email on the Fluveny home screen.';
+export const GO_HOME_LABEL = 'GO TO HOME';
+export const RETRY_LABEL = 'TRY AGAIN';
 
 const ALEX_SIZE = 180;
 

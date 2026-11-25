@@ -22,14 +22,14 @@ import { color, spacing, typography } from '../../src/ui/tokens';
 
 // Copy de Criar senha nova (2.8; revisão de UX de 23/11, UX-DR99/UX-DR159).
 // [ASSUMPTION: copy] Textos sem frase fixa no EXPERIENCE.md propostos na 2.8, a revisar com UX.
-export const RESET_TITLE = 'Criar senha nova';
-export const NEW_PASSWORD_FIELD = 'Nova senha';
-export const SAVE_PASSWORD_LABEL = 'SALVAR SENHA';
-export const BACK_LABEL = 'Voltar';
-export const INVALID_TITLE = 'Este link não vale mais.';
-export const INVALID_BODY = 'Peça um link novo para criar sua senha.';
-export const NEW_LINK_LABEL = 'PEDIR OUTRO LINK';
-export const GO_HOME_LABEL = 'IR PARA O INÍCIO';
+export const RESET_TITLE = 'Create a new password';
+export const NEW_PASSWORD_FIELD = 'New password';
+export const SAVE_PASSWORD_LABEL = 'SAVE PASSWORD';
+export const BACK_LABEL = 'Back';
+export const INVALID_TITLE = "This link doesn't work anymore.";
+export const INVALID_BODY = 'Ask for a new link to create your password.';
+export const NEW_LINK_LABEL = 'GET A NEW LINK';
+export const GO_HOME_LABEL = 'GO TO HOME';
 
 /** O `token` da query: o primeiro, se vier repetido; vazio vale como ausente. */
 function tokenOf(param: string | string[] | undefined): string | null {

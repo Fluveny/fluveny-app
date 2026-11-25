@@ -7,9 +7,9 @@ import { color, spacing, typography } from '../ui/tokens';
 import type { ActivityProps } from './registry';
 
 // [ASSUMPTION] Copy do cartão do Tipo sem componente (matriz da 1.10).
-export const PENDING_TITLE = 'Atividade em preparação';
-export const PENDING_BODY = 'Esta parte ainda está sendo montada. Toque em CONTINUAR para seguir.';
-export const CONTINUE_LABEL = 'CONTINUAR';
+export const PENDING_TITLE = 'Activity in the works';
+export const PENDING_BODY = 'This part is still being built. Tap CONTINUE to move on.';
+export const CONTINUE_LABEL = 'CONTINUE';
 
 /**
  * Cartão do Tipo que ainda não tem componente: mostra o título da Atividade,

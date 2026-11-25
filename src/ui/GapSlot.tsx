@@ -21,7 +21,7 @@ export const GAP_FIELD_WIDTH = 128;
 /** O que a lacuna diz ao leitor de tela: "Lacuna 2: your" ou "Lacuna 2, vazia" (EXPERIENCE.md). */
 export function gapLabel(index: number, value: string | null | undefined): string {
   const text = value?.trim();
-  return text ? `Lacuna ${index}: ${text}` : `Lacuna ${index}, vazia`;
+  return text ? `Gap ${index}: ${text}` : `Gap ${index}, empty`;
 }
 
 type Common = {

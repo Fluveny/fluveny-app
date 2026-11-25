@@ -4,9 +4,9 @@ import { Button, Card } from '../ui';
 import { color, spacing, typography } from '../ui/tokens';
 
 // Copy do convite do Visitante (EXPERIENCE.md, Voice and Tone; UX-DR115).
-export const INVITE_TITLE = 'Seu progresso está só neste aparelho';
-export const INVITE_BODY = 'Crie uma conta grátis para guardar o Estágio 1 e continuar no Estágio 2.';
-export const INVITE_SIGN_UP = 'CRIAR CONTA';
+export const INVITE_TITLE = 'Your progress is only on this device';
+export const INVITE_BODY = 'Create a free account to save Stage 1 and go on to Stage 2.';
+export const INVITE_SIGN_UP = 'CREATE ACCOUNT';
 /** Destino de CRIAR CONTA: o cadastro, com o cartão ouro e o nome do Visitante (2.1, UX-DR98). */
 export const SIGN_UP_PATH = { pathname: '/cadastro', params: { de: 'convite' } } as const;
 

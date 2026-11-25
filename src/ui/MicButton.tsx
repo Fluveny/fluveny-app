@@ -7,13 +7,13 @@ import { Pressable3D } from './Pressable3D';
 import { color, edge, rounded, size, spacing, typography } from './tokens';
 
 /** Rótulo do leitor de tela (UX-DR134). */
-export const MIC_LABEL = 'Microfone: toque para falar';
+export const MIC_LABEL = 'Microphone: tap to speak';
 /** Ouvindo, o toque encerra. */
-export const MIC_STOP_LABEL = 'Microfone: toque para parar';
+export const MIC_STOP_LABEL = 'Microphone: tap to stop';
 /** Legendas (DESIGN.md, Components; EXPERIENCE.md, State Patterns). */
-export const MIC_IDLE_CAPTION = 'TOQUE PARA FALAR';
-export const MIC_LISTENING_CAPTION = 'OUVINDO…';
-export const MIC_UNAVAILABLE_CAPTION = 'O microfone não está disponível neste aparelho.';
+export const MIC_IDLE_CAPTION = 'TAP TO SPEAK';
+export const MIC_LISTENING_CAPTION = 'LISTENING…';
+export const MIC_UNAVAILABLE_CAPTION = "The microphone isn't available on this device.";
 
 /** Um ciclo do anel pulsante [ASSUMPTION: 1,6 s; o DESIGN.md não fixa]. */
 const PULSE_MS = 1600;

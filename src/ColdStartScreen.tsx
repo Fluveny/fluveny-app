@@ -11,7 +11,7 @@ import { AlexWave, StatusBanner } from './ui';
 import { color, spacing, typography } from './ui/tokens';
 
 // [ASSUMPTION] Copy da partida a frio do servidor (EXPERIENCE.md, Estados; PRD §8.4).
-export const COLD_START_TEXT = 'Acordando o campus… isso pode levar alguns segundos.';
+export const COLD_START_TEXT = 'Waking up the campus… this may take a few seconds.';
 
 /** Intervalo entre as novas tentativas do /meta quando ele falha sem resposta [ASSUMPTION]. */
 export const COLD_START_RETRY_MS = 3000;

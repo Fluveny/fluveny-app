@@ -9,7 +9,7 @@ export type MatchState = 'neutral' | 'selected' | 'paired' | 'right' | 'wrong';
 export const MATCH_STATES: MatchState[] = ['neutral', 'selected', 'paired', 'right', 'wrong'];
 
 /** O que o leitor de tela ouve antes do outro lado do par: "Hi!, ligada a Hi Alex!". */
-export const MATCH_LINKED = 'ligada a';
+export const MATCH_LINKED = 'matched with';
 
 /** O tom do `Card` em cada estado: o par formado fica branco, e a marca é o número no selo. */
 const TONE: Record<MatchState, CardTone> = {

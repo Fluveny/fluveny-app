@@ -213,7 +213,7 @@ describe('Escolha (Vocab Mode)', () => {
     expect(screen.queryByRole('button', { name: CHECK_LABEL })).toBeNull();
     // A resposta trava.
     expect(option(THREE, 0, 'B')).toBeDisabled();
-    expect(label(THREE, 0, 'A')).toContain('certo');
+    expect(label(THREE, 0, 'A')).toContain('right');
     await fireEvent.press(button(CONTINUE_LABEL));
     expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 10, resultPct: 100 });
   });
@@ -223,11 +223,11 @@ describe('Escolha (Vocab Mode)', () => {
     await answerThree(['B', 'B', 'B']);
     await verify();
     expect(await screen.findByText(FEEDBACK_TITLES.wrong)).toBeTruthy();
-    expect(screen.getByText('Resultado: 2 de 3 itens · 67%')).toBeTruthy();
+    expect(screen.getByText('Result: 2 of 3 items · 67%')).toBeTruthy();
     expect(screen.getByText(WRONG_MESSAGE)).toBeTruthy();
     expect(screen.queryByTestId('alex-cheer')).toBeNull();
     expect(screen.queryByTestId('sheet-justification')).toBeNull();
-    expect(label(THREE, 0, 'B')).toContain('errado');
+    expect(label(THREE, 0, 'B')).toContain('wrong');
     // Sem gabarito: a certa não aparece.
     expect(label(THREE, 0, 'A')).toBe('A, Good morning');
     expect(button(RETRY_LABEL)).toBeEnabled();
@@ -239,7 +239,7 @@ describe('Escolha (Vocab Mode)', () => {
     expect(option(THREE, 0, 'B').props.accessibilityState).toMatchObject({ selected: false });
     expect(option(THREE, 0, 'B')).toBeEnabled();
     // Os certos ficam e travam.
-    expect(label(THREE, 1, 'B')).toContain('certo');
+    expect(label(THREE, 1, 'B')).toContain('right');
     expect(option(THREE, 1, 'A')).toBeDisabled();
 
     await pick(THREE, 0, 'A');
@@ -287,7 +287,7 @@ describe('Escolha (Vocab Mode)', () => {
     const { advance } = await open();
     await answerThree(['B', 'A', 'B']);
     await verify();
-    expect(await screen.findByText('Resultado: 1 de 3 itens · 33%')).toBeTruthy();
+    expect(await screen.findByText('Result: 1 of 3 items · 33%')).toBeTruthy();
 
     await fireEvent.press(button(REVEAL_LABEL));
     expect(await screen.findByText(messageFor('INTERNAL_ERROR'))).toBeTruthy();
@@ -303,10 +303,10 @@ describe('Escolha (Vocab Mode)', () => {
     // O reveal reenvia a última resposta.
     const last = bodies.at(-1) as { answer: unknown };
     expect(last.answer).toEqual((bodies[0] as { answer: unknown }).answer);
-    expect(label(THREE, 0, 'A')).toContain('certo');
-    expect(label(THREE, 0, 'B')).toContain('errado');
-    expect(label(THREE, 1, 'B')).toContain('certo');
-    expect(label(THREE, 1, 'A')).toContain('errado');
+    expect(label(THREE, 0, 'A')).toContain('right');
+    expect(label(THREE, 0, 'B')).toContain('wrong');
+    expect(label(THREE, 1, 'B')).toContain('right');
+    expect(label(THREE, 1, 'A')).toContain('wrong');
     expect(screen.getAllByTestId('sheet-justification')).toHaveLength(3);
     expect(screen.queryByRole('button', { name: RETRY_LABEL })).toBeNull();
     expect(screen.queryByRole('button', { name: REVEAL_LABEL })).toBeNull();
@@ -324,7 +324,7 @@ describe('Escolha (Vocab Mode)', () => {
     expect(screen.getByRole('header', { name: FEEDBACK_TITLES.wrong })).toBeTruthy();
   });
 
-  it('sem rede no VERIFICAR: "SEM CONEXÃO"; NETWORK_ERROR mostra a mensagem e a resposta destrava', async () => {
+  it('sem rede no VERIFICAR: "NO CONNECTION"; NETWORK_ERROR mostra a mensagem e a resposta destrava', async () => {
     const { setOnline } = await open(SINGLE);
     await pick(SINGLE, 0, 'A');
     await setOnline(false);
@@ -353,7 +353,7 @@ describe('Escolha (Vocab Mode)', () => {
     expect(button(CHECK_LABEL)).toBeEnabled();
   });
 
-  it('sem rede na folha de Erro: VER RESPOSTA vira "SEM CONEXÃO"; TENTAR DE NOVO fica', async () => {
+  it('sem rede na folha de Erro: VER RESPOSTA vira "NO CONNECTION"; TENTAR DE NOVO fica', async () => {
     const { setOnline } = await open(SINGLE);
     await pick(SINGLE, 0, 'B');
     await verify();
@@ -565,7 +565,7 @@ describe('recibos e attemptId (1.12)', () => {
     await verify();
     await screen.findByText(FEEDBACK_TITLES.wrong);
     await fireEvent.press(button(REVEAL_LABEL));
-    expect(await screen.findByText('Responda a Atividade antes de ver a resposta.')).toBeTruthy();
+    expect(await screen.findByText('Answer the activity before you see the answer.')).toBeTruthy();
     expect(button(REVEAL_LABEL)).toBeEnabled();
 
     conflict = false;

@@ -8,7 +8,7 @@ import type { components } from '../api/schema';
 export type UsefulExpression = components['schemas']['UsefulExpressionStudentView'];
 
 /** A dica do trecho tocável para o leitor de tela (UX-DR136). */
-export const EXPRESSION_HINT = 'Abre o significado da expressão';
+export const EXPRESSION_HINT = 'Opens the meaning of the expression';
 
 /**
  * O que o `RenderedText` precisa para tornar um trecho `[[rótulo|chave]]`

@@ -17,20 +17,20 @@ export const studentGreeting = (name: string | null | undefined) =>
   name?.trim() ? `Hi, ${name.trim()}!` : 'Hi, friend!';
 
 // Faixa do e-mail não confirmado (2.2). [ASSUMPTION] Textos propostos na 2.2, a revisar com UX.
-export const confirmationSent = (email: string) => `Enviamos um link de confirmação para ${email}.`;
-export const confirmationResent = (email: string) => `Enviamos outro link para ${email}. Pode levar alguns minutos.`;
-export const RESEND_LABEL = 'REENVIAR';
+export const confirmationSent = (email: string) => `We sent a confirmation link to ${email}.`;
+export const confirmationResent = (email: string) => `We sent another link to ${email}. It may take a few minutes.`;
+export const RESEND_LABEL = 'RESEND';
 /** Depois dos 7 dias sem confirmar (`emailConfirmationOverdue`, 2.8, UX-DR117): a frase da UX. */
-export const CONFIRM_TO_RECOVER = 'Confirme seu e-mail para poder recuperar a senha.';
+export const CONFIRM_TO_RECOVER = 'Confirm your email so you can recover your password.';
 
 /** O sair (2.3), discreto; desde a 2.9, na Conta. */
-export const SIGN_OUT_LABEL = 'Sair';
+export const SIGN_OUT_LABEL = 'Sign out';
 // A folha de confirmação do sair: desde a 2.4, o Progresso do Aluno fica na conta, e o sair apaga
 // só o que está no aparelho (a loja e o cache). [ASSUMPTION: copy] Textos propostos na 2.3 e na 2.4, a revisar com UX.
-export const SIGN_OUT_TITLE = 'Sair da conta?';
-export const SIGN_OUT_BODY = 'Seu progresso fica salvo na sua conta. O que está só neste aparelho será apagado.';
-export const SIGN_OUT_CONFIRM = 'SAIR';
-export const SIGN_OUT_CANCEL = 'CANCELAR';
+export const SIGN_OUT_TITLE = 'Sign out?';
+export const SIGN_OUT_BODY = "Your progress stays saved in your account. What's only on this device will be erased.";
+export const SIGN_OUT_CONFIRM = 'SIGN OUT';
+export const SIGN_OUT_CANCEL = 'CANCEL';
 
 /**
  * O link "Sair" (2.3): abre a folha de confirmação; SAIR encerra a sessão no

@@ -12,21 +12,21 @@ import { color, spacing, typography } from '../../src/ui/tokens';
 
 // Copy de Recuperar senha (2.8; revisão de UX de 23/11, UX-DR99/UX-DR159).
 // [ASSUMPTION: copy] Textos sem frase fixa no EXPERIENCE.md propostos na 2.8, a revisar com UX.
-export const RECOVER_TITLE = 'Recuperar senha';
+export const RECOVER_TITLE = 'Reset password';
 export const RECOVER_BODY =
-  'Digite o e-mail da sua conta. Se ele estiver confirmado, enviamos um link para criar uma senha nova.';
-export const EMAIL_FIELD = 'E-mail';
-export const EMAIL_EMPTY = 'Digite seu e-mail.';
-export const SEND_LINK_LABEL = 'ENVIAR LINK';
-export const REMEMBERED = 'Lembrou a senha?';
-export const SIGN_IN_LINK = 'Entrar';
-export const BACK_LABEL = 'Voltar';
-export const SENT_TITLE = 'Confira seu e-mail';
+  "Enter your account's email. If it's confirmed, we'll send you a link to create a new password.";
+export const EMAIL_FIELD = 'Email';
+export const EMAIL_EMPTY = 'Enter your email.';
+export const SEND_LINK_LABEL = 'SEND LINK';
+export const REMEMBERED = 'Remembered your password?';
+export const SIGN_IN_LINK = 'Sign in';
+export const BACK_LABEL = 'Back';
+export const SENT_TITLE = 'Check your email';
 export const sentBody = (email: string) =>
-  `Se ${email} tiver uma conta com o e-mail confirmado, enviamos um link para criar uma senha nova. Ele vale por 1 hora e pode levar alguns minutos para chegar.`;
-export const BACK_TO_SIGN_IN = 'VOLTAR PARA ENTRAR';
-export const SEND_AGAIN_LINK = 'Enviar de novo';
-export const SENT_AGAIN = 'Enviamos de novo.';
+  `If ${email} has an account with a confirmed email, we sent a link to create a new password. It works for 1 hour and may take a few minutes to arrive.`;
+export const BACK_TO_SIGN_IN = 'BACK TO SIGN IN';
+export const SEND_AGAIN_LINK = 'Send again';
+export const SENT_AGAIN = 'We sent it again.';
 
 /**
  * Recuperar senha (2.8, FR-4): pública, com ou sem sessão. Pede o link para o

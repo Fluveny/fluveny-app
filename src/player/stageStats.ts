@@ -76,9 +76,9 @@ export function summarizeStage(progress: readonly ProgressEntry[], activityKeys:
   };
 }
 
-/** "1 atividade de fala pulada. …" (EXPERIENCE.md, Voice and Tone), com plural; sem puladas, `null`. */
+/** "1 speaking activity skipped. …" (EXPERIENCE.md, Voice and Tone), com plural; sem puladas, `null`. */
 export function skippedLine(skipped: number): string | null {
   if (skipped <= 0) return null;
-  const noun = skipped === 1 ? 'atividade de fala pulada' : 'atividades de fala puladas';
-  return `${skipped} ${noun}. Você pode refazer quando quiser.`;
+  const noun = skipped === 1 ? 'speaking activity' : 'speaking activities';
+  return `${skipped} ${noun} skipped. You can redo ${skipped === 1 ? 'it' : 'them'} anytime.`;
 }

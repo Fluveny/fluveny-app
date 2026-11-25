@@ -107,10 +107,10 @@ afterEach(() => jest.restoreAllMocks());
 describe('aviso de distratores', () => {
   it.each([
     [0, null],
-    [1, 'Uma das respostas sobra.'],
-    [2, 'Duas das respostas sobram.'],
-    [3, 'Três das respostas sobram.'],
-    [4, '4 das respostas sobram.'],
+    [1, 'One answer is left over.'],
+    [2, 'Two answers are left over.'],
+    [3, 'Three answers are left over.'],
+    [4, '4 answers are left over.'],
   ])('%i sobrando: %s', (spare, text) => {
     expect(spareNotice(spare)).toBe(text);
   });
@@ -126,7 +126,7 @@ describe('Associar (Match the Speech Bubbles)', () => {
     expect(screen.getByLabelText('GAME TIME')).toBeTruthy();
     expect(screen.getByText(MATCH.title as string)).toBeTruthy();
     expect(screen.getByText(MATCH.prompt as string)).toBeTruthy();
-    expect(screen.getByText('Uma das respostas sobra.')).toBeTruthy();
+    expect(screen.getByText('One answer is left over.')).toBeTruthy();
     // Nome: a tela mostra "Ana".
     expect(screen.getByText("Hi Alex! I'm Ana.")).toBeTruthy();
     expect(label(response(RIGHT[0]!))).toBe("Hi Alex! I'm Ana.");
@@ -158,8 +158,8 @@ describe('Associar (Match the Speech Bubbles)', () => {
     expect(response(RIGHT[1]!)).not.toBeSelected();
     expect(screen.getByTestId(`match-item-${MATCH.items[1]!.itemKey}-badge`)).toHaveTextContent('2');
     expect(screen.getByTestId(`match-response-${RIGHT[1]}-badge`)).toHaveTextContent('2');
-    expect(label(item(1))).toBe('Nice to meet you!, ligada a Nice to meet you too!');
-    expect(label(response(RIGHT[1]!))).toBe('Nice to meet you too!, ligada a Nice to meet you!');
+    expect(label(item(1))).toBe('Nice to meet you!, matched with Nice to meet you too!');
+    expect(label(response(RIGHT[1]!))).toBe('Nice to meet you too!, matched with Nice to meet you!');
   });
 
   it('resposta primeiro: toque em R, depois na fala, forma o par', async () => {
@@ -168,7 +168,7 @@ describe('Associar (Match the Speech Bubbles)', () => {
     expect(response(RIGHT[2]!)).toBeSelected();
     await fireEvent.press(item(2));
     expect(screen.getByTestId(`match-response-${RIGHT[2]}-badge`)).toHaveTextContent('3');
-    expect(label(item(2))).toContain('ligada a I am from Brasil.');
+    expect(label(item(2))).toContain('matched with I am from Brasil.');
   });
 
   it('desfazer: tocar na fala ou na resposta pareada desfaz, e a resposta volta a ficar livre', async () => {
@@ -182,7 +182,7 @@ describe('Associar (Match the Speech Bubbles)', () => {
     expect(label(response(RIGHT[0]!))).toBe("Hi Alex! I'm Ana.");
     // Livre de novo: outra fala pode usá-la.
     await pair(1, RIGHT[0]!);
-    expect(label(item(1))).toContain(`ligada a Hi Alex! I'm Ana.`);
+    expect(label(item(1))).toContain(`matched with Hi Alex! I'm Ana.`);
   });
 
   it('trocar seleção: A selecionada, toque em B seleciona B; tocar de novo tira a seleção', async () => {
@@ -207,7 +207,7 @@ describe('Associar (Match the Speech Bubbles)', () => {
     expect(button(CHECK_LABEL)).toBeEnabled();
   });
 
-  it('tudo certo: "Mandou bem!", +9 XP, só chaves na Tentativa; CONTINUAR grava xp 9', async () => {
+  it('tudo certo: "Nice job!", +9 XP, só chaves na Tentativa; CONTINUAR grava xp 9', async () => {
     const { advance } = await open();
     for (const [i, key] of RIGHT.entries()) await pair(i, key);
     await fireEvent.press(button(CHECK_LABEL));
@@ -224,38 +224,38 @@ describe('Associar (Match the Speech Bubbles)', () => {
     });
     const raw = JSON.stringify(bodies[0]);
     for (const text of ['Ana', 'Brasil', 'Hi Alex', '{name}']) expect(raw).not.toContain(text);
-    expect(label(item(0))).toContain('certo');
+    expect(label(item(0))).toContain('right');
     expect(item(0)).toBeDisabled();
     expect(response(DISTRACTOR)).toBeDisabled();
     await fireEvent.press(button(CONTINUE_LABEL));
     expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 9, resultPct: 100 });
   });
 
-  it('parcial (2 de 3): "Quase lá!", "2 de 3 itens"; TENTAR DE NOVO trava os 2 e libera o resto; só a primeira vale', async () => {
+  it('parcial (2 de 3): "Almost there!", "2 de 3 itens"; TENTAR DE NOVO trava os 2 e libera o resto; só a primeira vale', async () => {
     const { advance } = await open();
     await pair(0, DISTRACTOR);
     await pair(1, RIGHT[1]!);
     await pair(2, RIGHT[2]!);
     await fireEvent.press(button(CHECK_LABEL));
     expect(await screen.findByText(FEEDBACK_TITLES.wrong)).toBeTruthy();
-    expect(screen.getByText('Resultado: 2 de 3 itens · 67%')).toBeTruthy();
-    expect(label(item(0))).toBe("Hi! I'm Alex. What's your name?, ligada a Goodbye!, errado");
-    expect(label(response(DISTRACTOR))).toContain('errado');
+    expect(screen.getByText('Result: 2 of 3 items · 67%')).toBeTruthy();
+    expect(label(item(0))).toBe("Hi! I'm Alex. What's your name?, matched with Goodbye!, wrong");
+    expect(label(response(DISTRACTOR))).toContain('wrong');
     // ✕ na fala e na resposta do par errado (e o da folha).
     expect(screen.getAllByTestId('icon-x', { includeHiddenElements: true }).length).toBeGreaterThanOrEqual(2);
-    expect(label(item(1))).toContain('certo');
+    expect(label(item(1))).toContain('right');
 
     await fireEvent.press(button(RETRY_LABEL));
     expect(button(CHECK_LABEL)).toBeDisabled();
     // Os certos ficam e travam; o errado se desfaz.
     expect(item(1)).toBeDisabled();
     expect(response(RIGHT[2]!)).toBeDisabled();
-    expect(label(item(1))).toContain('certo');
+    expect(label(item(1))).toContain('right');
     expect(item(0)).toBeEnabled();
     expect(label(item(0))).toBe("Hi! I'm Alex. What's your name?");
     expect(response(DISTRACTOR)).toBeEnabled();
     await fireEvent.press(item(1));
-    expect(label(item(1))).toContain('ligada a');
+    expect(label(item(1))).toContain('matched with');
 
     await pair(0, RIGHT[0]!);
     await fireEvent.press(button(CHECK_LABEL));
@@ -265,7 +265,7 @@ describe('Associar (Match the Speech Bubbles)', () => {
     expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 6, resultPct: 67 });
   });
 
-  it('ver resposta: "RESPOSTA ESPERADA" com os três pares numerados e o nome renderizado', async () => {
+  it('ver resposta: "EXPECTED ANSWER" com os três pares numerados e o nome renderizado', async () => {
     await open();
     await pair(0, DISTRACTOR);
     await pair(1, RIGHT[0]!);
@@ -283,8 +283,8 @@ describe('Associar (Match the Speech Bubbles)', () => {
     // Justificativas de `hi` e `from`; `nice` não tem.
     expect(screen.getAllByTestId('sheet-justification')).toHaveLength(2);
     expect(screen.queryByText(/\{name\}/)).toBeNull();
-    expect(label(item(0))).toContain('errado');
-    expect(label(item(2))).toContain('certo');
+    expect(label(item(0))).toContain('wrong');
+    expect(label(item(2))).toContain('right');
     expect(screen.queryByRole('button', { name: RETRY_LABEL })).toBeNull();
   });
 

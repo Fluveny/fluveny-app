@@ -144,7 +144,7 @@ describe('Resposta Livre', () => {
     expect(button(SEND_LABEL)).toBeEnabled();
   });
 
-  it('enviar: VIEWED sem o texto, "Você escreveu" e a resposta-modelo com o nome; CONTINUAR grava xp 0 sem concluir de novo', async () => {
+  it('enviar: VIEWED sem o texto, "You wrote" e a resposta-modelo com o nome; CONTINUAR grava xp 0 sem concluir de novo', async () => {
     const { advance } = await open();
     await fireEvent.changeText(field(), "I'm Ana, from Brazil");
     await fireEvent.press(button(SEND_LABEL));
@@ -203,7 +203,7 @@ describe('Extra Help', () => {
     expect(screen.queryByRole('button', { name: SEND_LABEL })).toBeNull();
     expect(screen.queryByRole('button', { name: EXTRA_HELP_LABEL })).toBeNull();
     expect(screen.getByText(String(FREE.extraHelp.prompt))).toBeTruthy();
-    expect(label(gap(0))).toBe('Lacuna 1, vazia');
+    expect(label(gap(0))).toBe('Gap 1, empty');
     expect(button(CHECK_LABEL)).toBeDisabled();
     // O banco embaralhado, com o distrator.
     const order = screen.getAllByTestId(/^gap-fill-word-/).map((el) => String(el.props.testID).slice(14));
@@ -235,21 +235,21 @@ describe('Extra Help', () => {
     expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 6, resultPct: 100 });
   });
 
-  it('parcial (1 de 2): "Quase lá!"; TENTAR DE NOVO esvazia só a errada', async () => {
+  it('parcial (1 de 2): "Almost there!"; TENTAR DE NOVO esvazia só a errada', async () => {
     await open();
     await fireEvent.press(button(EXTRA_HELP_LABEL));
     await fireEvent.press(word('im'));
     await fireEvent.press(word('is'));
     await fireEvent.press(button(CHECK_LABEL));
     expect(await screen.findByText(FEEDBACK_TITLES.wrong)).toBeTruthy();
-    expect(screen.getByText('Resultado: 1 de 2 itens · 50%')).toBeTruthy();
+    expect(screen.getByText('Result: 1 of 2 items · 50%')).toBeTruthy();
     await fireEvent.press(button(RETRY_LABEL));
-    expect(label(gap(0))).toBe("Lacuna 1: I'm, certo");
-    expect(label(gap(1))).toBe('Lacuna 2, vazia');
+    expect(label(gap(0))).toBe("Gap 1: I'm, right");
+    expect(label(gap(1))).toBe('Gap 2, empty');
     expect(word('is')).toBeEnabled();
   });
 
-  it('ver resposta: errado, TENTAR DE NOVO, errado de novo e "Vamos revisar" com as linhas completas e o nome', async () => {
+  it(`ver resposta: errado, TENTAR DE NOVO, wrong de novo e "Let's review" com as linhas completas e o nome`, async () => {
     await open();
     await fireEvent.press(button(EXTRA_HELP_LABEL));
     await fireEvent.press(word('is'));

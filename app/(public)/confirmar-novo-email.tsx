@@ -19,13 +19,13 @@ import { Alex, AlexWave, Button } from '../../src/ui';
 import { color, size, spacing, typography } from '../../src/ui/tokens';
 
 // Copy da troca de e-mail (2.9). [ASSUMPTION: copy] Textos propostos na 2.9, a revisar com UX.
-export const CONFIRMING_TEXT = 'Trocando seu e-mail…';
-export const CHANGED_TITLE = 'E-mail trocado.';
+export const CONFIRMING_TEXT = 'Changing your email…';
+export const CHANGED_TITLE = 'Email changed.';
 /** O mesmo texto do `EMAIL_CHANGE_LINK_INVALID` do catálogo de erros. */
 export const INVALID_TITLE = messageFor('EMAIL_CHANGE_LINK_INVALID');
-export const TAKEN_TITLE = 'Esse e-mail já é de outra conta. Peça a troca de novo.';
-export const GO_HOME_LABEL = 'IR PARA O INÍCIO';
-export const RETRY_LABEL = 'TENTAR DE NOVO';
+export const TAKEN_TITLE = 'This email already belongs to another account. Ask for the change again.';
+export const GO_HOME_LABEL = 'GO TO HOME';
+export const RETRY_LABEL = 'TRY AGAIN';
 
 const ALEX_SIZE = 180;
 

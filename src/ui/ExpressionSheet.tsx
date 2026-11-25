@@ -11,9 +11,9 @@ import { EXPRESSION_EYEBROW, ExpressionCard, type ExpressionEntry } from './Expr
 import { SheetModal } from './SheetModal';
 
 /** O botão que fecha a folha (EXPERIENCE.md, Voice and Tone). */
-export const EXPRESSION_CLOSE_LABEL = 'ENTENDI';
+export const EXPRESSION_CLOSE_LABEL = 'GOT IT';
 /** Rótulo do scrim para o leitor de tela: tocar fora fecha. */
-export const EXPRESSION_SCRIM_LABEL = 'Fechar o significado';
+export const EXPRESSION_SCRIM_LABEL = 'Close the meaning';
 
 export type ExpressionSheetProps = {
   /** A Expressão Útil aberta; `null` fecha a folha. */

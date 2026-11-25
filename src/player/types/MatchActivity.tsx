@@ -25,13 +25,13 @@ type MatchResponse = MatchView['responses'][number];
 type Selection = { side: 'item' | 'response'; key: string } | null;
 
 const PRONOUNS = ['he', 'she', 'they'] as const;
-const SPELLED = ['', 'Uma', 'Duas', 'Três'] as const;
+const SPELLED = ['', 'One', 'Two', 'Three'] as const;
 
-/** O aviso dos distratores (respostas − falas): "Uma das respostas sobra.", "Duas das respostas sobram."… */
+/** O aviso dos distratores (respostas − falas): "One answer is left over.", "Two answers are left over."… */
 export function spareNotice(spare: number): string | null {
   if (spare <= 0) return null;
-  if (spare === 1) return 'Uma das respostas sobra.';
-  return `${SPELLED[spare] ?? spare} das respostas sobram.`;
+  if (spare === 1) return 'One answer is left over.';
+  return `${SPELLED[spare] ?? spare} answers are left over.`;
 }
 
 /** Rótulo do cartão para o leitor de tela, sem `**`; conteúdo malformado vai ao Sentry. */

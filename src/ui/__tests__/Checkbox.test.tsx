@@ -33,8 +33,8 @@ describe('Checkbox (2.1)', () => {
 
 describe('TextField com dica e erro (2.1)', () => {
   it('o erro aparece abaixo, em red-dk, com a borda red; o leitor ouve erro e dica', async () => {
-    await render(<TextField label="E-mail" hint="Seu e-mail." error="Confira o e-mail." testID="email" />);
-    const input = screen.getByLabelText('E-mail');
+    await render(<TextField label="Email" hint="Seu e-mail." error="Confira o e-mail." testID="email" />);
+    const input = screen.getByLabelText('Email');
     expect(styleOf(input).borderColor).toBe(color.red);
     expect(input.props.accessibilityHint).toBe('Confira o e-mail. Seu e-mail.');
     expect(styleOf(screen.getByTestId('email-error')).color).toBe(color.redDk);
