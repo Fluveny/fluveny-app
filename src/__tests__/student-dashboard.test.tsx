@@ -248,18 +248,18 @@ describe('painel do Aluno (2.5)', () => {
     expect(screen.getByText(DASHBOARD_SUBTITLE)).toBeTruthy();
     expect(button(DASHBOARD_START)).toBeTruthy();
     expect(screen.getByLabelText('0 XP')).toBeTruthy();
-    expect(screen.getByLabelText('XP total: 0')).toBeTruthy();
+    expect(screen.getByLabelText('Total XP: 0')).toBeTruthy();
     expect(screen.getByLabelText('Badges: 0')).toBeTruthy();
-    expect(screen.getByLabelText('Estágios: 0 de 1')).toBeTruthy();
+    expect(screen.getByLabelText('Stages: 0 of 1')).toBeTruthy();
     expect(screen.getByLabelText(NO_RESULT_LABEL)).toBeTruthy();
-    expect(screen.getByText('UNIT 1 · 0 DE 1 ESTÁGIOS')).toBeTruthy();
+    expect(screen.getByText('UNIT 1 · 0 OF 1 STAGES')).toBeTruthy();
     const card = screen.getByTestId('stage-card-stage-1');
     expect(card.props.accessibilityState).toEqual(expect.objectContaining({ selected: true }));
     expect(ofRoute('GET', DASHBOARD)).toHaveLength(1);
     expect(captureError).not.toHaveBeenCalled();
   });
 
-  it('retomar: CONTINUAR abre o player em next ("3 DE 13" no painel, a Atividade 3 no player)', async () => {
+  it('retomar: CONTINUAR abre o player em next ("3 OF 13" no painel, a Atividade 3 no player)', async () => {
     const student = await signedUp();
     answering(
       dashboard({
@@ -268,11 +268,11 @@ describe('painel do Aluno (2.5)', () => {
       }),
     );
     await openApp('/', student);
-    expect(await screen.findByText('ATIVIDADE 3 DE 13')).toBeTruthy();
+    expect(await screen.findByText('ACTIVITY 3 OF 13')).toBeTruthy();
     await fireEvent.press(button(DASHBOARD_CONTINUE));
     await waitFor(() => expect(screen).toHavePathname('/player'));
     expect(screen).toHaveSearchParams({ unidade: 'unit-1', estagio: 'stage-1', atividade: CHOICES[2]!.activityKey });
-    expect(await screen.findByText('3 DE 3')).toBeTruthy();
+    expect(await screen.findByText('3 OF 3')).toBeTruthy();
   });
 
   it('cartão atual: abre o Estágio do início, e a Atividade na tela vai para a URL', async () => {
@@ -285,7 +285,7 @@ describe('painel do Aluno (2.5)', () => {
     );
     await openApp('/', student);
     await fireEvent.press(await screen.findByTestId('stage-card-stage-1'));
-    expect(await screen.findByText('1 DE 3')).toBeTruthy();
+    expect(await screen.findByText('1 OF 3')).toBeTruthy();
     await waitFor(() =>
       expect(screen).toHaveSearchParams({ unidade: 'unit-1', estagio: 'stage-1', atividade: CHOICE.activityKey }),
     );
@@ -308,17 +308,17 @@ describe('painel do Aluno (2.5)', () => {
       }),
     );
     await openApp('/', student);
-    expect(await screen.findByLabelText('Estágio 1, Meet & Greet, concluído')).toBeTruthy();
-    expect(screen.getByLabelText('Estágio 2, Campus, atual')).toBeTruthy();
-    expect(screen.getByLabelText('Resultado médio: 87%')).toBeTruthy();
-    expect(screen.getByLabelText('Estágios: 1 de 3')).toBeTruthy();
-    const locked = screen.getByLabelText(`Estágio 3, Classes. ${LOCKED_HINT}`);
+    expect(await screen.findByLabelText('Stage 1, Meet & Greet, completed')).toBeTruthy();
+    expect(screen.getByLabelText('Stage 2, Campus, current')).toBeTruthy();
+    expect(screen.getByLabelText('Average result: 87%')).toBeTruthy();
+    expect(screen.getByLabelText('Stages: 1 of 3')).toBeTruthy();
+    const locked = screen.getByLabelText(`Stage 3, Classes. ${LOCKED_HINT}`);
     expect(locked.props.accessibilityRole).toBeUndefined();
     expect(locked.props.onPress).toBeUndefined();
     expect(screen.queryByRole('button', { name: /Estágio 3/ })).toBeNull();
     await fireEvent.press(screen.getByTestId('stage-card-stage-1'));
     await waitFor(() => expect(screen).toHavePathname('/player'));
-    expect(await screen.findByText('1 DE 3')).toBeTruthy();
+    expect(await screen.findByText('1 OF 3')).toBeTruthy();
   });
 
   it('tudo concluído: sem botão e sem subtítulo, com a linha dos Estágios disponíveis', async () => {
@@ -340,7 +340,7 @@ describe('painel do Aluno (2.5)', () => {
   it('em breve: a Unit 2 bloqueada, sem toque', async () => {
     const student = await signedUp();
     await openApp('/', student);
-    const soon = await screen.findByLabelText('Unit 2, em breve');
+    const soon = await screen.findByLabelText('Unit 2, coming soon');
     expect(soon.props.accessibilityRole).toBeUndefined();
     expect(screen.queryByRole('button', { name: /Unit 2/ })).toBeNull();
   });
@@ -366,14 +366,14 @@ describe('painel do Aluno (2.5)', () => {
     await openApp('/', student);
     await fireEvent.press(await screen.findByRole('button', { name: DASHBOARD_START }));
     // O mock começa o `next` na primeira Atividade do Estágio completo: fora do Estágio servido, a 1.
-    expect(await screen.findByText('1 DE 3')).toBeTruthy();
+    expect(await screen.findByText('1 OF 3')).toBeTruthy();
     const before = ofRoute('GET', DASHBOARD).length;
     await answerChoice();
     expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
     await waitFor(() => expect(ofRoute('GET', DASHBOARD).length).toBeGreaterThan(before));
     await fireEvent.press(button(CONTINUE_LABEL));
     await fireEvent.press(button(CLOSE_LABEL));
-    expect(await screen.findByLabelText('XP total: 10')).toBeTruthy();
+    expect(await screen.findByLabelText('Total XP: 10')).toBeTruthy();
     expect(button(DASHBOARD_CONTINUE)).toBeTruthy();
   });
 
@@ -381,14 +381,14 @@ describe('painel do Aluno (2.5)', () => {
     const student = await signedUp();
     await openApp('/', student);
     await fireEvent.press(await screen.findByRole('button', { name: DASHBOARD_START }));
-    expect(await screen.findByText('1 DE 3')).toBeTruthy();
+    expect(await screen.findByText('1 OF 3')).toBeTruthy();
     await answerChoice();
     expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
     await act(async () => {});
     const seen = client.getQueryData<Dashboard>(['student', 'dashboard']);
     // Outro aparelho: um cache novo, a mesma conta.
     await openApp('/', student);
-    expect(await screen.findByLabelText('XP total: 10')).toBeTruthy();
+    expect(await screen.findByLabelText('Total XP: 10')).toBeTruthy();
     expect(button(DASHBOARD_CONTINUE)).toBeTruthy();
     await waitFor(() => expect(client.getQueryData<Dashboard>(['student', 'dashboard'])).toEqual(seen));
     expect(focusUnit(seen)?.next?.activityKey).toBeDefined();
@@ -409,7 +409,7 @@ describe('painel do Aluno (2.5)', () => {
     expect(await screen.findByRole('button', { name: DASHBOARD_START })).toBeTruthy();
   });
 
-  it('sem rede: a faixa offline, o painel do cache, o botão "SEM CONEXÃO" e os cartões sem toque', async () => {
+  it('sem rede: a faixa offline, o painel do cache, o botão "NO CONNECTION" e os cartões sem toque', async () => {
     const student = await signedUp();
     await openApp('/', student);
     expect(await screen.findByRole('button', { name: DASHBOARD_START })).toBeTruthy();
@@ -421,7 +421,7 @@ describe('painel do Aluno (2.5)', () => {
     expect(card.props.accessibilityState).toEqual(expect.objectContaining({ disabled: true }));
     await fireEvent.press(card);
     expect(screen).toHavePathname('/');
-    expect(screen.getByLabelText('XP total: 0')).toBeTruthy();
+    expect(screen.getByLabelText('Total XP: 0')).toBeTruthy();
   });
 
   it('volta da rede: o painel é relido uma vez e a faixa offline some', async () => {
@@ -472,7 +472,7 @@ describe('player no Estágio e na Atividade (2.5)', () => {
   it('Atividade sumiu: `atividade` fora do Estágio começa na Atividade 1', async () => {
     const student = await signedUp();
     await openApp('/player?unidade=unit-1&estagio=stage-1&atividade=nao-existe', student);
-    expect(await screen.findByText('1 DE 3')).toBeTruthy();
+    expect(await screen.findByText('1 OF 3')).toBeTruthy();
   });
 
   it('Estágio fora da Unidade: NOT_FOUND', async () => {
@@ -484,12 +484,12 @@ describe('player no Estágio e na Atividade (2.5)', () => {
   it('parâmetro mal formado é ignorado: o primeiro Estágio, Atividade 1', async () => {
     const student = await signedUp();
     await openApp('/player?estagio=..%2Fx&atividade=ABC', student);
-    expect(await screen.findByText('1 DE 3')).toBeTruthy();
+    expect(await screen.findByText('1 OF 3')).toBeTruthy();
   });
 
   it('Visitante: ignora os parâmetros (Estágio 1, Atividade 1) e não muda a URL', async () => {
     await openApp(`/player?estagio=stage-2&atividade=${CHOICES[2]!.activityKey}`);
-    expect(await screen.findByText('1 DE 3')).toBeTruthy();
+    expect(await screen.findByText('1 OF 3')).toBeTruthy();
     await act(async () => {});
     expect(screen).toHaveSearchParams({ estagio: 'stage-2', atividade: CHOICES[2]!.activityKey });
     expect(sent.some((request) => request.path.startsWith('/api/v1/students/me'))).toBe(false);
@@ -498,7 +498,7 @@ describe('player no Estágio e na Atividade (2.5)', () => {
   it('401 no meio: Entrar com o volta do player; depois, a mesma Atividade, do início', async () => {
     const student = await signedUp();
     await openApp(`/player?unidade=unit-1&estagio=stage-1&atividade=${CHOICES[1]!.activityKey}`, student);
-    expect(await screen.findByText('2 DE 3')).toBeTruthy();
+    expect(await screen.findByText('2 OF 3')).toBeTruthy();
     expireMockSession();
     await act(async () => {
       await client.refetchQueries({ queryKey: STUDENT_QUERY_KEY });
@@ -512,7 +512,7 @@ describe('player no Estágio e na Atividade (2.5)', () => {
     await fireEvent.changeText(screen.getByLabelText(PASSWORD_FIELD), ADULT.password);
     await fireEvent.press(button(SIGN_IN_LABEL));
     await waitFor(() => expect(screen).toHavePathname('/player'));
-    expect(await screen.findByText('2 DE 3')).toBeTruthy();
+    expect(await screen.findByText('2 OF 3')).toBeTruthy();
   });
 
   it('volta adulterado: só a raiz ou o player com os parâmetros válidos', () => {
@@ -534,7 +534,7 @@ describe('Estágio travado (2.5)', () => {
     const student = await signedUp();
     await openApp('/', student);
     await fireEvent.press(await screen.findByRole('button', { name: DASHBOARD_START }));
-    expect(await screen.findByText('1 DE 3')).toBeTruthy();
+    expect(await screen.findByText('1 OF 3')).toBeTruthy();
     forceMockStageLocked(true);
     const before = ofRoute('GET', DASHBOARD).length;
     await answerChoice();
@@ -544,13 +544,13 @@ describe('Estágio travado (2.5)', () => {
     expect(captureError).not.toHaveBeenCalled();
     await fireEvent.press(button(BACK_HOME_LABEL));
     await waitFor(() => expect(screen).toHavePathname('/'));
-    expect(await screen.findByLabelText('XP total: 0')).toBeTruthy();
+    expect(await screen.findByLabelText('Total XP: 0')).toBeTruthy();
   });
 
   it('409 no reveal: a tela do Estágio travado, sem Sentry', async () => {
     const student = await signedUp();
     await openApp('/player', student);
-    expect(await screen.findByText('1 DE 3')).toBeTruthy();
+    expect(await screen.findByText('1 OF 3')).toBeTruthy();
     for (const [item, letter] of ['B', 'B', 'B'].entries()) {
       await fireEvent.press(screen.getByTestId(`choice-${CHOICE.items[item]!.itemKey}-${letter}`));
     }
@@ -576,7 +576,7 @@ describe('Estágio travado (2.5)', () => {
     try {
       const student = await signedUp();
       await openApp('/player', student);
-      expect(await screen.findByText('1 DE 2')).toBeTruthy();
+      expect(await screen.findByText('1 OF 2')).toBeTruthy();
       forceMockStageLocked(true);
       await fireEvent.press(button('PULAR'));
       expect(await screen.findByText(messageFor(STAGE_LOCKED))).toBeTruthy();
@@ -594,7 +594,7 @@ describe('Estágio travado (2.5)', () => {
     await openApp('/');
     expect(await screen.findByRole('button', { name: TRY_NOW })).toBeTruthy();
     await fireEvent.press(button(TRY_NOW));
-    expect(await screen.findByText('1 DE 3')).toBeTruthy();
+    expect(await screen.findByText('1 OF 3')).toBeTruthy();
     await answerChoice();
     expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
   });
@@ -620,8 +620,8 @@ describe('migração do Visitante (2.6)', () => {
     await fireEvent.press(screen.getByRole('checkbox', { name: ACCEPT_LABEL }));
     await fireEvent.press(button(CREATE_LABEL));
     await fireEvent.press(await screen.findByRole('button', { name: PRONOUNS_LATER }));
-    expect(await screen.findByLabelText('Estágio 1, Meet & Greet, concluído')).toBeTruthy();
-    expect(screen.getByLabelText(`XP total: ${xp}`)).toBeTruthy();
+    expect(await screen.findByLabelText('Stage 1, Meet & Greet, completed')).toBeTruthy();
+    expect(screen.getByLabelText(`Total XP: ${xp}`)).toBeTruthy();
     expect(await visitorStore.receipts()).toEqual([]);
     expect(await visitorStore.progress()).toEqual([]);
     expect(await visitorStore.variables()).toEqual({});

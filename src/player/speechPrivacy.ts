@@ -8,9 +8,9 @@ import { Platform } from 'react-native';
  * aparelho sem reconhecimento local ou sem o modelo en-US.
  */
 export const PRIVACY_TEXT = {
-  web: 'Para conferir sua fala, o áudio é transcrito pelo reconhecimento de voz do seu navegador, que pode enviá-lo ao Google ou à Apple. O Fluveny não grava nem guarda o áudio.',
+  web: "To check your speech, your browser's speech recognition turns the audio into text and may send it to Google or Apple. Fluveny doesn't record or keep the audio.",
   android:
-    'Para conferir sua fala, o áudio é transcrito pelo reconhecimento de voz do Android, que pode enviá-lo ao Google. O Fluveny não grava nem guarda o áudio.',
+    "To check your speech, Android's speech recognition turns the audio into text and may send it to Google. Fluveny doesn't record or keep the audio.",
 } as const;
 
 export const privacyText = () => (Platform.OS === 'web' ? PRIVACY_TEXT.web : PRIVACY_TEXT.android);

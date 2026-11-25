@@ -20,9 +20,9 @@ type DialogueView = Extract<ActivityView, { type: 'dialogue' }>;
 type DialogueLine = DialogueView['lines'][number];
 type Ask = NonNullable<DialogueLine['ask']>;
 
-export const CONTINUE_LABEL = 'CONTINUAR';
-export const NAME_LABEL = 'Seu nome';
-export const COUNTRY_LABEL = 'Seu país';
+export const CONTINUE_LABEL = 'CONTINUE';
+export const NAME_LABEL = 'Your name';
+export const COUNTRY_LABEL = 'Your country';
 /** Limite do nome, depois do `trim`. */
 export const NAME_MAX = 40;
 

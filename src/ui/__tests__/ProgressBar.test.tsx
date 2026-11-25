@@ -24,8 +24,8 @@ describe('ProgressBar (UX-DR33)', () => {
     [1.7, 100],
     [Number.NaN, 0],
   ])('valor %p: limitado a 0–1, progressbar com now = %p e preenchimento ≥ 26 px', async (value, now) => {
-    await render(<ProgressBar value={value} accessibilityLabel="Posição no Estágio" />);
-    const bar = screen.getByRole('progressbar', { name: 'Posição no Estágio' });
+    await render(<ProgressBar value={value} accessibilityLabel="Position in the stage" />);
+    const bar = screen.getByRole('progressbar', { name: 'Position in the stage' });
     expect(bar.props.accessibilityValue).toEqual({ min: 0, max: 100, now });
     expect(styleOf(bar).height).toBe(size.progressHeight);
     expect(styleOf(screen.getByTestId('progress-bar-fill')).minWidth).toBe(size.progressMinFill);

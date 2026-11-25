@@ -9,11 +9,11 @@ import type { ActivityProps, ActivityView } from '../registry';
 type GrammarView = Extract<ActivityView, { type: 'grammar' }>;
 
 /** As três abas (UX-DR54), na ordem. */
-export const GRAMMAR_TABS = ['1. Você já usou', '2. A regra', '3. Na prática'] as const;
-export const NEXT_LABEL = 'PRÓXIMO';
-export const CONTINUE_LABEL = 'CONTINUAR';
+export const GRAMMAR_TABS = ["1. You've used it", '2. The rule', '3. In practice'] as const;
+export const NEXT_LABEL = 'NEXT';
+export const CONTINUE_LABEL = 'CONTINUE';
 /** Abertura da aba 1, texto do App (sem citar cor: o destaque não é por cor). */
-export const USED_INTRO = 'Você já usou estas formas neste Estágio. Repare na parte em destaque:';
+export const USED_INTRO = "You've already used these forms in this stage. Look at the highlighted part:";
 
 /** O destaque da forma: peso e sublinhado em `ink`, nunca em cor (DESIGN.md, vermelho só para recompensa e erro). */
 const FORM_HIGHLIGHT: TextStyle = {

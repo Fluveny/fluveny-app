@@ -6,8 +6,8 @@ import { edgeOf, styleOf, touchHeight } from '../../test-utils/kit';
 
 describe('Button (UX-DR18 a UX-DR24)', () => {
   it('papel, rótulo e estado; face de 54 dp com área de toque ≥ 48', async () => {
-    await render(<Button label="CONTINUAR" onPress={() => {}} />);
-    const button = screen.getByRole('button', { name: 'CONTINUAR' });
+    await render(<Button label="CONTINUE" onPress={() => {}} />);
+    const button = screen.getByRole('button', { name: 'CONTINUE' });
     expect(button).toBeEnabled();
     expect(button.props.accessibilityState).toEqual(expect.objectContaining({ disabled: false }));
     expect(touchHeight(button)).toBeGreaterThanOrEqual(size.touchMin);
@@ -15,8 +15,8 @@ describe('Button (UX-DR18 a UX-DR24)', () => {
 
   it('toque: afunda com sunk(edge) no pressIn e volta no pressOut, sem mover o layout', async () => {
     const onPress = jest.fn();
-    await render(<Button label="VERIFICAR" onPress={onPress} />);
-    const button = () => screen.getByRole('button', { name: 'VERIFICAR' });
+    await render(<Button label="CHECK" onPress={onPress} />);
+    const button = () => screen.getByRole('button', { name: 'CHECK' });
     const raised = edgeOf(button());
     expect(raised).toEqual(expect.objectContaining({ bottom: edge.button, margin: 0, translateY: 0 }));
     expect(styleOf(button()).borderBottomColor).toBe(color.blueDk);
@@ -39,8 +39,8 @@ describe('Button (UX-DR18 a UX-DR24)', () => {
     ['disabled', { disabled: true }],
   ])('desabilitado (%s): não dispara, não afunda e anuncia disabled', async (_, props) => {
     const onPress = jest.fn();
-    await render(<Button label="VERIFICAR" onPress={onPress} {...props} />);
-    const button = () => screen.getByRole('button', { name: 'VERIFICAR' });
+    await render(<Button label="CHECK" onPress={onPress} {...props} />);
+    const button = () => screen.getByRole('button', { name: 'CHECK' });
     expect(button()).toBeDisabled();
     const before = edgeOf(button());
     expect(before.bottom).toBe(edge.button);
@@ -52,15 +52,15 @@ describe('Button (UX-DR18 a UX-DR24)', () => {
   });
 
   it('ocupado: desabilitado e anunciado como busy', async () => {
-    await render(<Button label="SALVANDO…" busy onPress={() => {}} />);
-    const button = screen.getByRole('button', { name: 'SALVANDO…' });
+    await render(<Button label="SAVING…" busy onPress={() => {}} />);
+    const button = screen.getByRole('button', { name: 'SAVING…' });
     expect(button).toBeDisabled();
     expect(button).toBeBusy();
   });
 
   it('pequeno: 46 dp, sombra de 4 e área de toque ≥ 48', async () => {
-    await render(<Button label="PRÓXIMO" small onPress={() => {}} />);
-    const button = screen.getByRole('button', { name: 'PRÓXIMO' });
+    await render(<Button label="NEXT" small onPress={() => {}} />);
+    const button = screen.getByRole('button', { name: 'NEXT' });
     expect(edgeOf(button)).toEqual(
       expect.objectContaining({ bottom: edge.buttonSmall, minHeight: size.buttonSmallHeight + edge.buttonSmall }),
     );
@@ -68,8 +68,8 @@ describe('Button (UX-DR18 a UX-DR24)', () => {
   });
 
   it('ghost: borda de 2, e ao afundar a borda inferior continua', async () => {
-    await render(<Button label="VER RESPOSTA" variant="ghost" onPress={() => {}} />);
-    const button = () => screen.getByRole('button', { name: 'VER RESPOSTA' });
+    await render(<Button label="SEE ANSWER" variant="ghost" onPress={() => {}} />);
+    const button = () => screen.getByRole('button', { name: 'SEE ANSWER' });
     expect(styleOf(button()).borderWidth).toBe(size.border);
     const raised = edgeOf(button());
     expect(raised.bottom).toBe(size.border + edge.button);
@@ -85,10 +85,10 @@ describe('Button (UX-DR18 a UX-DR24)', () => {
     ['disabled', { disabled: true }],
     ['busy', { busy: true }],
   ])('ghost que fica %s: mantém a borda de 2 e o espaço ocupado', async (_, props) => {
-    const { rerender } = await render(<Button label="VER RESPOSTA" variant="ghost" onPress={() => {}} />);
-    const button = () => screen.getByRole('button', { name: 'VER RESPOSTA' });
+    const { rerender } = await render(<Button label="SEE ANSWER" variant="ghost" onPress={() => {}} />);
+    const button = () => screen.getByRole('button', { name: 'SEE ANSWER' });
     const before = edgeOf(button());
-    await rerender(<Button label="VER RESPOSTA" variant="ghost" onPress={() => {}} {...props} />);
+    await rerender(<Button label="SEE ANSWER" variant="ghost" onPress={() => {}} {...props} />);
     expect(button()).toBeDisabled();
     expect(styleOf(button()).borderWidth).toBe(size.border);
     expect(styleOf(button()).borderColor).toBe(color.line);
@@ -96,8 +96,8 @@ describe('Button (UX-DR18 a UX-DR24)', () => {
   });
 
   it('sem onPress: anunciado como desabilitado e não afunda', async () => {
-    await render(<Button label="CONTINUAR" />);
-    const button = () => screen.getByRole('button', { name: 'CONTINUAR' });
+    await render(<Button label="CONTINUE" />);
+    const button = () => screen.getByRole('button', { name: 'CONTINUE' });
     expect(button()).toBeDisabled();
     const before = edgeOf(button());
     await fireEvent(button(), 'pressIn');
@@ -106,12 +106,12 @@ describe('Button (UX-DR18 a UX-DR24)', () => {
 
   it('fica inerte com o dedo em cima: ao reabilitar, volta em pé', async () => {
     const onPress = jest.fn();
-    const { rerender } = await render(<Button label="VERIFICAR" onPress={onPress} />);
-    const button = () => screen.getByRole('button', { name: 'VERIFICAR' });
+    const { rerender } = await render(<Button label="CHECK" onPress={onPress} />);
+    const button = () => screen.getByRole('button', { name: 'CHECK' });
     const raised = edgeOf(button());
     await fireEvent(button(), 'pressIn');
-    await rerender(<Button label="VERIFICAR" onPress={onPress} disabled />);
-    await rerender(<Button label="VERIFICAR" onPress={onPress} />);
+    await rerender(<Button label="CHECK" onPress={onPress} disabled />);
+    await rerender(<Button label="CHECK" onPress={onPress} />);
     expect(edgeOf(button())).toEqual(raised);
   });
 
@@ -141,7 +141,7 @@ describe('Button (UX-DR18 a UX-DR24)', () => {
   );
 
   it('ícone opcional de 20 dp à esquerda, oculto do leitor de tela', async () => {
-    await render(<Button label="CONTINUAR" variant="success" icon="check" onPress={() => {}} />);
+    await render(<Button label="CONTINUE" variant="success" icon="check" onPress={() => {}} />);
     const icon = screen.getByTestId('icon-check', { includeHiddenElements: true });
     expect(styleOf(icon).width).toBe(size.buttonIcon);
     expect(screen.queryByTestId('icon-check')).toBeNull();

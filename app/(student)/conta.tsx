@@ -10,8 +10,8 @@ import { Button, TextLink } from '../../src/ui';
 import { useStudent } from '../../src/auth/student';
 import { color, spacing, typography } from '../../src/ui/tokens';
 
-export const ACCOUNT_LOADING = 'Carregando a conta';
-export const ACCOUNT_RETRY = 'TENTAR DE NOVO';
+export const ACCOUNT_LOADING = 'Loading your account';
+export const ACCOUNT_RETRY = 'TRY AGAIN';
 
 /** A Conta (2.9), logada: sem sessão, volta à raiz. */
 export default function Account() {

@@ -298,13 +298,13 @@ const usefulExpressions: UsefulExpression[] = [
     expressionKey: 'im-new-here',
     term: "I'm new here",
     meaning:
-      'Usado para dizer que você chegou há pouco a um lugar, grupo ou situação e ainda não conhece bem as pessoas.',
+      "Used to say that you have recently arrived in a place, group or situation and don't know the people well yet.",
     examples: ["Sorry, I'm new here.", "I'm new here, so I don't know anyone yet."],
   },
   {
     expressionKey: 'nice-to-meet-you',
     term: 'Nice to meet you',
-    meaning: 'Usado quando você conhece alguém pela primeira vez: "prazer em conhecer você".',
+    meaning: 'Used when you meet someone for the first time.',
     examples: ['Hi, {name}! Nice to meet you.', 'Nice to meet you too!'],
   },
 ];
@@ -418,20 +418,20 @@ function match(
 const speechBubbles = match(
   'speech-bubbles-match',
   'Match the Speech Bubbles',
-  'Ligue cada fala do Alex à sua resposta.',
+  "Match each of Alex's lines to your answer.",
   [
     {
       itemKey: 'speech-bubbles-hi',
       line: "Hi! I'm Alex. What's your name?",
       correct: 'hi-alex',
-      justification: 'Respondemos ao **Hi** com o nosso nome.',
+      justification: 'We answer **Hi** with our name.',
     },
     { itemKey: 'speech-bubbles-nice', line: '[[Nice to meet you|nice-to-meet-you]]!', correct: 'nice-too' },
     {
       itemKey: 'speech-bubbles-from',
       line: 'Where are you from?',
       correct: 'from-country',
-      justification: 'Para dizer de onde você é, use **I am from**.',
+      justification: "To say where you're from, use **I am from**.",
     },
   ],
   [
@@ -475,7 +475,7 @@ function gaps(
 const gapsBank = gaps(
   'gaps-bank',
   'Complete the Gaps',
-  'Toque nas palavras para completar.',
+  'Tap the words to complete.',
   ['Hi! I ___ Alex.', 'Nice to ___ you!'],
   [
     { itemKey: 'gaps-bank-am', accepted: ['am'], justification: 'Com **I**, usamos **am**.' },
@@ -492,11 +492,11 @@ const gapsBank = gaps(
 const gapsTyped = gaps(
   'gaps-typed',
   'Complete the Gaps',
-  'Digite as palavras que faltam.',
+  'Type the missing words.',
   ['Hi Alex! ___ {name}.', 'My name is ___.'],
   [
-    { itemKey: 'gaps-typed-im', accepted: ["I'm", 'I am'], justification: "Para dizer o nome, use **I'm**." },
-    { itemKey: 'gaps-typed-name', accepted: ['{name}'], justification: 'Aqui vai o seu nome.' },
+    { itemKey: 'gaps-typed-im', accepted: ["I'm", 'I am'], justification: "To say your name, use **I'm**." },
+    { itemKey: 'gaps-typed-name', accepted: ['{name}'], justification: 'Your name goes here.' },
   ],
 );
 
@@ -534,11 +534,11 @@ const aboutYou = free(
   "Hi! I'm Alex. What's your name, and where are you from?",
   "Hi Alex! I'm {name}. I'm from {country}.",
   {
-    prompt: 'Toque nas palavras para completar.',
+    prompt: 'Tap the words to complete.',
     lines: ['Hi Alex! ___ {name}.', "I'm ___ {country}."],
     items: [
-      { itemKey: 'about-you-im', accepted: ["I'm", 'I am'], justification: "Para dizer o nome, use **I'm**." },
-      { itemKey: 'about-you-from', accepted: ['from'], justification: 'Para dizer o país, use **from**.' },
+      { itemKey: 'about-you-im', accepted: ["I'm", 'I am'], justification: "To say your name, use **I'm**." },
+      { itemKey: 'about-you-from', accepted: ['from'], justification: 'To say your country, use **from**.' },
     ],
     bank: [
       ['im', "I'm"],
@@ -556,7 +556,7 @@ function gapWords(text: string): string[] {
 }
 
 /** A Fala (1.15) que fecha o Estágio, com o alvo da API (`s1-your-turn`). */
-const yourTurn = speech('your-turn-speech', "It's your turn", 'Se apresente para o Alex.', "Hi Alex, I'm {name}.", [
+const yourTurn = speech('your-turn-speech', "It's your turn", 'Introduce yourself to Alex.', "Hi Alex, I'm {name}.", [
   'Hello Alex, my name is {name}.',
 ]);
 

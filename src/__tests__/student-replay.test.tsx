@@ -130,7 +130,7 @@ async function openPlayer(student?: StudentProfile) {
     },
     { initialUrl: '/player' },
   );
-  await screen.findByText(`1 DE ${servedStage.activities.length}`);
+  await screen.findByText(`1 OF ${servedStage.activities.length}`);
 }
 
 /**
@@ -182,7 +182,7 @@ async function withDialogue(run: () => Promise<void>) {
 /** Joga o Estágio servido (Diálogo e Escolha) até o resumo. */
 async function playStage(letters: readonly string[] = ['A', 'B', 'B']) {
   await fireEvent.press(button(VIEW_LABEL));
-  expect(await screen.findByText('2 DE 2')).toBeTruthy();
+  expect(await screen.findByText('2 OF 2')).toBeTruthy();
   await answerChoice(letters);
   const right = letters.join('') === 'ABB';
   expect(await screen.findByText(right ? FEEDBACK_TITLES.correct : FEEDBACK_TITLES.wrong)).toBeTruthy();
@@ -197,7 +197,7 @@ async function playStage(letters: readonly string[] = ['A', 'B', 'B']) {
 /** Os números do resumo na tela. */
 function summaryNumbers() {
   return {
-    result: screen.queryByLabelText(new RegExp(`^${RESULT_STAT} médio`))?.props.accessibilityLabel,
+    result: screen.queryByLabelText(new RegExp(`^Average ${RESULT_STAT.toLowerCase()}`))?.props.accessibilityLabel,
     minutes: screen.queryByLabelText(/^\d+ minutos?$/)?.props.accessibilityLabel,
   };
 }
@@ -237,7 +237,7 @@ describe('resumo do Estágio do Aluno pela rota (2.7)', () => {
     expect(ofRoute('GET', SUMMARY)).toHaveLength(1);
     // 7 XP da Escolha (67%) e a média só dela, da rota (o local também teria 67%; o GET acima prova a origem).
     expect(screen.getAllByLabelText('7 XP').length).toBeGreaterThan(0);
-    expect(screen.getByLabelText(`${RESULT_STAT} médio: 67%`)).toBeTruthy();
+    expect(screen.getByLabelText(`Average ${RESULT_STAT.toLowerCase()}: 67%`)).toBeTruthy();
     for (const request of [...ofRoute('POST', ATTEMPTS), ...ofRoute('POST', COMPLETIONS)]) {
       expect(request.body).not.toHaveProperty('replay');
     }
@@ -255,9 +255,9 @@ describe('resumo do Estágio do Aluno pela rota (2.7)', () => {
       expect(await screen.findByTestId('stage-summary')).toBeTruthy();
     });
     expect(ofRoute('GET', SUMMARY)).toHaveLength(1);
-    expect(screen.queryByLabelText(new RegExp(`^${RESULT_STAT} médio`))).toBeNull();
+    expect(screen.queryByLabelText(new RegExp(`^Average ${RESULT_STAT.toLowerCase()}`))).toBeNull();
     // Os minutos vêm do studyTimeMs da rota (as semeadas somam vários minutos).
-    expect(screen.getByLabelText(/^\d+ minutos$/)).toBeTruthy();
+    expect(screen.getByLabelText(/^\d+ minutes$/)).toBeTruthy();
   });
 
   it.each([
@@ -274,7 +274,7 @@ describe('resumo do Estágio do Aluno pela rota (2.7)', () => {
     });
     // O local: só o Progresso da Unidade sobre as Atividades servidas (10 XP, 100%).
     expect(screen.getAllByLabelText('10 XP').length).toBeGreaterThan(0);
-    expect(screen.getByLabelText(`${RESULT_STAT} médio: 100%`)).toBeTruthy();
+    expect(screen.getByLabelText(`Average ${RESULT_STAT.toLowerCase()}: 100%`)).toBeTruthy();
     if (reported) expect(captureError).toHaveBeenCalledWith(expect.objectContaining({ status: expect.any(Number) }));
     else expect(captureError).not.toHaveBeenCalled();
   });
@@ -353,7 +353,7 @@ describe('a marca do refazer e o Progresso (2.7)', () => {
       expect(await screen.findByRole('button', { name: SAVE_RETRY_LABEL })).toBeTruthy();
       override = {};
       await fireEvent.press(button(SAVE_RETRY_LABEL));
-      expect(await screen.findByText('2 DE 2')).toBeTruthy();
+      expect(await screen.findByText('2 OF 2')).toBeTruthy();
     });
     const [failed, resent] = ofRoute('POST', COMPLETIONS);
     expect(resent!.body?.attemptId).toBe(failed!.body?.attemptId);
@@ -381,7 +381,7 @@ describe('refazer Atividades (2.7)', () => {
       await openPlayer(student);
       expect(await screen.findByLabelText('7 XP')).toBeTruthy();
       await fireEvent.press(button(VIEW_LABEL));
-      expect(await screen.findByText('2 DE 2')).toBeTruthy();
+      expect(await screen.findByText('2 OF 2')).toBeTruthy();
       expect(ofRoute('POST', COMPLETIONS).map((request) => request.body?.replay)).toEqual([true]);
       await answerChoice();
       expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();

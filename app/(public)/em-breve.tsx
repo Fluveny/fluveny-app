@@ -6,9 +6,9 @@ import { AlexWave, Button } from '../../src/ui';
 import { color, spacing, typography } from '../../src/ui/tokens';
 
 // [ASSUMPTION] Copy da tela "Em breve" (spec da 1.10): Criar conta e Entrar chegam no Épico 2.
-export const SOON_TITLE = 'Em breve';
-export const SOON_BODY = 'Criar conta e entrar chegam na próxima versão. Enquanto isso, experimente o Estágio 1.';
-export const SOON_BACK = 'VOLTAR';
+export const SOON_TITLE = 'Coming soon';
+export const SOON_BODY = 'Creating an account and signing in come in the next version. Meanwhile, try Stage 1.';
+export const SOON_BACK = 'BACK';
 
 const ALEX_SIZE = 180;
 

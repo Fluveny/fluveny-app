@@ -124,12 +124,12 @@ describe('catálogo de erros', () => {
   });
 
   it('tem texto para os códigos do cadastro e da sessão (2.1)', () => {
-    expect(messageFor('EMAIL_ALREADY_REGISTERED')).toMatch(/entrar ou recuperar a senha/);
+    expect(messageFor('EMAIL_ALREADY_REGISTERED')).toMatch(/sign in or reset your password/);
     expect(messageFor('AGE_BELOW_MINIMUM')).toBe('Fluveny is for people 18 and older.');
     expect(ERROR_MESSAGES.CLIENT_HEADER_REQUIRED).toBe(GENERIC_MESSAGE);
   });
 
-  it('nunca culpa o aluno nem usa "errado" ou "inválido"', () => {
+  it('nunca culpa o aluno nem usa "wrong" ou "inválido"', () => {
     for (const text of [...Object.values(ERROR_MESSAGES), GENERIC_MESSAGE]) {
       expect(text).not.toMatch(/errad|inválid|culpa|você err/i);
     }

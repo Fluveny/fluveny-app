@@ -7,15 +7,15 @@ import { styleOf } from '../../test-utils/kit';
 
 describe('GapSlot (lacuna do Completar lacunas)', () => {
   it('rótulo do leitor: "Lacuna n: valor" ou "Lacuna n, vazia"', () => {
-    expect(gapLabel(2, 'your')).toBe('Lacuna 2: your');
-    expect(gapLabel(2, '  ')).toBe('Lacuna 2, vazia');
-    expect(gapLabel(1, null)).toBe('Lacuna 1, vazia');
+    expect(gapLabel(2, 'your')).toBe('Gap 2: your');
+    expect(gapLabel(2, '  ')).toBe('Gap 2, empty');
+    expect(gapLabel(1, null)).toBe('Gap 1, empty');
   });
 
   it('banco, vazia: espaço do tamanho do chip, borda tracejada line-dk, sem toque', async () => {
     await render(<GapSlot kind="bank" index={1} testID="gap" />);
     const gap = screen.getByTestId('gap');
-    expect(gap.props.accessibilityLabel).toBe('Lacuna 1, vazia');
+    expect(gap.props.accessibilityLabel).toBe('Gap 1, empty');
     expect(gap.props.accessibilityRole).toBeUndefined();
     expect(styleOf(gap)).toEqual(
       expect.objectContaining({
@@ -31,7 +31,7 @@ describe('GapSlot (lacuna do Completar lacunas)', () => {
   it('banco, preenchida: o chip placed com a palavra; o toque esvazia', async () => {
     const onPress = jest.fn();
     await render(<GapSlot kind="bank" index={1} state="filled" value="am" onPress={onPress} testID="gap" />);
-    const gap = screen.getByRole('button', { name: 'Lacuna 1: am' });
+    const gap = screen.getByRole('button', { name: 'Gap 1: am' });
     expect(gap).toBeSelected();
     expect(screen.getByText('am').props.style).toEqual(
       expect.arrayContaining([expect.objectContaining({ color: WORD_CHIP_STATES.placed.label })]),
@@ -41,13 +41,13 @@ describe('GapSlot (lacuna do Completar lacunas)', () => {
   });
 
   it.each([
-    ['right', 'certo'],
-    ['wrong', 'errado'],
+    ['right', 'right'],
+    ['wrong', 'wrong'],
   ] as const)('banco, %s: o estado no rótulo e, travada, sem toque', async (state, word) => {
     const onPress = jest.fn();
     await render(<GapSlot kind="bank" index={2} state={state} value="meet" locked onPress={onPress} testID="gap" />);
     const gap = screen.getByTestId('gap');
-    expect(gap.props.accessibilityLabel).toBe(`Lacuna 2: meet, ${word}`);
+    expect(gap.props.accessibilityLabel).toBe(`Gap 2: meet, ${word}`);
     expect(gap).toBeDisabled();
     await fireEvent.press(gap);
     expect(onPress).not.toHaveBeenCalled();
@@ -63,20 +63,20 @@ describe('GapSlot (lacuna do Completar lacunas)', () => {
       spellCheck: false,
       maxLength: 100,
       editable: true,
-      accessibilityLabel: 'Lacuna 1, vazia',
+      accessibilityLabel: 'Gap 1, empty',
     });
     expect(styleOf(field).width).toBe(GAP_FIELD_WIDTH);
     await fireEvent.changeText(field, 'am');
     expect(onChangeText).toHaveBeenCalledWith('am');
   });
 
-  it('digitada, errada e travada: borda vermelha, "errado" no rótulo e sem edição', async () => {
+  it('digitada, errada e travada: borda vermelha, "wrong" no rótulo e sem edição', async () => {
     await render(
       <GapSlot kind="typed" index={3} state="wrong" locked value="is" onChangeText={() => {}} testID="gap" />,
     );
     const field = screen.getByTestId('gap');
     expect(field.props.editable).toBe(false);
-    expect(field.props.accessibilityLabel).toBe('Lacuna 3: is, errado');
+    expect(field.props.accessibilityLabel).toBe('Gap 3: is, wrong');
     expect(styleOf(field)).toEqual(expect.objectContaining({ borderColor: color.red, backgroundColor: color.redLt }));
   });
 

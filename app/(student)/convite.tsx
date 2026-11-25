@@ -14,7 +14,7 @@ import { color, size, spacing } from '../../src/ui/tokens';
 import { openPlayer } from '../../src/visitor/events';
 
 /** Ação secundária do convite: o player do Estágio 1 de novo, do início. */
-export const REDO_LABEL = 'Refazer o Estágio 1';
+export const REDO_LABEL = 'Redo Stage 1';
 
 /**
  * O "Estágio 2" do Visitante (1.20, UX-DR115): com o Estágio 1 completo no

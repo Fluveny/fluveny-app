@@ -34,10 +34,10 @@ describe('WordChip (UX-DR34)', () => {
     expect(styleOf(chip).borderColor).toBe(color.blue);
   });
 
-  it('used: não dispara, sem sombra e anunciado como "usado"', async () => {
+  it('used: não dispara, sem sombra e anunciado como "used"', async () => {
     const onPress = jest.fn();
     await render(<WordChip label="am" state="used" onPress={onPress} />);
-    const chip = () => screen.getByRole('button', { name: 'am, usado' });
+    const chip = () => screen.getByRole('button', { name: 'am, used' });
     expect(chip()).toBeDisabled();
     const before = edgeOf(chip());
     expect(before.bottom).toBe(size.border);
@@ -49,8 +49,8 @@ describe('WordChip (UX-DR34)', () => {
   });
 
   it.each([
-    ['right', 'certo', 'icon-check'],
-    ['wrong', 'errado', 'icon-x'],
+    ['right', 'right', 'icon-check'],
+    ['wrong', 'wrong', 'icon-x'],
   ] as const)('%s: ícone visível e "%s" no rótulo', async (state, word, icon) => {
     await render(<WordChip label="is" state={state} onPress={() => {}} />);
     expect(screen.getByRole('button', { name: `is, ${word}` })).toBeTruthy();
@@ -60,7 +60,7 @@ describe('WordChip (UX-DR34)', () => {
   it('travado (disabled): não dispara', async () => {
     const onPress = jest.fn();
     await render(<WordChip label="is" state="right" disabled onPress={onPress} />);
-    await fireEvent.press(screen.getByRole('button', { name: 'is, certo' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'is, right' }));
     expect(onPress).not.toHaveBeenCalled();
   });
 

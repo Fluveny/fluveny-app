@@ -132,8 +132,8 @@ describe('Completar lacunas, banco', () => {
     await open();
     expect(screen.getByLabelText('FILL IN THE GAPS')).toBeTruthy();
     expect(screen.getByText(BANK.title as string)).toBeTruthy();
-    expect(label(gap(0))).toBe('Lacuna 1, vazia');
-    expect(label(gap(1))).toBe('Lacuna 2, vazia');
+    expect(label(gap(0))).toBe('Gap 1, empty');
+    expect(label(gap(1))).toBe('Gap 2, empty');
     for (const entry of BANK.bank!) expect(word(entry.wordKey)).toBeEnabled();
     expect(button(CHECK_LABEL)).toBeDisabled();
   });
@@ -152,9 +152,9 @@ describe('Completar lacunas, banco', () => {
   it('preencher: "am" vai à primeira lacuna e fica fantasma no banco', async () => {
     await open();
     await fireEvent.press(word('am'));
-    expect(label(gap(0))).toBe('Lacuna 1: am');
-    expect(label(gap(1))).toBe('Lacuna 2, vazia');
-    expect(label(word('am'))).toBe('am, usado');
+    expect(label(gap(0))).toBe('Gap 1: am');
+    expect(label(gap(1))).toBe('Gap 2, empty');
+    expect(label(word('am'))).toBe('am, used');
     expect(word('am')).toBeDisabled();
   });
 
@@ -162,7 +162,7 @@ describe('Completar lacunas, banco', () => {
     await open();
     await fireEvent.press(word('am'));
     await fireEvent.press(gap(0));
-    expect(label(gap(0))).toBe('Lacuna 1, vazia');
+    expect(label(gap(0))).toBe('Gap 1, empty');
     expect(label(word('am'))).toBe('am');
     expect(word('am')).toBeEnabled();
   });
@@ -172,8 +172,8 @@ describe('Completar lacunas, banco', () => {
     await fireEvent.press(word('meet'));
     await fireEvent.press(word('am'));
     await fireEvent.press(word('is'));
-    expect(label(gap(0))).toBe('Lacuna 1: meet');
-    expect(label(gap(1))).toBe('Lacuna 2: am');
+    expect(label(gap(0))).toBe('Gap 1: meet');
+    expect(label(gap(1))).toBe('Gap 2: am');
     expect(label(word('is'))).toBe('is');
   });
 
@@ -185,7 +185,7 @@ describe('Completar lacunas, banco', () => {
     expect(button(CHECK_LABEL)).toBeEnabled();
   });
 
-  it('tudo certo: "Mandou bem!", +6 XP, o texto das palavras na Tentativa; CONTINUAR grava xp 6', async () => {
+  it('tudo certo: "Nice job!", +6 XP, o texto das palavras na Tentativa; CONTINUAR grava xp 6', async () => {
     const { advance } = await open();
     await fireEvent.press(word('am'));
     await fireEvent.press(word('meet'));
@@ -203,7 +203,7 @@ describe('Completar lacunas, banco', () => {
         ],
       },
     });
-    expect(label(gap(0))).toBe('Lacuna 1: am, certo');
+    expect(label(gap(0))).toBe('Gap 1: am, right');
     expect(gap(0)).toBeDisabled();
     expect(word('is')).toBeDisabled();
     await fireEvent.press(button(CONTINUE_LABEL));
@@ -216,13 +216,13 @@ describe('Completar lacunas, banco', () => {
     await fireEvent.press(word('meet'));
     await fireEvent.press(button(CHECK_LABEL));
     expect(await screen.findByText(FEEDBACK_TITLES.wrong)).toBeTruthy();
-    expect(screen.getByText('Resultado: 1 de 2 itens · 50%')).toBeTruthy();
-    expect(label(gap(0))).toBe('Lacuna 1: is, errado');
-    expect(label(gap(1))).toBe('Lacuna 2: meet, certo');
+    expect(screen.getByText('Result: 1 of 2 items · 50%')).toBeTruthy();
+    expect(label(gap(0))).toBe('Gap 1: is, wrong');
+    expect(label(gap(1))).toBe('Gap 2: meet, right');
 
     await fireEvent.press(button(RETRY_LABEL));
-    expect(label(gap(0))).toBe('Lacuna 1, vazia');
-    expect(label(gap(1))).toBe('Lacuna 2: meet, certo');
+    expect(label(gap(0))).toBe('Gap 1, empty');
+    expect(label(gap(1))).toBe('Gap 2: meet, right');
     expect(gap(1)).toBeDisabled();
     // A palavra errada volta ao banco; a certa segue fantasma.
     expect(word('is')).toBeEnabled();
@@ -230,14 +230,14 @@ describe('Completar lacunas, banco', () => {
     expect(button(CHECK_LABEL)).toBeDisabled();
     // A próxima palavra vai à lacuna esvaziada, não à travada.
     await fireEvent.press(word('am'));
-    expect(label(gap(0))).toBe('Lacuna 1: am');
+    expect(label(gap(0))).toBe('Gap 1: am');
     await fireEvent.press(button(CHECK_LABEL));
     expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
     await fireEvent.press(button(CONTINUE_LABEL));
     expect(advance).toHaveBeenCalledWith({ outcome: 'completed', xp: 3, resultPct: 50 });
   });
 
-  it('ver resposta: "Vamos revisar" com as linhas completas', async () => {
+  it(`ver resposta: "Let's review" com as linhas completas`, async () => {
     await open();
     await fireEvent.press(word('is'));
     await fireEvent.press(word('meet'));
@@ -262,9 +262,9 @@ describe('Completar lacunas, digitado', () => {
     for (const i of [0, 1]) {
       expect(gap(i).props).toMatchObject({ autoCorrect: false, autoCapitalize: 'none', spellCheck: false });
     }
-    expect(label(gap(0))).toBe('Lacuna 1, vazia');
+    expect(label(gap(0))).toBe('Gap 1, empty');
     await fireEvent.changeText(gap(0), "I'm");
-    expect(label(gap(0))).toBe("Lacuna 1: I'm");
+    expect(label(gap(0))).toBe("Gap 1: I'm");
     expect(button(CHECK_LABEL)).toBeDisabled();
     // Só espaço conta como vazia.
     await fireEvent.changeText(gap(1), '   ');
@@ -296,8 +296,8 @@ describe('Completar lacunas, digitado', () => {
     await fireEvent.changeText(gap(1), 'Bia');
     await fireEvent.press(button(CHECK_LABEL));
     expect(await screen.findByText(FEEDBACK_TITLES.wrong)).toBeTruthy();
-    expect(label(gap(0))).toBe("Lacuna 1: I'm., certo");
-    expect(label(gap(1))).toBe('Lacuna 2: Bia, errado');
+    expect(label(gap(0))).toBe("Gap 1: I'm., right");
+    expect(label(gap(1))).toBe('Gap 2: Bia, wrong');
     await fireEvent.press(button(RETRY_LABEL));
     expect(gap(0).props.value).toBe("I'm.");
     expect(gap(0).props.editable).toBe(false);
@@ -325,7 +325,7 @@ describe('Completar lacunas: leitor de tela, teclado e conteúdo', () => {
     const runs = screen.getAllByTestId(/^gap-fill-run-/);
     expect(runs.map(label)).toEqual(['Hi Alex!', 'Ana.', 'My name is', '.']);
     for (const run of runs) expect(run.props.accessible).toBe(true);
-    expect(label(gap(0))).toBe('Lacuna 1, vazia');
+    expect(label(gap(0))).toBe('Gap 1, empty');
     // As palavras não são elementos próprios: só o trecho é lido.
     expect(screen.getByText('Hi ').props.accessibilityLabel).toBeUndefined();
   });
@@ -404,7 +404,7 @@ describe('Completar lacunas: leitor de tela, teclado e conteúdo', () => {
     expect(screen.getByText('She ')).toBeTruthy();
     await fireEvent.press(word('name'));
     await fireEvent.press(word('be'));
-    expect(label(gap(0))).toBe('Lacuna 1: Ana');
+    expect(label(gap(0))).toBe('Gap 1: Ana');
     await fireEvent.press(button(CHECK_LABEL));
     await act(async () => {});
     expect(bodies[0]).toMatchObject({

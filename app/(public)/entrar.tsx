@@ -15,23 +15,23 @@ import { color, spacing, typography } from '../../src/ui/tokens';
 
 // Copy de Entrar (revisão de UX de 20/11, UX-DR99/UX-DR159).
 // [ASSUMPTION] Textos sem frase fixa no EXPERIENCE.md propostos na 2.3, a revisar com UX.
-export const SIGN_IN_TITLE = 'Entrar';
-export const EMAIL_FIELD = 'E-mail';
-export const PASSWORD_FIELD = 'Senha';
-export const EMAIL_EMPTY = 'Digite seu e-mail.';
-export const PASSWORD_EMPTY = 'Digite sua senha.';
-export const FORGOT_LINK = 'Esqueci minha senha';
-export const SIGN_IN_LABEL = 'ENTRAR';
-export const NO_ACCOUNT = 'Não tem conta?';
-export const CREATE_ACCOUNT_LINK = 'Criar conta';
-export const BACK_LABEL = 'Voltar';
+export const SIGN_IN_TITLE = 'Sign in';
+export const EMAIL_FIELD = 'Email';
+export const PASSWORD_FIELD = 'Password';
+export const EMAIL_EMPTY = 'Enter your email.';
+export const PASSWORD_EMPTY = 'Enter your password.';
+export const FORGOT_LINK = 'I forgot my password';
+export const SIGN_IN_LABEL = 'SIGN IN';
+export const NO_ACCOUNT = "Don't have an account?";
+export const CREATE_ACCOUNT_LINK = 'Create account';
+export const BACK_LABEL = 'Back';
 /** O aviso quando o 401 no meio do uso trouxe o aluno para cá (`motivo=sessao`), até a primeira tentativa. */
-export const SESSION_ENDED = 'Sua sessão terminou. Entre de novo.';
+export const SESSION_ENDED = 'Your session ended. Sign in again.';
 /**
  * O aviso depois da senha redefinida (`motivo=senha`, 2.8), até a primeira tentativa.
  * [ASSUMPTION: copy] Texto proposto na 2.8, a revisar com UX.
  */
-export const PASSWORD_CHANGED = 'Senha alterada. Entre com a senha nova.';
+export const PASSWORD_CHANGED = 'Password changed. Sign in with your new password.';
 const SIGN_UP_PATH = '/cadastro';
 
 /** O limite do contrato (`LoginRequest`). */

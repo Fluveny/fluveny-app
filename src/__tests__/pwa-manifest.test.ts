@@ -12,7 +12,7 @@ describe('manifesto do App web', () => {
   it('nome, modo e início', () => {
     expect(manifest).toMatchObject({
       id: '/',
-      lang: 'pt-BR',
+      lang: 'en',
       name: 'Fluveny',
       short_name: 'Fluveny',
       display: 'standalone',
@@ -43,7 +43,7 @@ describe('manifesto do App web', () => {
   });
 
   it('index.html em pt-BR, com as meta tags do iOS e sem sintaxe de JSX', () => {
-    expect(html).toMatch(/<html lang="pt-BR">/);
+    expect(html).toMatch(/<html lang="en">/);
     expect(html).toContain('<meta name="apple-mobile-web-app-capable" content="yes" />');
     expect(html).toContain('<meta name="apple-mobile-web-app-title" content="Fluveny" />');
     expect(html).not.toMatch(/httpEquiv/);

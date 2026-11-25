@@ -135,7 +135,7 @@ describe('Excluir conta (2.10)', () => {
     expect(await screen.findByTestId('account-deletion-failure')).toHaveTextContent(
       messageFor('ACCOUNT_DELETION_FAILED'),
     );
-    expect(messageFor('ACCOUNT_DELETION_FAILED')).toBe('Não conseguimos excluir sua conta agora. Tente de novo.');
+    expect(messageFor('ACCOUNT_DELETION_FAILED')).toBe("We couldn't delete your account right now. Try again.");
     expect(mockAccountExists(ADULT.email)).toBe(true);
     await expectStillSignedIn();
   });

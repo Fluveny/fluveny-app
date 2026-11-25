@@ -175,7 +175,7 @@ afterEach(() => {
 });
 
 describe('página /confirmar-email (2.2)', () => {
-  it('confirmar: 1 POST com o token, "E-mail confirmado!" e a URL sem o token', async () => {
+  it('confirmar: 1 POST com o token, "Email confirmed!" e a URL sem o token', async () => {
     asWeb();
     await mockAccount();
     const token = mockConfirmationToken()!;
@@ -187,7 +187,7 @@ describe('página /confirmar-email (2.2)', () => {
     expect(screen).toHaveSearchParams({});
   });
 
-  it('enquanto envia: "Confirmando seu e-mail…"', async () => {
+  it('enquanto envia: "Confirming your email…"', async () => {
     let answer!: (response: Response) => void;
     override[`POST ${CONFIRM}`] = () => new Promise<Response>((resolve) => (answer = resolve));
     await openApp('/confirmar-email?token=abc');
@@ -206,7 +206,7 @@ describe('página /confirmar-email (2.2)', () => {
     expect(screen).toHavePathname('/');
   });
 
-  it('link inválido (410): "Este link não vale mais." e IR PARA O INÍCIO', async () => {
+  it(`link inválido (410): "This link doesn't work anymore." e IR PARA O INÍCIO`, async () => {
     await openApp('/confirmar-email?token=desconhecido');
     expect(await screen.findByRole('header', { name: INVALID_TITLE })).toBeTruthy();
     expect(screen.getByText(INVALID_BODY)).toBeTruthy();
@@ -293,7 +293,7 @@ describe('faixa e reenvio na tela inicial (2.2)', () => {
     expect(screen.queryByTestId('email-confirmation-banner')).toBeNull();
   });
 
-  it('reenviar (202): "Enviamos outro link para {email}…", um POST só mesmo com toque duplo', async () => {
+  it('reenviar (202): "We sent another link to {email}…", um POST só mesmo com toque duplo', async () => {
     const student = await mockAccount();
     let answer!: (response: Response) => void;
     override[`POST ${RESEND}`] = () => new Promise<Response>((resolve) => (answer = resolve));

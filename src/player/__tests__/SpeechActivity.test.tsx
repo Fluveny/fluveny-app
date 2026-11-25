@@ -305,7 +305,7 @@ describe('Fala: pular e microfone indisponível', () => {
     expect(advance).toHaveBeenCalledWith({ outcome: 'skipped', xp: 0 });
   });
 
-  it('permissão negada: microfone cinza com a legenda, pular primário e "Permitir microfone"', async () => {
+  it('permissão negada: microfone cinza com a legenda, pular primário e "Allow microphone"', async () => {
     global.__speech.set({ request: { granted: false, canAskAgain: false, status: 'denied' } });
     const settings = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
     const { advance } = await open({ seen: false });
@@ -328,7 +328,7 @@ describe('Fala: pular e microfone indisponível', () => {
     expect(button(ALLOW_MIC_LABEL)).toBeTruthy();
   });
 
-  it('sem Web Speech API (Firefox): microfone cinza, pular primário, sem folha nem "Permitir microfone"', async () => {
+  it('sem Web Speech API (Firefox): microfone cinza, pular primário, sem folha nem "Allow microphone"', async () => {
     jest.replaceProperty(Platform, 'OS', 'web');
     global.__speech.set({ available: false });
     await open({ seen: false });

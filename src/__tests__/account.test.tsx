@@ -79,7 +79,7 @@ afterEach(() => {
 });
 
 describe('Conta (2.9)', () => {
-  it('abrir: o ícone de perfil do painel (rótulo "Conta") abre /conta com nome, país, pronomes e e-mail; sem Sair no painel', async () => {
+  it('abrir: o ícone de perfil do painel (rótulo "Account") abre /conta com nome, país, pronomes e e-mail; sem Sair no painel', async () => {
     const student = await mockAccount();
     await openApp('/', student);
     await screen.findByTestId('student-dashboard');
@@ -88,7 +88,7 @@ describe('Conta (2.9)', () => {
     expect(await screen.findByTestId('account-screen')).toBeTruthy();
     expect(screen).toHavePathname('/conta');
     expect(field(NAME_FIELD).props.value).toBe('Ana');
-    expect(screen.getByText(`Seu e-mail: ${ADULT.email}`)).toBeTruthy();
+    expect(screen.getByText(`Your email: ${ADULT.email}`)).toBeTruthy();
     expect(screen.getByTestId('account-pronoun-THEY').props.accessibilityState).not.toMatchObject({ selected: true });
     expect(button(SAVE_LABEL)).toBeDisabled();
   });
@@ -98,7 +98,7 @@ describe('Conta (2.9)', () => {
     await waitFor(() => expect(screen).toHavePathname('/'));
   });
 
-  it('salvar dados: 1 PATCH só com o que mudou; cache novo; anuncia "Dados salvos."; a Fala usa o nome', async () => {
+  it('salvar dados: 1 PATCH só com o que mudou; cache novo; anuncia "Details saved."; a Fala usa o nome', async () => {
     await openAccount();
     await fireEvent.changeText(field(NAME_FIELD), 'Bia');
     await fireEvent.press(screen.getByTestId('account-country-BR'));
@@ -174,9 +174,9 @@ describe('Conta (2.9)', () => {
     harness.override[`GET ${ME}`] = () => json({ code: 'INTERNAL_ERROR' }, 500);
     await openApp('/conta');
     expect(await screen.findByText(messageFor('INTERNAL_ERROR'))).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Voltar' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy();
     delete harness.override[`GET ${ME}`];
-    await fireEvent.press(button('TENTAR DE NOVO'));
+    await fireEvent.press(button('TRY AGAIN'));
     expect(await screen.findByTestId('account-screen')).toBeTruthy();
     expect(field(NAME_FIELD).props.value).toBe(student.name);
   });
@@ -225,7 +225,7 @@ describe('Conta (2.9)', () => {
     await fireEvent.changeText(field(NEW_PASSWORD_FIELD), NEW_PASSWORD);
     await fireEvent.press(button(SAVE_PASSWORD_LABEL));
     expect(await screen.findByText(messageFor('CURRENT_PASSWORD_INVALID'))).toBeTruthy();
-    expect(messageFor('CURRENT_PASSWORD_INVALID')).toBe('A senha atual está incorreta.');
+    expect(messageFor('CURRENT_PASSWORD_INVALID')).toBe("Your current password isn't right.");
     expect(screen).toHavePathname('/conta');
     expect(field(NEW_PASSWORD_FIELD).props.value).toBe(NEW_PASSWORD);
   });
@@ -252,7 +252,7 @@ describe('Conta (2.9)', () => {
       { newEmail: 'bia@exemplo.test', currentPassword: ADULT.password },
     ]);
     expect(fields(CURRENT_PASSWORD_FIELD)[0]!.props.value).toBe('');
-    // "Enviar de novo" pede a senha de novo.
+    // "Send again" pede a senha de novo.
     await fireEvent.press(button(RESEND_EMAIL_LABEL));
     expect(await screen.findByText(RESEND_NEEDS_PASSWORD)).toBeTruthy();
     expect(screen.queryByText(EMAIL_PROBLEM)).toBeNull();

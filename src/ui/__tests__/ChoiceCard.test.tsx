@@ -55,8 +55,8 @@ describe('ChoiceCard (alternativa A–D)', () => {
   });
 
   it.each([
-    ['wrong', 'errado', 'icon-x'],
-    ['right', 'certo', 'icon-check'],
+    ['wrong', 'wrong', 'icon-x'],
+    ['right', 'right', 'icon-check'],
   ] as [ChoiceState, string, string][])(
     'avaliada %s: ícone visível, "%s" no rótulo e travada',
     async (state, word, icon) => {

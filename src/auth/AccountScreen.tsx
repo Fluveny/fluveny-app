@@ -23,40 +23,40 @@ import { savePronouns, type PronounSet, type StudentProfile } from './student';
 import { SignOut } from './StudentHome';
 
 // Copy da Conta (2.9, UX-DR108). [ASSUMPTION: copy] Textos propostos na 2.9, a revisar com UX.
-export const ACCOUNT_TITLE = 'Conta';
-export const BACK_LABEL = 'Voltar';
-export const DATA_SECTION = 'Seus dados';
-export const NAME_FIELD = 'Nome';
-export const COUNTRY_FIELD = 'País';
-export const NAME_PROBLEM = `O nome pode ter até ${NAME_MAX} caracteres.`;
-export const SAVE_LABEL = 'SALVAR';
-export const DATA_SAVED = 'Dados salvos.';
-export const PRONOUNS_SECTION = 'Pronomes';
-export const PRONOUNS_TITLE = 'Nas histórias, como Alex deve se referir a você?';
+export const ACCOUNT_TITLE = 'Account';
+export const BACK_LABEL = 'Back';
+export const DATA_SECTION = 'Your details';
+export const NAME_FIELD = 'Name';
+export const COUNTRY_FIELD = 'Country';
+export const NAME_PROBLEM = `Your name can have up to ${NAME_MAX} characters.`;
+export const SAVE_LABEL = 'SAVE';
+export const DATA_SAVED = 'Details saved.';
+export const PRONOUNS_SECTION = 'Pronouns';
+export const PRONOUNS_TITLE = 'In the stories, Alex refers to you as…';
 export const PRONOUN_OPTIONS: readonly { value: PronounSet; label: string; example: string }[] = [
   { value: 'SHE', label: 'she/her', example: 'She is from Brazil.' },
   { value: 'HE', label: 'he/him', example: 'He is from Brazil.' },
   { value: 'THEY', label: 'they/them', example: 'They are from Brazil.' },
 ];
-export const EMAIL_SECTION = 'E-mail';
-export const currentEmailLine = (email: string) => `Seu e-mail: ${email}`;
-export const NEW_EMAIL_FIELD = 'Novo e-mail';
-export const CURRENT_PASSWORD_FIELD = 'Senha atual';
-export const CHANGE_EMAIL_LABEL = 'TROCAR E-MAIL';
+export const EMAIL_SECTION = 'Email';
+export const currentEmailLine = (email: string) => `Your email: ${email}`;
+export const NEW_EMAIL_FIELD = 'New email';
+export const CURRENT_PASSWORD_FIELD = 'Current password';
+export const CHANGE_EMAIL_LABEL = 'CHANGE EMAIL';
 export const pendingEmailText = (pending: string, email: string) =>
-  `Enviamos um link para ${pending}. Seu e-mail continua ${email} até você confirmar.`;
-export const RESEND_EMAIL_LABEL = 'Enviar de novo';
-export const RESEND_NEEDS_PASSWORD = 'Digite a senha atual para enviar de novo.';
-export const PASSWORD_REQUIRED = 'Digite a senha atual.';
-export const PASSWORD_SECTION = 'Senha';
-export const NEW_PASSWORD_FIELD = 'Nova senha';
-export const SAVE_PASSWORD_LABEL = 'SALVAR SENHA';
+  `We sent a link to ${pending}. Your email stays ${email} until you confirm.`;
+export const RESEND_EMAIL_LABEL = 'Send again';
+export const RESEND_NEEDS_PASSWORD = 'Enter your current password to send it again.';
+export const PASSWORD_REQUIRED = 'Enter your current password.';
+export const PASSWORD_SECTION = 'Password';
+export const NEW_PASSWORD_FIELD = 'New password';
+export const SAVE_PASSWORD_LABEL = 'SAVE PASSWORD';
 // [ASSUMPTION: copy] A frase dos outros aparelhos segue a API (as outras sessões são encerradas).
-export const PASSWORD_CHANGED = 'Senha alterada. Os outros aparelhos foram desconectados.';
-export const SAME_PASSWORD = 'A nova senha precisa ser diferente da atual.';
-export const SAME_EMAIL = 'Esse já é o seu e-mail.';
-export const PENDING_SAME_EMAIL = 'Já pedimos a troca para esse e-mail. Use "Enviar de novo".';
-export const emailRequested = (email: string) => `Enviamos um link para ${email}.`;
+export const PASSWORD_CHANGED = 'Password changed. Your other devices were signed out.';
+export const SAME_PASSWORD = 'Your new password needs to be different from the current one.';
+export const SAME_EMAIL = 'This is already your email.';
+export const PENDING_SAME_EMAIL = 'We already asked to change to this email. Use "Send again".';
+export const emailRequested = (email: string) => `We sent a link to ${email}.`;
 
 /** Os países, como no Diálogo (a `countries.json` da API). */
 const COUNTRIES: readonly { code: string; name: string }[] = countries;

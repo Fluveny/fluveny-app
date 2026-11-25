@@ -32,7 +32,7 @@ function frame(props: Partial<PlayerFrameProps> = {}) {
         total={13}
         xp={30}
         online
-        footer={{ label: 'VERIFICAR', disabled: true, onPress: jest.fn() }}
+        footer={{ label: 'CHECK', disabled: true, onPress: jest.fn() }}
         onClose={jest.fn()}
         contentKey="a2"
         {...props}
@@ -70,7 +70,7 @@ describe('PlayerFrame', () => {
 
   it('Atividade incompleta: o rodapé fica desabilitado; topo e rodapé ficam fora da rolagem', async () => {
     await render(frame());
-    expect(screen.getByRole('button', { name: 'VERIFICAR' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'CHECK' })).toBeDisabled();
     const content = screen.getByTestId('player-content');
     expect(within(content).queryByTestId('player-top')).toBeNull();
     expect(within(content).queryByTestId('player-footer')).toBeNull();
@@ -79,7 +79,7 @@ describe('PlayerFrame', () => {
     expect(screen.getByTestId('player-footer')).toBeTruthy();
   });
 
-  it('topo: ✕ "Sair" de 48 dp em muted, barra de posição e XP; linha "ESTÁGIO 1 · …" e "n DE m"', async () => {
+  it('topo: ✕ "Sair" de 48 dp em muted, barra de posição e XP; linha "STAGE 1 · …" e "n DE m"', async () => {
     const onClose = jest.fn();
     await render(frame({ onClose }));
     const close = screen.getByRole('button', { name: CLOSE_LABEL });
@@ -87,8 +87,8 @@ describe('PlayerFrame', () => {
     expect(styleOf(close).width).toBe(size.touchMin);
     expect(screen.getByLabelText('30 XP')).toBeTruthy();
     expect(screen.getByRole('progressbar').props.accessibilityValue).toEqual({ min: 0, max: 100, now: 15 });
-    expect(screen.getByText('ESTÁGIO 1 · Meet & Greet')).toBeTruthy();
-    expect(screen.getByText('2 DE 13')).toBeTruthy();
+    expect(screen.getByText('STAGE 1 · Meet & Greet')).toBeTruthy();
+    expect(screen.getByText('2 OF 13')).toBeTruthy();
     const icon = within(close).getByTestId('icon-x', { includeHiddenElements: true });
     // O react-native-svg guarda a cor como ARGB: 0xFF + o hex do token.
     const argb = (hex: string) => String(parseInt(`FF${hex.slice(1)}`, 16));
@@ -100,14 +100,14 @@ describe('PlayerFrame', () => {
 
   it('rodapé liberado: o rótulo, o disabled e o onPress vêm da Atividade', async () => {
     const onPress = jest.fn();
-    await render(frame({ footer: { label: 'CONTINUAR', onPress } }));
-    await fireEvent.press(screen.getByRole('button', { name: 'CONTINUAR' }));
+    await render(frame({ footer: { label: 'CONTINUE', onPress } }));
+    await fireEvent.press(screen.getByRole('button', { name: 'CONTINUE' }));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it('sem rede: faixa no topo e "SEM CONEXÃO" desabilitado por cima da ação da Atividade', async () => {
+  it('sem rede: faixa no topo e "NO CONNECTION" desabilitado por cima da ação da Atividade', async () => {
     const onPress = jest.fn();
-    await render(frame({ online: false, footer: { label: 'CONTINUAR', onPress } }));
+    await render(frame({ online: false, footer: { label: 'CONTINUE', onPress } }));
     expect(screen.getByTestId('status-banner')).toBeTruthy();
     const action = screen.getByRole('button', { name: OFFLINE_LABEL });
     expect(action).toBeDisabled();
@@ -127,7 +127,7 @@ describe('PlayerFrame com teclado', () => {
     await render(frame());
     const avoiding = screen.getByTestId('player-keyboard');
     expect(within(avoiding).getByTestId('player-content')).toBeTruthy();
-    expect(within(avoiding).getByRole('button', { name: 'VERIFICAR' })).toBeTruthy();
+    expect(within(avoiding).getByRole('button', { name: 'CHECK' })).toBeTruthy();
     expect(listeners.keyboardDidShow).toBeDefined();
     await act(async () => {
       listeners.keyboardDidShow!();

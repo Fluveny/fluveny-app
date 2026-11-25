@@ -5,8 +5,8 @@ export const PRIVACY_PATH = '/privacidade';
 export const TERMS_PATH = '/termos';
 
 /** Rótulos dos links para os documentos. */
-export const PRIVACY_LINK = 'Política de privacidade';
-export const TERMS_LINK = 'Termos de uso';
+export const PRIVACY_LINK = 'Privacy policy';
+export const TERMS_LINK = 'Terms of use';
 
 /** A rota é de um documento legal (texto estático: abre sem o `/meta` e fora do gate de versão). */
 export function isLegalPath(pathname: string): boolean {

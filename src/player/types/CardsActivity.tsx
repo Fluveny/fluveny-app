@@ -10,11 +10,11 @@ type CardsView = Extract<ActivityView, { type: 'cards' }>;
 type CardBlock = CardsView['blocks'][number];
 
 export const CARDS_EYEBROW = 'USEFUL EXPRESSIONS';
-export const NEXT_BLOCK_LABEL = 'PRÓXIMO BLOCO';
-export const CONTINUE_LABEL = 'CONTINUAR';
+export const NEXT_BLOCK_LABEL = 'NEXT BLOCK';
+export const CONTINUE_LABEL = 'CONTINUE';
 
 /** "Bloco 2 de 3". */
-export const blockLine = (position: number, total: number) => `Bloco ${position} de ${total}`;
+export const blockLine = (position: number, total: number) => `Block ${position} of ${total}`;
 
 /** Segmento do indicador [ASSUMPTION: 8 dp de altura, como no protótipo]. */
 const SEGMENT_HEIGHT = 8;

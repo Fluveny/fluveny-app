@@ -11,21 +11,20 @@ export type FeedbackTone = 'correct' | 'wrong' | 'review';
 
 /** Títulos da folha (EXPERIENCE.md, Voice and Tone). O erro nunca diz "errado" no título. */
 export const FEEDBACK_TITLES: Record<FeedbackTone, string> = {
-  correct: 'Mandou bem!',
-  wrong: 'Quase lá!',
-  review: 'Vamos revisar',
+  correct: 'Nice job!',
+  wrong: 'Almost there!',
+  review: "Let's review",
 };
 
 /** Texto do Erro (tabela de copy oficial, UX-DR150). */
-export const WRONG_MESSAGE =
-  'Os itens marcados em vermelho estão errados. Tente de novo ou veja a resposta com a explicação.';
+export const WRONG_MESSAGE = 'The items in red need another look. Try again or see the answer with the explanation.';
 
 /** Rótulo da caixa da resposta esperada, em "Vamos revisar". */
-export const EXPECTED_LABEL = 'RESPOSTA ESPERADA';
+export const EXPECTED_LABEL = 'EXPECTED ANSWER';
 
 /** "Resultado: 2 de 3 itens · 67%". */
 export const resultLine = (correct: number, total: number, pct: number) =>
-  `Resultado: ${correct} de ${total} itens · ${pct}%`;
+  `Result: ${correct} of ${total} items · ${pct}%`;
 
 /**
  * Cores de cada tom (`feedback-sheet.tone-*` do DESIGN.md): o título na cor do

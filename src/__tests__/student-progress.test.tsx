@@ -164,7 +164,7 @@ async function openApp(initialUrl: string, student?: StudentProfile) {
 async function playAsStudent(total = servedStage.activities.length) {
   const student = await signedUp();
   await openApp('/player', student);
-  await screen.findByText(`1 DE ${total}`);
+  await screen.findByText(`1 OF ${total}`);
   return student;
 }
 
@@ -277,7 +277,7 @@ describe('quem joga e o XP do servidor (2.4)', () => {
       await fireEvent.press(button(SKIP_LABEL));
       await act(async () => global.__setNetwork({ isConnected: false, isInternetReachable: false }));
       await act(async () => release());
-      expect(await screen.findByText('2 DE 2')).toBeTruthy();
+      expect(await screen.findByText('2 OF 2')).toBeTruthy();
       await act(async () => {});
       expect(ofRoute('POST', EVENTS)).toHaveLength(1);
     });
@@ -312,7 +312,7 @@ describe('quem joga e o XP do servidor (2.4)', () => {
     asWeb();
     await signedUp('web');
     await openApp('/player');
-    expect(await screen.findByText('1 DE 1')).toBeTruthy();
+    expect(await screen.findByText('1 OF 1')).toBeTruthy();
     expect(ofRoute('GET', ME)).toHaveLength(1);
     await waitFor(() => expect(ofRoute('POST', EVENTS)).toHaveLength(1));
     expect(await screen.findByLabelText('0 XP')).toBeTruthy();
@@ -333,7 +333,7 @@ describe('quem joga e o XP do servidor (2.4)', () => {
     expect(sent.filter((request) => request.method === 'POST')).toEqual([]);
     failure = null;
     await fireEvent.press(button(RETRY_LABEL));
-    expect(await screen.findByText('1 DE 1')).toBeTruthy();
+    expect(await screen.findByText('1 OF 1')).toBeTruthy();
     await waitFor(() => expect(ofRoute('POST', EVENTS)).toHaveLength(1));
     expectStudentOnly();
   });
@@ -341,7 +341,7 @@ describe('quem joga e o XP do servidor (2.4)', () => {
   it('Visitante no web sem cookie: /students/me dá 401 e o player joga pelas rotas do Visitante', async () => {
     asWeb();
     await openApp('/player');
-    expect(await screen.findByText('1 DE 1')).toBeTruthy();
+    expect(await screen.findByText('1 OF 1')).toBeTruthy();
     expect(ofRoute('GET', ME)).toHaveLength(1);
     await waitFor(() => expect(ofRoute('POST', '/api/v1/visitor/events')).toHaveLength(1));
     expect(ofRoute('POST', '/api/v1/visitor/events')[0]!.body).toHaveProperty('deviceId');
@@ -356,7 +356,7 @@ describe('quem joga e o XP do servidor (2.4)', () => {
 
   it('Visitante (sem token no Android): rotas do Visitante, sem perguntar /students/me', async () => {
     await openApp('/player');
-    expect(await screen.findByText('1 DE 1')).toBeTruthy();
+    expect(await screen.findByText('1 OF 1')).toBeTruthy();
     await waitFor(() => expect(ofRoute('POST', '/api/v1/visitor/events')).toHaveLength(1));
     expect(ofRoute('POST', '/api/v1/visitor/events')[0]!.body).toHaveProperty('deviceId');
     expect(ofRoute('GET', ME)).toEqual([]);
@@ -385,7 +385,7 @@ describe('Tentativa do Aluno (2.4)', () => {
     const posts = sent.filter((request) => request.method === 'POST').length;
     const reads = ofRoute('GET', PROGRESS).length;
     await fireEvent.press(button(CONTINUE_LABEL));
-    expect(await screen.findByText('2 DE 2')).toBeTruthy();
+    expect(await screen.findByText('2 OF 2')).toBeTruthy();
     // CONTINUAR não chama o servidor (só o ACTIVITY_STARTED da seguinte).
     expect(sent.filter((request) => request.method === 'POST' && request.path !== EVENTS)).toHaveLength(posts - 1);
     expect(ofRoute('GET', PROGRESS)).toHaveLength(reads);
@@ -419,7 +419,7 @@ describe('Tentativa do Aluno (2.4)', () => {
     // Fecha e abre de novo: outra Tentativa (outro attemptId) na mesma Atividade.
     await fireEvent.press(button(CLOSE_LABEL));
     await fireEvent.press(await screen.findByTestId('dashboard-play'));
-    expect(await screen.findByText('1 DE 2')).toBeTruthy();
+    expect(await screen.findByText('1 OF 2')).toBeTruthy();
     await answerChoice();
     expect(await screen.findByText(FEEDBACK_TITLES.correct)).toBeTruthy();
     expect(screen.queryByTestId('xp-chip-light')).toBeNull();
@@ -432,7 +432,7 @@ describe('Tentativa do Aluno (2.4)', () => {
   it('Erro e TENTAR DE NOVO: só a primeira Tentativa vale (7 XP)', async () => {
     await playAsStudent();
     await answerChoice(['B', 'B', 'B']);
-    expect(await screen.findByText('Resultado: 2 de 3 itens · 67%')).toBeTruthy();
+    expect(await screen.findByText('Result: 2 of 3 items · 67%')).toBeTruthy();
     expect(await screen.findByLabelText('7 XP')).toBeTruthy();
     await fireEvent.press(button(RETRY_SHEET));
     await fireEvent.press(screen.getByTestId(`choice-${CHOICE.items[0]!.itemKey}-A`));
@@ -465,9 +465,9 @@ describe('conclusão e "salvar falhou" do Aluno (2.4)', () => {
     await fireEvent.press(button(CONTINUE_LABEL));
     const saving = await screen.findByRole('button', { name: SAVING_LABEL });
     expect(saving).toBeDisabled();
-    expect(screen.getByText('1 DE 2')).toBeTruthy();
+    expect(screen.getByText('1 OF 2')).toBeTruthy();
     await act(async () => release());
-    expect(await screen.findByText('2 DE 2')).toBeTruthy();
+    expect(await screen.findByText('2 OF 2')).toBeTruthy();
     const [completion] = ofRoute('POST', COMPLETIONS);
     expect(Object.keys(completion!.body!).sort()).toEqual(
       ['activityKey', 'attemptId', 'outcome', 'studyTimeMs', 'versionId'].sort(),
@@ -500,12 +500,12 @@ describe('conclusão e "salvar falhou" do Aluno (2.4)', () => {
       expect(await screen.findByRole('button', { name: SAVE_RETRY_LABEL })).toBeEnabled();
       expect(screen.getByText(SAVE_FAILED)).toBeTruthy();
       expect(screen.queryByText(messageFor('INTERNAL_ERROR'))).toBeNull();
-      expect(screen.getByText('1 DE 2')).toBeTruthy();
+      expect(screen.getByText('1 OF 2')).toBeTruthy();
       // 5xx não vai ao Sentry.
       expect(captureError).not.toHaveBeenCalled();
       failure = null;
       await fireEvent.press(button(SAVE_RETRY_LABEL));
-      expect(await screen.findByText('2 DE 2')).toBeTruthy();
+      expect(await screen.findByText('2 OF 2')).toBeTruthy();
       expect(screen.queryByText(SAVE_FAILED)).toBeNull();
       const ids = ofRoute('POST', COMPLETIONS).map((request) => request.body!.attemptId);
       expect(ids).toHaveLength(2);
@@ -529,7 +529,7 @@ describe('conclusão e "salvar falhou" do Aluno (2.4)', () => {
       await act(async () => {});
       expect(ofRoute('POST', COMPLETIONS)).toHaveLength(1);
       expect(captureError).toHaveBeenCalledTimes(1);
-      expect(screen.getByText('1 DE 2')).toBeTruthy();
+      expect(screen.getByText('1 OF 2')).toBeTruthy();
     });
   });
 
@@ -567,7 +567,7 @@ describe('conclusão e "salvar falhou" do Aluno (2.4)', () => {
       failure = null;
       await act(async () => global.__setNetwork({ isConnected: false, isInternetReachable: false }));
       await act(async () => global.__setNetwork({ isConnected: true, isInternetReachable: true }));
-      expect(await screen.findByText('2 DE 2')).toBeTruthy();
+      expect(await screen.findByText('2 OF 2')).toBeTruthy();
       const ids = ofRoute('POST', COMPLETIONS).map((request) => request.body!.attemptId);
       expect(ids).toHaveLength(3);
       expect(new Set(ids).size).toBe(1);
@@ -613,9 +613,9 @@ describe('conclusão e "salvar falhou" do Aluno (2.4)', () => {
       await fireEvent.changeText(screen.getByLabelText(PASSWORD_FIELD), ADULT.password);
       await fireEvent.press(button(SIGN_IN_LABEL));
       await waitFor(() => expect(screen).toHavePathname('/player'));
-      expect(await screen.findByText('1 DE 2')).toBeTruthy();
+      expect(await screen.findByText('1 OF 2')).toBeTruthy();
       await fireEvent.press(button(SKIP_LABEL));
-      expect(await screen.findByText('2 DE 2')).toBeTruthy();
+      expect(await screen.findByText('2 OF 2')).toBeTruthy();
       expectStudentOnly();
     });
   });
@@ -627,9 +627,9 @@ describe('resumo do Estágio do Aluno (2.4)', () => {
     await withType('dialogue', finishing('viewed'), async () => {
       await playAsStudent();
       await fireEvent.press(button(SKIP_LABEL));
-      expect(await screen.findByText('2 DE 2')).toBeTruthy();
+      expect(await screen.findByText('2 OF 2')).toBeTruthy();
       await answerChoice(['B', 'B', 'B']);
-      expect(await screen.findByText('Resultado: 2 de 3 itens · 67%')).toBeTruthy();
+      expect(await screen.findByText('Result: 2 of 3 items · 67%')).toBeTruthy();
       // Ver resposta, pela rota do Aluno, sem XP.
       await fireEvent.press(button(REVEAL_LABEL));
       expect(await screen.findByText(FEEDBACK_TITLES.review)).toBeTruthy();
@@ -640,7 +640,7 @@ describe('resumo do Estágio do Aluno (2.4)', () => {
       // Relido depois da última gravação.
       expect(ofRoute('GET', PROGRESS).length).toBeGreaterThan(reads);
       expect(screen.getAllByLabelText('7 XP').length).toBeGreaterThan(0);
-      expect(screen.getByLabelText(`${RESULT_STAT} médio: 67%`)).toBeTruthy();
+      expect(screen.getByLabelText(`Average ${RESULT_STAT.toLowerCase()}: 67%`)).toBeTruthy();
       expect(screen.queryByTestId('stage-invite')).toBeNull();
       await fireEvent.press(button(SUMMARY_CONTINUE));
       expect(await screen.findByRole('header', { name: studentGreeting('Ana') })).toBeTruthy();
@@ -666,7 +666,7 @@ describe('resumo do Estágio do Aluno (2.4)', () => {
     await withType('dialogue', finishing('viewed'), async () => {
       await playAsStudent();
       await fireEvent.press(button(SKIP_LABEL));
-      expect(await screen.findByText('2 DE 2')).toBeTruthy();
+      expect(await screen.findByText('2 OF 2')).toBeTruthy();
       // O cache tem só o Diálogo (0 XP); a leitura seguinte falha.
       await waitFor(() =>
         expect(client.getQueryData<{ results: unknown[] }>(PROGRESS_QUERY_KEY)?.results).toHaveLength(1),
@@ -679,7 +679,7 @@ describe('resumo do Estágio do Aluno (2.4)', () => {
       await fireEvent.press(button(CONTINUE_LABEL));
       expect(await screen.findByTestId('stage-summary')).toBeTruthy();
       expect(screen.getAllByLabelText('10 XP').length).toBeGreaterThan(0);
-      expect(screen.getByLabelText(`${RESULT_STAT} médio: 100%`)).toBeTruthy();
+      expect(screen.getByLabelText(`Average ${RESULT_STAT.toLowerCase()}: 100%`)).toBeTruthy();
       // Sem rede não vai ao Sentry.
       expect(captureError).not.toHaveBeenCalled();
     });
@@ -721,7 +721,7 @@ describe('tempo de estudo (2.4, os dois modos)', () => {
   it('pausa: o mesmo relógio no Progresso do Visitante', async () => {
     await withType('dialogue', finishing('viewed'), async () => {
       await openApp('/player');
-      await screen.findByText('1 DE 1');
+      await screen.findByText('1 OF 1');
       await act(async () => {});
       wait(2 * MINUTE);
       await touch();

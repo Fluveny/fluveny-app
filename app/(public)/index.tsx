@@ -17,16 +17,16 @@ import { color, size, spacing, typography } from '../../src/ui/tokens';
 import { openPlayer } from '../../src/visitor/events';
 
 // Copy da boas-vindas (EXPERIENCE.md, Voice and Tone).
-export const WELCOME_TITLE = 'Seu primeiro dia na universidade. Em inglês.';
+export const WELCOME_TITLE = 'Your first day at college. In English.';
 export const WELCOME_BODY =
-  'Conheça o Alex, seu colega de quarto, e aprenda a se apresentar falando, escrevendo e jogando. Grátis.';
+  'Meet Alex, your roommate, and learn to introduce yourself by speaking, writing and playing. Free.';
 /** Objetivo da Unit 1, em inglês, fixo no App [ASSUMPTION: Decisão 2 da 1.10; o conteúdo não tem `goal`]. */
 export const WELCOME_GOAL = 'Learn how to introduce yourself, talk about yourself, and meet new people.';
-export const TRY_NOW = 'EXPERIMENTAR AGORA';
-export const SIGN_UP = 'CRIAR CONTA';
-export const SIGN_IN = 'ENTRAR';
+export const TRY_NOW = 'TRY IT NOW';
+export const SIGN_UP = 'CREATE ACCOUNT';
+export const SIGN_IN = 'SIGN IN';
 /** O aviso depois da exclusão da conta (`motivo=conta-excluida`, 2.10). [ASSUMPTION: copy] */
-export const ACCOUNT_DELETED = 'Sua conta foi excluída.';
+export const ACCOUNT_DELETED = 'Your account was deleted.';
 /** O convite ao cadastro, no lugar do Estágio 2 (1.20). */
 export const INVITE_PATH = '/convite';
 /** O cadastro (2.1). */

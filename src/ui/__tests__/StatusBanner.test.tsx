@@ -5,7 +5,7 @@ import { STATUS_BANNER_TONES, StatusBanner, type StatusBannerTone } from '../Sta
 import { color, size } from '../tokens';
 import { styleOf, touchHeight } from '../../test-utils/kit';
 
-const OFFLINE = 'Sem conexão. Assim que a rede voltar, você continua daqui.';
+const OFFLINE = "No connection. You'll pick up right here when you're back online.";
 
 describe('StatusBanner (faixa de estado)', () => {
   it.each(Object.keys(STATUS_BANNER_TONES) as StatusBannerTone[])(
@@ -52,7 +52,7 @@ describe('StatusBanner (faixa de estado)', () => {
   });
 
   it('sem ação: só texto', async () => {
-    await render(<StatusBanner tone="quiet" text="Confirme seu e-mail para poder recuperar a senha." />);
+    await render(<StatusBanner tone="quiet" text="Confirm your email so you can recover your password." />);
     expect(screen.queryByRole('button')).toBeNull();
   });
 

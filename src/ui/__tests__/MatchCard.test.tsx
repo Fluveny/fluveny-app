@@ -36,11 +36,11 @@ describe('MatchCard (cartão ligável do Associar)', () => {
     expect(styleOf(card).backgroundColor).toBe(CARD_TONES.selected.background);
   });
 
-  it('paired: branca, número no selo azul claro e "ligada a …" no rótulo', async () => {
+  it('paired: branca, número no selo azul claro e "matched with …" no rótulo', async () => {
     await render(
       <MatchCard label="Hi!" state="paired" pair={2} pairedWith="Hi Alex!" onPress={() => {}} testID="card" />,
     );
-    const card = screen.getByRole('button', { name: 'Hi!, ligada a Hi Alex!' });
+    const card = screen.getByRole('button', { name: 'Hi!, matched with Hi Alex!' });
     expect(card).not.toBeSelected();
     expect(styleOf(card).backgroundColor).toBe(CARD_TONES.neutral.background);
     const number = screen.getByText('2');
@@ -51,14 +51,14 @@ describe('MatchCard (cartão ligável do Associar)', () => {
   });
 
   it.each([
-    ['wrong', 'errado', 'icon-x'],
-    ['right', 'certo', 'icon-check'],
+    ['wrong', 'wrong', 'icon-x'],
+    ['right', 'right', 'icon-check'],
   ] as [Extract<MatchState, 'right' | 'wrong'>, string, string][])(
     'avaliada %s: ícone, número mantido, "%s" no rótulo e travada',
     async (state, word, icon) => {
       const onPress = jest.fn();
       await render(<MatchCard label="Hi!" state={state} pair={1} pairedWith="Goodbye!" locked onPress={onPress} />);
-      const card = screen.getByRole('button', { name: `Hi!, ligada a Goodbye!, ${word}` });
+      const card = screen.getByRole('button', { name: `Hi!, matched with Goodbye!, ${word}` });
       expect(card).toBeDisabled();
       expect(screen.getByText('1')).toBeTruthy();
       expect(screen.getByTestId(icon, { includeHiddenElements: true })).toBeTruthy();

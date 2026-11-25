@@ -29,23 +29,25 @@ import { useVisitor } from '../../src/visitor/useVisitor';
 
 // Copy do cadastro (EXPERIENCE.md, Voice and Tone; UX-DR97, UX-DR98).
 // [ASSUMPTION] Textos sem frase fixa no EXPERIENCE.md propostos na 2.1, a revisar com UX.
-export const SIGNUP_TITLE = 'Crie sua conta';
-export const INVITE_NOTICE = 'Crie sua conta para guardar o Estágio 1 e o XP que você já ganhou.';
-export const NAME_FIELD = 'Como quer ser chamado';
-export const EMAIL_FIELD = 'E-mail';
-export const BIRTH_FIELD = 'Data de nascimento';
-export const BIRTH_PLACEHOLDER = 'DD/MM/AAAA';
-export const PASSWORD_FIELD = 'Senha';
-export const ACCEPT_LABEL = 'Li e aceito os Termos de uso e a Política de privacidade.';
-export const CREATE_LABEL = 'CRIAR CONTA';
-export const BACK_LABEL = 'Voltar';
+export const SIGNUP_TITLE = 'Create your account';
+export const INVITE_NOTICE = "Create your account to save Stage 1 and the XP you've already earned.";
+export const NAME_FIELD = 'What should we call you?';
+export const EMAIL_FIELD = 'Email';
+export const BIRTH_FIELD = 'Date of birth';
+export const BIRTH_PLACEHOLDER = 'DD/MM/YYYY';
+/** A ordem continua dia/mês/ano (decisão de 25/11, 1.23). */
+export const BIRTH_HINT = 'Day / Month / Year';
+export const PASSWORD_FIELD = 'Password';
+export const ACCEPT_LABEL = 'I have read and accept the Terms of use and the Privacy policy.';
+export const CREATE_LABEL = 'CREATE ACCOUNT';
+export const BACK_LABEL = 'Back';
 /** Atalhos do e-mail repetido: Entrar (2.3) e Recuperar senha (2.8). */
-export const SIGN_IN_LINK = 'Entrar';
-export const RECOVER_LINK = 'Recuperar senha';
+export const SIGN_IN_LINK = 'Sign in';
+export const RECOVER_LINK = 'Reset password';
 
-export const PRONOUNS_TITLE = 'Nas histórias, como Alex deve se referir a você?';
-export const PRONOUNS_CONTINUE = 'CONTINUAR';
-export const PRONOUNS_LATER = 'Escolher depois';
+export const PRONOUNS_TITLE = 'In the stories, Alex refers to you as…';
+export const PRONOUNS_CONTINUE = 'CONTINUE';
+export const PRONOUNS_LATER = 'Choose later';
 /** Os Conjuntos de pronomes, com um exemplo de frase de cada um (o conteúdo do curso é em inglês). */
 export const PRONOUN_OPTIONS: readonly { value: PronounSet; label: string; example: string }[] = [
   { value: 'SHE', label: 'she/her', example: 'She is from Brazil.' },
@@ -210,6 +212,7 @@ function SignUpForm({ fromInvite, onCreated }: { fromInvite: boolean; onCreated:
           setBirthDate(maskBirthDate(text));
         }}
         placeholder={BIRTH_PLACEHOLDER}
+        hint={BIRTH_HINT}
         keyboardType="number-pad"
         inputMode="numeric"
         autoComplete="birthdate-full"

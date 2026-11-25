@@ -21,7 +21,7 @@ import type { ActivityProps, ActivityView } from '../registry';
 type ExpressionView = Extract<ActivityView, { type: 'expression' }>;
 
 export const EXPRESSION_EYEBROW_TITLE = 'USEFUL EXPRESSIONS';
-export const CONTINUE_LABEL = 'CONTINUAR';
+export const CONTINUE_LABEL = 'CONTINUE';
 
 /** As chaves `[[…|chave]]` da frase, na ordem e sem repetir; conteúdo malformado vai ao Sentry. */
 function keysOf(text: ContentText | undefined, { vars, pronoun }: RenderContext): string[] {

@@ -69,7 +69,7 @@ describe('trecho de Expressão Útil (1.14)', () => {
     const chunk = screen.getByTestId('expression-nice-to-meet-you');
     expect(chunk.props.accessibilityRole).toBe('button');
     expect(chunk.props.accessibilityHint).toBe(EXPRESSION_HINT);
-    expect(EXPRESSION_HINT).toBe('Abre o significado da expressão');
+    expect(EXPRESSION_HINT).toBe('Opens the meaning of the expression');
     expect(styleOf(chunk)).toEqual({
       backgroundColor: color.blueLt,
       color: color.blue,
@@ -117,7 +117,7 @@ describe('trecho de Expressão Útil (1.14)', () => {
   });
 
   it.each([
-    ['ENTENDI', async () => fireEvent.press(screen.getByRole('button', { name: EXPRESSION_CLOSE_LABEL }))],
+    ['GOT IT', async () => fireEvent.press(screen.getByRole('button', { name: EXPRESSION_CLOSE_LABEL }))],
     [
       'toque no scrim',
       async () => {

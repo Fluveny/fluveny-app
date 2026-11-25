@@ -9,15 +9,15 @@ import { PlayerTop } from './PlayerFrame';
 import { StageInvite } from './StageInvite';
 import { skippedLine, type StageSummary as Summary } from './stageStats';
 
-/** "Estágio 1 concluído". */
-export const stageDoneLabel = (number: number) => `Estágio ${number} concluído`;
+/** "Stage 1 completed". */
+export const stageDoneLabel = (number: number) => `Stage ${number} completed`;
 /** "Meet & Greet: check!" (EXPERIENCE.md, Voice and Tone). */
 export const stageDoneTitle = (title: string) => (title ? `${title}: check!` : 'Check!');
 export const XP_STAT = 'XP';
-export const RESULT_STAT = 'Resultado';
-export const MINUTES_STAT = 'Minutos';
+export const RESULT_STAT = 'Result';
+export const MINUTES_STAT = 'Minutes';
 /** A ação do Aluno com conta no fim do Estágio (2.1), no lugar do convite. */
-export const SUMMARY_CONTINUE = 'CONTINUAR';
+export const SUMMARY_CONTINUE = 'CONTINUE';
 
 type Props = {
   stageNumber: number;
@@ -103,7 +103,7 @@ export function StageSummary({
               <Stat
                 label={RESULT_STAT}
                 value={`${summary.resultPct}%`}
-                spoken={`${RESULT_STAT} médio: ${summary.resultPct}%`}
+                spoken={`Average ${RESULT_STAT.toLowerCase()}: ${summary.resultPct}%`}
                 tone={color.tealDk}
               />
             )}
@@ -111,7 +111,7 @@ export function StageSummary({
               <Stat
                 label={MINUTES_STAT}
                 value={String(summary.minutes)}
-                spoken={`${summary.minutes} ${summary.minutes === 1 ? 'minuto' : 'minutos'}`}
+                spoken={`${summary.minutes} ${summary.minutes === 1 ? 'minute' : 'minutes'}`}
                 tone={color.blue}
               />
             )}

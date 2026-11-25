@@ -26,7 +26,7 @@ describe('rota /kit (catálogo do kit, Decisão 1)', () => {
     expect(screen.getByRole('progressbar')).toBeTruthy();
     expect(screen.getByLabelText('20 XP')).toBeTruthy();
     expect(screen.getByLabelText('+10 XP')).toBeTruthy();
-    for (const name of ['idle', 'placed', 'used, usado', 'right, certo', 'wrong, errado']) {
+    for (const name of ['idle', 'placed', 'used, used', 'right, right', 'wrong, wrong']) {
       expect(screen.getByRole('button', { name })).toBeTruthy();
     }
     for (const label of MODE_TAGS) expect(screen.getByLabelText(label)).toBeTruthy();

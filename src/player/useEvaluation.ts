@@ -20,10 +20,10 @@ import { isStageLocked, usePlayerSession } from './playerSession';
 import type { ActivityProps, SheetSpec } from './registry';
 import { createStudyClock } from './studyClock';
 
-export const CHECK_LABEL = 'VERIFICAR';
-export const CONTINUE_LABEL = 'CONTINUAR';
-export const RETRY_LABEL = 'TENTAR DE NOVO';
-export const REVEAL_LABEL = 'VER RESPOSTA';
+export const CHECK_LABEL = 'CHECK';
+export const CONTINUE_LABEL = 'CONTINUE';
+export const RETRY_LABEL = 'TRY AGAIN';
+export const REVEAL_LABEL = 'SEE ANSWER';
 
 export const ATTEMPT_PATH = '/api/v1/visitor/attempts';
 export const REVEAL_PATH = '/api/v1/visitor/attempts/reveal';

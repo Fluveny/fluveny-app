@@ -8,7 +8,9 @@ import { Button, StatusBanner } from '../ui';
 import { color, spacing, typography } from '../ui/tokens';
 import { PROVISIONAL_NOTICE, type LegalDocument } from './types';
 
-export const LEGAL_BACK = 'VOLTAR';
+export const LEGAL_BACK = 'BACK';
+/** A moldura é em inglês; o texto jurídico vale e fica só em pt-BR (decisão de 25/11, 1.23). */
+export const LEGAL_LANGUAGE_NOTE = 'This document is in Portuguese (Brazil).';
 
 /** `2026-11-17` → `17/11/2026`. */
 export function formatLegalDate(iso: string): string {
@@ -25,7 +27,7 @@ export const versionLine = (doc: LegalDocument) => `Versão ${doc.version}, de $
  * anterior, ou à boas-vindas quando a política abriu por link direto). Texto
  * estático, sem rede: abre sem o `/meta` e com o App desatualizado.
  */
-export function LegalScreen({ doc }: { doc: LegalDocument }) {
+export function LegalScreen({ doc, title }: { doc: LegalDocument; title: string }) {
   const router = useRouter();
   const client = useQueryClient();
   // Sem tela anterior: a boas-vindas, ou a tela de atualizar com o App desatualizado
@@ -43,8 +45,12 @@ export function LegalScreen({ doc }: { doc: LegalDocument }) {
     <SafeAreaView style={styles.screen}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <Text style={styles.title} accessibilityRole="header">
-          {doc.title}
+          {title}
         </Text>
+        <Text style={styles.version} testID="legal-language">
+          {LEGAL_LANGUAGE_NOTE}
+        </Text>
+        <Text style={styles.docTitle}>{doc.title}</Text>
         <StatusBanner tone="notice" text={PROVISIONAL_NOTICE} testID="legal-provisional" />
         <Text style={styles.version} testID="legal-version">
           {versionLine(doc)}
@@ -75,6 +81,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: spacing.screenX, paddingTop: spacing[6], paddingBottom: spacing[6], gap: spacing[4] },
   title: { ...typography.h1, color: color.ink },
   version: { ...typography.caption, color: color.mutedStrong },
+  docTitle: { ...typography.item, color: color.ink },
   section: { gap: spacing[2] },
   heading: { ...typography.item, color: color.ink },
   paragraph: { ...typography.reading, color: color.ink },

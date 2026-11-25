@@ -27,43 +27,43 @@ import {
 // Copy do painel (2.5, UX-DR100 a UX-DR102, EXPERIENCE.md Voice and Tone).
 /** O subtítulo do cabeçalho (EXPERIENCE.md, Voice and Tone; UX-DR100). */
 /** O botão de perfil do cabeçalho (2.9), que abre a Conta. [ASSUMPTION: copy] */
-export const ACCOUNT_LABEL = 'Conta';
+export const ACCOUNT_LABEL = 'Account';
 const ACCOUNT_ICON = 26;
-export const DASHBOARD_SUBTITLE = 'Bora continuar o seu primeiro dia?';
-export const DASHBOARD_START = 'COMEÇAR';
-export const DASHBOARD_CONTINUE = 'CONTINUAR';
-export const DASHBOARD_RETRY = 'TENTAR DE NOVO';
-export const DASHBOARD_LOADING = 'Carregando o painel';
-export const STAGES_EYEBROW = 'ESTÁGIOS';
-export const STAT_XP = 'XP TOTAL';
+export const DASHBOARD_SUBTITLE = 'Ready to continue your first day?';
+export const DASHBOARD_START = 'START';
+export const DASHBOARD_CONTINUE = 'CONTINUE';
+export const DASHBOARD_RETRY = 'TRY AGAIN';
+export const DASHBOARD_LOADING = 'Loading your dashboard';
+export const STAGES_EYEBROW = 'STAGES';
+export const STAT_XP = 'TOTAL XP';
 export const STAT_BADGES = 'BADGES';
-export const STAT_STAGES = 'ESTÁGIOS';
-export const STAT_RESULT = 'RESULTADO MÉDIO';
+export const STAT_STAGES = 'STAGES';
+export const STAT_RESULT = 'AVERAGE RESULT';
 /** O Resultado médio sem nenhuma Atividade corrigida (UX-DR101). */
 export const NO_RESULT = '–';
 // [ASSUMPTION: copy] Textos propostos na 2.5, a revisar com UX.
-export const NO_RESULT_LABEL = 'Resultado médio: ainda sem Resultado';
-export const NO_UNIT = 'Nenhuma Unidade disponível agora.';
-export const ALL_DONE = 'Você concluiu os Estágios disponíveis. Os próximos chegam em breve.';
-export const COMING_SOON = 'Em breve';
+export const NO_RESULT_LABEL = 'Average result: no result yet';
+export const NO_UNIT = 'No unit available right now.';
+export const ALL_DONE = "You've finished the stages available. The next ones are coming soon.";
+export const COMING_SOON = 'Coming soon';
 /** O que o leitor de tela diz de cada número e da barra da Unidade. [ASSUMPTION: copy] */
-export const spokenXp = (xp: number) => `XP total: ${xp}`;
+export const spokenXp = (xp: number) => `Total XP: ${xp}`;
 export const spokenBadges = (count: number) => `Badges: ${count}`;
-export const spokenStages = (done: number, total: number) => `Estágios: ${done} de ${total}`;
-export const spokenResult = (pct: number) => `Resultado médio: ${pct}%`;
-export const UNIT_PROGRESS_LABEL = 'Estágios concluídos';
-export const LOCKED_HINT = 'Conclua o Estágio anterior para desbloquear.';
+export const spokenStages = (done: number, total: number) => `Stages: ${done} of ${total}`;
+export const spokenResult = (pct: number) => `Average result: ${pct}%`;
+export const UNIT_PROGRESS_LABEL = 'Stages completed';
+export const LOCKED_HINT = 'Finish the previous stage to unlock.';
 
-/** O eyebrow do cartão da Unidade: "UNIT 1 · 0 DE 1 ESTÁGIOS". */
+/** O eyebrow do cartão da Unidade: "UNIT 1 · 0 OF 1 STAGES". */
 export const unitEyebrow = (unit: DashboardUnit) =>
-  `UNIT ${unit.order} · ${unit.stagesCompleted} DE ${unit.stagesTotal} ESTÁGIOS`;
-/** Onde o Aluno está no Estágio atual: "ATIVIDADE 3 DE 13". */
-export const nextLine = (position: number, total: number) => `ATIVIDADE ${position} DE ${total}`;
+  `UNIT ${unit.order} · ${unit.stagesCompleted} OF ${unit.stagesTotal} STAGES`;
+/** Onde o Aluno está no Estágio atual: "ACTIVITY 3 OF 13". */
+export const nextLine = (position: number, total: number) => `ACTIVITY ${position} OF ${total}`;
 /** O que o leitor de tela diz do Cartão de Estágio. */
 export const stageLabel = (number: number, title: string, state: DashboardStage['state']) =>
   state === 'LOCKED'
-    ? `Estágio ${number}, ${title}. ${LOCKED_HINT}`
-    : `Estágio ${number}, ${title}${state === 'COMPLETED' ? ', concluído' : ', atual'}`;
+    ? `Stage ${number}, ${title}. ${LOCKED_HINT}`
+    : `Stage ${number}, ${title}${state === 'COMPLETED' ? ', completed' : ', current'}`;
 
 /** O bloco de 50 px do Cartão de Estágio (DESIGN.md, Components). */
 const STAGE_BLOCK = 50;
@@ -226,7 +226,7 @@ function DashboardBody({
           <View
             key={entry.unitKey}
             accessible
-            accessibilityLabel={`${title}, em breve`}
+            accessibilityLabel={`${title}, coming soon`}
             style={styles.locked}
             testID={`coming-soon-${entry.unitKey}`}
           >

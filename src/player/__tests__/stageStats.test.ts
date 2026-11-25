@@ -29,7 +29,7 @@ describe('números do Resumo do Estágio (1.20)', () => {
     expect(summarizeStage(mixed, KEYS).minutes).toBe(2);
   });
 
-  it('com algum tempo, no mínimo 1 minuto', () => {
+  it('com algum tempo, no mínimo 1 minute', () => {
     const progress: ProgressEntry[] = [{ activityKey: 'a1', outcome: 'viewed', xp: 0, studyTimeMs: 10_000 }];
     expect(summarizeStage(progress, KEYS).minutes).toBe(1);
   });
@@ -43,8 +43,8 @@ describe('números do Resumo do Estágio (1.20)', () => {
 
   it('a linha das puladas, com plural; sem puladas, nenhuma', () => {
     expect(skippedLine(0)).toBeNull();
-    expect(skippedLine(1)).toBe('1 atividade de fala pulada. Você pode refazer quando quiser.');
-    expect(skippedLine(2)).toBe('2 atividades de fala puladas. Você pode refazer quando quiser.');
+    expect(skippedLine(1)).toBe('1 speaking activity skipped. You can redo it anytime.');
+    expect(skippedLine(2)).toBe('2 speaking activities skipped. You can redo them anytime.');
   });
 });
 

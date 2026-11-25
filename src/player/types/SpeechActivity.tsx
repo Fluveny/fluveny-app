@@ -19,11 +19,11 @@ export { PRIVACY_TEXT, privacyText } from '../speechPrivacy';
 type SpeechView = Extract<ActivityView, { type: 'speech' }>;
 
 /** O pular da Fala (EXPERIENCE.md, Voice and Tone: nunca "Pular"). */
-export const SKIP_LABEL = 'NÃO POSSO FALAR AGORA';
+export const SKIP_LABEL = "I CAN'T SPEAK RIGHT NOW";
 /** O botão que aceita o aviso de privacidade. */
-export const PRIVACY_OK_LABEL = 'ENTENDI';
+export const PRIVACY_OK_LABEL = 'GOT IT';
 /** Link para as configurações do App, com a permissão negada (UX-DR113). */
-export const ALLOW_MIC_LABEL = 'Permitir microfone';
+export const ALLOW_MIC_LABEL = 'Allow microphone';
 /** O flag do aviso de privacidade na loja do Visitante (não é Variável do Aluno). */
 export const PRIVACY_SEEN_KEY = 'speech-privacy';
 

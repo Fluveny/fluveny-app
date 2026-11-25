@@ -31,7 +31,7 @@ beforeEach(() => {
 
 afterEach(() => jest.restoreAllMocks());
 
-const CONTINUE = { label: 'CONTINUAR', variant: 'success' as const, onPress: jest.fn() };
+const CONTINUE = { label: 'CONTINUE', variant: 'success' as const, onPress: jest.fn() };
 
 describe('FeedbackSheet', () => {
   it('cores dos tons seguem o feedback-sheet do DESIGN.md', () => {
@@ -74,30 +74,30 @@ describe('FeedbackSheet', () => {
         xpGain={10}
         result={resultLine(2, 3, 67)}
         actions={[
-          { label: 'TENTAR DE NOVO', variant: 'primary', onPress: retry },
-          { label: 'VER RESPOSTA', variant: 'ghost', onPress: jest.fn() },
+          { label: 'TRY AGAIN', variant: 'primary', onPress: retry },
+          { label: 'SEE ANSWER', variant: 'ghost', onPress: jest.fn() },
         ]}
       />,
     );
     expect(screen.queryByTestId('alex-cheer')).toBeNull();
     expect(screen.queryByTestId('xp-chip-light')).toBeNull();
     expect(screen.getByText(WRONG_MESSAGE)).toBeTruthy();
-    expect(screen.getByText('Resultado: 2 de 3 itens · 67%')).toBeTruthy();
-    for (const name of ['TENTAR DE NOVO', 'VER RESPOSTA']) {
+    expect(screen.getByText('Result: 2 of 3 items · 67%')).toBeTruthy();
+    for (const name of ['TRY AGAIN', 'SEE ANSWER']) {
       expect(touchHeight(screen.getByRole('button', { name }))).toBeGreaterThanOrEqual(size.touchMin);
     }
-    await fireEvent.press(screen.getByRole('button', { name: 'TENTAR DE NOVO' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'TRY AGAIN' }));
     expect(retry).toHaveBeenCalledTimes(1);
     expect(WRONG_MESSAGE).not.toMatch(/^Errado|incorret/i);
   });
 
-  it('Vamos revisar: caixa "RESPOSTA ESPERADA" em blue-lt, justificativa e erro anunciado', async () => {
+  it('Vamos revisar: caixa "EXPECTED ANSWER" em blue-lt, justificativa e erro anunciado', async () => {
     await render(
       <FeedbackSheet
         tone="review"
         expected={<Text>Good morning</Text>}
         error="Sem conexão."
-        actions={[{ label: 'CONTINUAR', variant: 'primary', onPress: jest.fn() }]}
+        actions={[{ label: 'CONTINUE', variant: 'primary', onPress: jest.fn() }]}
       >
         <Text>Justificativa</Text>
       </FeedbackSheet>,
@@ -110,7 +110,7 @@ describe('FeedbackSheet', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Sem conexão.');
   });
 
-  it('a caixa da resposta esperada só aparece em "Vamos revisar"', async () => {
+  it(`a caixa da resposta esperada só aparece em "Let's review"`, async () => {
     await render(<FeedbackSheet tone="wrong" expected={<Text>Good morning</Text>} actions={[CONTINUE]} />);
     expect(screen.queryByText(EXPECTED_LABEL)).toBeNull();
   });
@@ -120,11 +120,11 @@ describe('FeedbackSheet', () => {
       <FeedbackSheet tone="wrong" result={resultLine(1, 3, 33)} actions={[CONTINUE]} />,
     );
     const header = screen.getByRole('header');
-    expect(header.props.accessibilityLabel).toBe('Quase lá! Resultado: 1 de 3 itens · 33%');
-    expect(announce).toHaveBeenCalledWith('Quase lá! Resultado: 1 de 3 itens · 33%');
+    expect(header.props.accessibilityLabel).toBe('Almost there! Result: 1 of 3 items · 33%');
+    expect(announce).toHaveBeenCalledWith('Almost there! Result: 1 of 3 items · 33%');
     expect(focus).toHaveBeenCalledWith(expect.anything(), 'focus');
     await rerender(<FeedbackSheet tone="review" actions={[CONTINUE]} />);
-    expect(announce).toHaveBeenLastCalledWith('Vamos revisar');
+    expect(announce).toHaveBeenLastCalledWith("Let's review");
   });
 
   it('sobe com mola', async () => {
