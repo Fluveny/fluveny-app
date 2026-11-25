@@ -28,8 +28,8 @@ describe('regras do cadastro no App (as mesmas da API)', () => {
     expect(ageOn({ year: 2026, month: 11, day: 20 }, today)).toBeNull();
     expect(ageOn({ year: 1899, month: 12, day: 31 }, today)).toBeNull();
     expect(ageBand('20/11/2014', today)).toBe('below');
-    expect(ageBand('19/11/2014', today)).toBe('teen');
-    expect(ageBand('20/11/2008', today)).toBe('teen');
+    expect(ageBand('19/11/2014', today)).toBe('below');
+    expect(ageBand('20/11/2008', today)).toBe('below');
     expect(ageBand('19/11/2008', today)).toBe('adult');
   });
 

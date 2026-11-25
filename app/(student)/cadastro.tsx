@@ -12,9 +12,6 @@ import {
   maskBirthDate,
   NAME_MAX,
   EMAIL_MAX,
-  GUARDIAN_FIELD,
-  GUARDIAN_HINT,
-  guardianEmailProblem,
   parseBirthDate,
   PASSWORD_HINT,
   signupProblems,
@@ -85,16 +82,10 @@ function SignUpForm({ fromInvite, onCreated }: { fromInvite: boolean; onCreated:
   const [birthDate, setBirthDate] = useState('');
   const [password, setPassword] = useState('');
   const [accepted, setAccepted] = useState(false);
-  /** O e-mail do responsável (2.11): só no estado da tela, nunca na loja nem em log. */
-  const [guardianEmail, setGuardianEmail] = useState('');
   /** Depois da primeira tentativa de enviar, os campos explicam o que falta enquanto o aluno digita. */
   const [tried, setTried] = useState(false);
   const [sending, setSending] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
-  /** A recusa da API que fala do responsável (422, ou 400 com `guardianEmail` nos `errors`): vai ao campo. */
-  const [guardianFailure, setGuardianFailure] = useState<string | null>(null);
-  /** A API pediu o responsável (422) mesmo com a data de adulto no aparelho: o campo aparece. */
-  const [guardianAsked, setGuardianAsked] = useState(false);
   const nameTouched = useRef(false);
   /** Dois toques no mesmo quadro passariam pelo `sending` (estado): o ref barra o segundo POST. */
   const inFlight = useRef(false);
@@ -105,29 +96,17 @@ function SignUpForm({ fromInvite, onCreated }: { fromInvite: boolean; onCreated:
     if (fromInvite && visitorName && !nameTouched.current) setName([...visitorName].slice(0, NAME_MAX).join(''));
   }, [fromInvite, visitorName]);
 
+  const values = { name, email, birthDate, password, accepted };
+  const problems: SignupProblems = tried ? signupProblems(values) : {};
   const band = ageBand(birthDate);
-  const teen = band === 'teen';
-  // A API decide no fim (o dia de São Paulo): com o 422, o campo aparece também na data de adulto.
-  const showGuardian = teen || (guardianAsked && band === 'adult');
-  const values = { name, email, birthDate, password, accepted, ...(showGuardian ? { guardianEmail } : {}) };
-  const localProblems = (): SignupProblems => {
-    const found = signupProblems(values);
-    if (showGuardian && !teen) {
-      const guardian = guardianEmailProblem(guardianEmail, email);
-      if (guardian) found.guardianEmail = guardian;
-    }
-    return found;
-  };
-  const problems: SignupProblems = tried ? localProblems() : {};
   // A idade aparece assim que a data está completa, sem esperar o envio.
-  const birthError = band === 'below' ? AGE_BELOW_TEXT : band === 'teen' ? undefined : problems.birthDate;
+  const birthError = band === 'below' ? AGE_BELOW_TEXT : problems.birthDate;
 
   const submit = async () => {
     if (inFlight.current) return;
     setTried(true);
     setFailure(null);
-    setGuardianFailure(null);
-    const found = localProblems();
+    const found = signupProblems(values);
     if (Object.keys(found).length > 0) return;
     const birth = parseBirthDate(birthDate)!;
     const trimmed = name.trim();
@@ -138,24 +117,13 @@ function SignUpForm({ fromInvite, onCreated }: { fromInvite: boolean; onCreated:
         email: email.trim(),
         password,
         birthDate: isoDate(birth),
-        // Só com o campo na tela: com a data de adulto, o valor digitado não vai.
-        ...(showGuardian ? { guardianEmail: guardianEmail.trim() } : {}),
         ...(trimmed ? { name: trimmed } : {}),
         acceptedTermsVersion: TERMS_VERSION,
         acceptedPrivacyVersion: PRIVACY_VERSION,
       });
       onCreated();
     } catch (error) {
-      const code = error instanceof ApiError ? error.code : NETWORK_ERROR;
-      const aboutGuardian =
-        code === 'GUARDIAN_CONSENT_REQUIRED' ||
-        (code === 'VALIDATION_FAILED' && error instanceof ApiError && error.fields.includes('guardianEmail'));
-      if (aboutGuardian) {
-        if (code === 'GUARDIAN_CONSENT_REQUIRED') setGuardianAsked(true);
-        setGuardianFailure(code);
-      } else {
-        setFailure(code);
-      }
+      setFailure(error instanceof ApiError ? error.code : NETWORK_ERROR);
       setSending(false);
       inFlight.current = false;
     }
@@ -249,28 +217,6 @@ function SignUpForm({ fromInvite, onCreated }: { fromInvite: boolean; onCreated:
         error={birthError}
         testID="signup-birth"
       />
-      {showGuardian ? (
-        <View style={styles.teen} testID="signup-teen">
-          {/* REVISÃO JURÍDICA (NFR24) */}
-          <TextField
-            label={GUARDIAN_FIELD}
-            value={guardianEmail}
-            onChangeText={(text) => {
-              setGuardianFailure(null);
-              setGuardianEmail(text);
-            }}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="off"
-            inputMode="email"
-            maxLength={EMAIL_MAX}
-            hint={GUARDIAN_HINT}
-            error={problems.guardianEmail ?? (guardianFailure ? messageFor(guardianFailure) : undefined)}
-            testID="signup-guardian"
-          />
-        </View>
-      ) : null}
       <TextField
         label={PASSWORD_FIELD}
         value={password}
@@ -371,7 +317,6 @@ const styles = StyleSheet.create({
   top: { flexDirection: 'row', marginLeft: -spacing[3] },
   title: { ...typography.h1, color: color.ink },
   inviteText: { ...typography.bodyStrong, color: color.ink },
-  teen: { gap: spacing[2] },
   accept: { gap: spacing[1] },
   links: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
   failure: { gap: spacing[1] },

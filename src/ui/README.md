@@ -191,11 +191,11 @@ Confete do Resumo do Estágio (UX-DR104, UX-DR132; história 1.20): 18 papéis c
 
 Faixa de estado global, só a peça visual: quem mostra e esconde é a tela (a lógica de rede não é do kit). O texto e a ação vêm de quem usa; a ação opcional é um `Button` pequeno ghost (área de toque de 48 dp).
 
-| `tone`    | Quando usar                                                                          |
-| --------- | ------------------------------------------------------------------------------------ |
-| `offline` | Sem conexão: fundo `ink`, texto branco. É o único tom anunciado como alerta.         |
-| `notice`  | Aviso do que é do aluno (consentimento do responsável): `gold-text` sobre `gold-lt`. |
-| `quiet`   | Lembrete discreto (confirmar e-mail): `muted-strong` sobre `canvas`.                 |
+| `tone`    | Quando usar                                                                  |
+| --------- | ---------------------------------------------------------------------------- |
+| `offline` | Sem conexão: fundo `ink`, texto branco. É o único tom anunciado como alerta. |
+| `notice`  | Aviso do que é do aluno: `gold-text` sobre `gold-lt`.                        |
+| `quiet`   | Lembrete discreto (confirmar e-mail): `muted-strong` sobre `canvas`.         |
 
 ## Padrões proibidos (UX-DR133)
 
@@ -226,7 +226,7 @@ Textos do EXPERIENCE.md (Voice and Tone). Use estes; os que não estão aqui e s
 | Expressão Útil    | "Toque no trecho azul para ver o significado" / botão "Entendi"                                                                                                                       | —                                             |
 | Resumo do Estágio | "Meet & Greet: check!" / "Você já sabe se apresentar e dizer de onde é." / "1 atividade de fala pulada. Você pode refazer quando quiser."                                             | —                                             |
 | Visitante         | "Seu progresso está só neste aparelho" / "Crie uma conta grátis para guardar o Estágio 1 e continuar no Estágio 2."                                                                   | Bloqueio sem explicação                       |
-| Cadastro          | "Nas histórias, o Alex fala de você como…" / "O Fluveny é para quem tem 12 anos ou mais." / "Menor de 18: pediremos o e-mail de um responsável para confirmar o consentimento."       | "Gênero"                                      |
+| Cadastro          | "Nas histórias, o Alex fala de você como…" / "Fluveny is for people 18 and older."                                                                                                    | "Gênero"                                      |
 | Conclusão         | "Campus Explorer" / "Júlia se apresentou, descreveu pessoas, pediu um café e criou o perfil na universidade." / "Em breve: novas aventuras com o Alex."                               | —                                             |
 | Pesquisa          | "Pesquisa rápida · opcional" / "Valeu pela resposta!" / "Ela ajuda a equipe de Letras a melhorar as próximas unidades."                                                               | Pesquisa obrigatória                          |
 

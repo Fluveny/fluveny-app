@@ -64,11 +64,7 @@ const MATCH_KIT_LABELS: Record<MatchState, string> = {
 };
 const BANNERS: { tone: StatusBannerTone; text: string; action?: string }[] = [
   { tone: 'offline', text: 'Sem conexão. Assim que a rede voltar, você continua daqui.' },
-  {
-    tone: 'notice',
-    text: 'Seu progresso fica só neste aparelho até seu responsável confirmar pelo e-mail.',
-    action: 'Reenviar e-mail',
-  },
+  { tone: 'notice', text: 'Seu progresso fica só neste aparelho até você entrar na conta.' },
   { tone: 'quiet', text: 'Confirme seu e-mail para poder recuperar a senha.', action: 'Reenviar' },
 ];
 

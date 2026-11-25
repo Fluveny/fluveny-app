@@ -168,10 +168,6 @@ describe('mocks da API', () => {
             '/api/v1/account/email-change/confirm',
             '/api/v1/students/me/dialogue-answers',
             '/api/v1/students/me/deletion',
-            // O consentimento do responsável (2.11): os testes dele são os do App.
-            '/api/v1/students/me/guardian-consent/resend',
-            '/api/v1/account/guardian-consent/confirm',
-            '/api/v1/students/me/visitor-migration',
           ].includes(path)
         )
           continue;
@@ -340,7 +336,6 @@ describe('mock do cadastro e da sessão (2.1)', () => {
         email: ADULT.email,
         name: 'Ana',
         pronounSet: null,
-        status: 'ACTIVE',
         emailConfirmed: false,
         emailConfirmationOverdue: false,
       },
@@ -356,7 +351,7 @@ describe('mock do cadastro e da sessão (2.1)', () => {
     expect((await me({ Authorization: `Bearer ${data.sessionToken}` })).data.name).toBe('Ana');
   });
 
-  it('as regras da API: cabeçalho, campo desconhecido, senha, data, 12 e 18 anos', async () => {
+  it('as regras da API: cabeçalho, campo desconhecido, senha, data, 18 anos', async () => {
     const today = new Date();
     const yearsAgo = (years: number, days = 0) => {
       const date = new Date(today.getFullYear() - years, today.getMonth(), today.getDate() + days);
@@ -368,9 +363,8 @@ describe('mock do cadastro e da sessão (2.1)', () => {
     expect(await problemOf(signupMock({ ...ADULT, password: 'semnumero' }))).toBe('400 VALIDATION_FAILED');
     expect(await problemOf(signupMock({ ...ADULT, password: 'a1'.repeat(33) }))).toBe('400 VALIDATION_FAILED');
     expect(await problemOf(signupMock({ ...ADULT, birthDate: '2001-02-30' }))).toBe('400 VALIDATION_FAILED');
-    expect(await problemOf(signupMock({ ...ADULT, birthDate: yearsAgo(12, 1) }))).toBe('422 AGE_BELOW_MINIMUM');
-    expect(await problemOf(signupMock({ ...ADULT, birthDate: yearsAgo(12) }))).toBe('422 GUARDIAN_CONSENT_REQUIRED');
-    expect(await problemOf(signupMock({ ...ADULT, birthDate: yearsAgo(18, 1) }))).toBe('422 GUARDIAN_CONSENT_REQUIRED');
+    expect(await problemOf(signupMock({ ...ADULT, birthDate: yearsAgo(15) }))).toBe('422 AGE_BELOW_MINIMUM');
+    expect(await problemOf(signupMock({ ...ADULT, birthDate: yearsAgo(18, 1) }))).toBe('422 AGE_BELOW_MINIMUM');
     expect((await signupMock({ ...ADULT, birthDate: yearsAgo(18) })).data.student.email).toBe(ADULT.email);
   });
 
