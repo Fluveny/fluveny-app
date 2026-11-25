@@ -35,16 +35,7 @@ import { mockResponse } from '../api/mocks/handlers';
 import { MOCK_CREATED, mockRoutes, resetMockStudents } from '../api/mocks/routes';
 import { AppProviders, createQueryClient } from '../AppProviders';
 import { forgetCachedSession } from '../auth/session';
-import {
-  AGE_BELOW_TEXT,
-  DATE_PROBLEM,
-  GUARDIAN_FIELD,
-  GUARDIAN_HINT,
-  GUARDIAN_REQUIRED,
-  GUARDIAN_SAME,
-  PASSWORD_PROBLEM,
-} from '../auth/signupForm';
-import { GUARDIAN_PENDING_TEXT } from '../auth/GuardianBanner';
+import { AGE_BELOW_TEXT, DATE_PROBLEM, PASSWORD_PROBLEM } from '../auth/signupForm';
 import { studentGreeting } from '../auth/StudentHome';
 import { DASHBOARD_START } from '../dashboard/StudentDashboard';
 import { PRIVACY_LINK, TERMS_LINK } from '../legal/paths';
@@ -71,7 +62,7 @@ const json = (body: unknown, status = 200) =>
     headers: { 'Content-Type': status >= 400 ? 'application/problem+json' : 'application/json' },
   });
 
-type Route = '/api/v1/auth/signup' | '/api/v1/students/me' | '/api/v1/students/me/visitor-migration';
+type Route = '/api/v1/auth/signup' | '/api/v1/students/me';
 /** Troca a resposta de uma rota (`MÉTODO caminho`) por um teste. */
 let override: Partial<Record<string, () => Response>> = {};
 
@@ -359,109 +350,26 @@ describe('cadastro do Aluno adulto (2.1)', () => {
     expect(await screen.findByRole('header', { name: PRONOUNS_TITLE })).toBeTruthy();
   });
 
-  it('menor de 12 (11 anos e 364 dias): o aviso, e não envia', async () => {
-    await openApp('/cadastro');
-    await fill({ birthDate: birthDate(12, 1) });
-    expect(screen.getByText(AGE_BELOW_TEXT)).toBeTruthy();
-    await fireEvent.press(button(CREATE_LABEL));
-    expect(ofRoute('POST', '/api/v1/auth/signup')).toHaveLength(0);
-  });
-
-  it('de 12 a 17 (2.11): pede o e-mail do responsável; vazio ou igual ao próprio não envia', async () => {
-    for (const date of [birthDate(12), birthDate(18, 1)]) {
+  it('menor de 18 (véspera dos 18, 15 e 11 anos): a frase no campo, e não envia', async () => {
+    expect(AGE_BELOW_TEXT).toBe('Fluveny is for people 18 and older.');
+    for (const date of [birthDate(18, 1), birthDate(15), birthDate(12, 1)]) {
       await openApp('/cadastro');
       await fill({ birthDate: date });
-      expect(screen.getByLabelText(GUARDIAN_FIELD)).toBeTruthy();
-      expect(screen.getByText(GUARDIAN_HINT, { includeHiddenElements: true })).toBeTruthy();
+      expect(screen.getByText(AGE_BELOW_TEXT)).toBeTruthy();
       await fireEvent.press(button(CREATE_LABEL));
-      expect(await screen.findByText(GUARDIAN_REQUIRED)).toBeTruthy();
-      await fireEvent.changeText(screen.getByLabelText(GUARDIAN_FIELD), ' ana@EXEMPLO.test');
-      await fireEvent.press(button(CREATE_LABEL));
-      expect(await screen.findByText(GUARDIAN_SAME)).toBeTruthy();
       expect(ofRoute('POST', '/api/v1/auth/signup')).toHaveLength(0);
     }
   });
 
-  it('de 12 a 17 (2.11): manda guardianEmail sem visitor, a loja fica e o painel mostra a faixa ouro', async () => {
-    await visitorStore.recordReceipt('d-1', 'recibo-1');
-    await visitorStore.recordProgress({ activityKey: 'd-1', outcome: 'viewed', xp: 0 });
-    await visitorStore.setVariable('country', 'Brazil');
+  it('18 anos completos hoje: envia', async () => {
     await openApp('/cadastro');
-    await fill({ birthDate: birthDate(15) });
-    await fireEvent.changeText(screen.getByLabelText(GUARDIAN_FIELD), 'mae@exemplo.test');
-    await fireEvent.press(button(CREATE_LABEL));
-    await screen.findByRole('header', { name: PRONOUNS_TITLE });
-    const [request] = ofRoute('POST', '/api/v1/auth/signup');
-    expect(request!.body).toMatchObject({ guardianEmail: 'mae@exemplo.test' });
-    expect(request!.body).not.toHaveProperty('visitor');
-    expect(request!.body).toMatchObject({ country: 'Brazil' });
-    expect(await visitorStore.receipts()).toHaveLength(1);
-    await fireEvent.press(button(PRONOUNS_LATER));
-    expect(await screen.findByText(GUARDIAN_PENDING_TEXT)).toBeTruthy();
-    expect(ofRoute('POST', '/api/v1/students/me/visitor-migration')).toHaveLength(0);
-    expect(await visitorStore.receipts()).toHaveLength(1);
-    // O e-mail do responsável não fica em lugar nenhum do aparelho nem vai ao Sentry ou ao log.
-    const { captureError } = jest.requireMock('../observability/sentry') as { captureError: jest.Mock };
-    const traces = JSON.stringify([
-      captureError.mock.calls,
-      consoleError.mock.calls,
-      await visitorStore.variables(),
-      [...global.__secureStore.entries()],
-    ]);
-    expect(traces).not.toContain('mae@exemplo.test');
-  });
-
-  it('adulto (2.11): o campo do responsável some e o valor não vai', async () => {
-    await openApp('/cadastro');
-    await fill({ birthDate: birthDate(15) });
-    await fireEvent.changeText(screen.getByLabelText(GUARDIAN_FIELD), 'mae@exemplo.test');
-    await fireEvent.changeText(screen.getByLabelText(BIRTH_FIELD), '20051990');
-    expect(screen.queryByLabelText(GUARDIAN_FIELD)).toBeNull();
-    await fireEvent.press(button(CREATE_LABEL));
-    await screen.findByRole('header', { name: PRONOUNS_TITLE });
-    expect(ofRoute('POST', '/api/v1/auth/signup')[0]!.body).not.toHaveProperty('guardianEmail');
-  });
-
-  it('API: GUARDIAN_CONSENT_REQUIRED cai no campo do responsável; AGE_BELOW_MINIMUM, a frase da idade', async () => {
-    override['POST /api/v1/auth/signup'] = () => json({ code: 'GUARDIAN_CONSENT_REQUIRED' }, 422);
-    await openApp('/cadastro');
-    await fill({ birthDate: birthDate(15) });
-    await fireEvent.changeText(screen.getByLabelText(GUARDIAN_FIELD), 'mae@exemplo.test');
-    await fireEvent.press(button(CREATE_LABEL));
-    expect(await screen.findByText(messageFor('GUARDIAN_CONSENT_REQUIRED'))).toBeTruthy();
-    expect(screen.queryByTestId('signup-failure')).toBeNull();
-    override['POST /api/v1/auth/signup'] = () =>
-      json({ code: 'VALIDATION_FAILED', errors: [{ field: 'guardianEmail', message: 'x' }] }, 400);
-    await fireEvent.press(button(CREATE_LABEL));
-    expect(await screen.findByTestId('signup-guardian-error')).toBeTruthy();
-    expect(screen.queryByTestId('signup-failure')).toBeNull();
-    // 400 de outro campo: o rodapé, não o campo do responsável.
-    override['POST /api/v1/auth/signup'] = () =>
-      json({ code: 'VALIDATION_FAILED', errors: [{ field: 'name', message: 'x' }] }, 400);
-    await fireEvent.press(button(CREATE_LABEL));
-    expect(await screen.findByTestId('signup-failure')).toBeTruthy();
-    expect(screen.queryByTestId('signup-guardian-error')).toBeNull();
-  });
-
-  it('422 GUARDIAN_CONSENT_REQUIRED com a data de adulto no aparelho: o campo do responsável aparece', async () => {
-    override['POST /api/v1/auth/signup'] = () => json({ code: 'GUARDIAN_CONSENT_REQUIRED' }, 422);
-    await signUpFromWelcome();
-    expect(await screen.findByLabelText(GUARDIAN_FIELD)).toBeTruthy();
-    expect(screen.getByTestId('signup-guardian-error')).toBeTruthy();
-    expect(screen.queryByTestId('signup-failure')).toBeNull();
-    delete override['POST /api/v1/auth/signup'];
-    await fireEvent.changeText(screen.getByLabelText(GUARDIAN_FIELD), 'mae@exemplo.test');
-    await fireEvent.press(button(CREATE_LABEL));
-    await screen.findByRole('header', { name: PRONOUNS_TITLE });
-    expect(ofRoute('POST', '/api/v1/auth/signup').at(-1)!.body).toMatchObject({ guardianEmail: 'mae@exemplo.test' });
+    await fill({ birthDate: birthDate(18) });
+    expect(screen.queryByText(AGE_BELOW_TEXT)).toBeNull();
   });
 
   it('API: AGE_BELOW_MINIMUM mostra a frase da idade', async () => {
     override['POST /api/v1/auth/signup'] = () => json({ code: 'AGE_BELOW_MINIMUM' }, 422);
     await signUpFromWelcome();
-    expect(await screen.findByText(AGE_BELOW_TEXT)).toBeTruthy();
-    override['POST /api/v1/auth/signup'] = () => json({ code: 'AGE_BELOW_MINIMUM' }, 422);
-    await fireEvent.press(button(CREATE_LABEL));
     expect(await screen.findByText(AGE_BELOW_TEXT)).toBeTruthy();
   });
 

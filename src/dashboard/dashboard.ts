@@ -5,7 +5,6 @@
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 
 import { get, type GetData } from '../api/client';
-import { totalXp, type ProgressEntry } from '../visitor/types';
 
 export const DASHBOARD_PATH = '/api/v1/students/me/dashboard';
 
@@ -61,61 +60,4 @@ export function focusUnit(dashboard: Dashboard | undefined): DashboardUnit | und
 /** As Unidades "em breve", por `order`. */
 export function comingSoonUnits(dashboard: Dashboard | undefined): DashboardUnit[] {
   return unitsOf(dashboard).filter((unit) => unit.comingSoon);
-}
-
-/**
- * O painel do adolescente à espera do responsável (2.11): a estrutura vem da
- * API (que não tem Progresso dele), e os números saem da loja do aparelho, onde
- * ele joga como Visitante. Só o Estágio 1 da Unidade em foco abre; os outros
- * Estágios ficam travados [ASSUMPTION: limite ao Estágio 1]. Contam só as
- * entradas das Atividades do Estágio 1 (`stageOneKeys`, do conteúdo); o Estágio
- * conclui quando todas estão na loja. Sem as chaves ainda, nada conta.
- */
-export function pendingDashboard(
-  data: Dashboard,
-  progress: readonly ProgressEntry[],
-  stageOneKeys: readonly string[] | undefined,
-): Dashboard {
-  const focus = focusUnit(data);
-  const keys = new Set(stageOneKeys ?? []);
-  const entries = progress.filter((entry) => keys.has(entry.activityKey));
-  const done = entries.length;
-  const total = keys.size;
-  const complete = total > 0 && done >= total;
-  const graded = entries.filter((entry) => entry.outcome === 'completed' && typeof entry.resultPct === 'number');
-  const average =
-    graded.length > 0
-      ? Math.round(graded.reduce((sum, entry) => sum + (entry.resultPct ?? 0), 0) / graded.length)
-      : undefined;
-  const firstPending = stageOneKeys?.find((key) => !entries.some((entry) => entry.activityKey === key));
-  const units = (Array.isArray(data.units) ? data.units : []).map((unit): DashboardUnit => {
-    if (unit.comingSoon) return unit;
-    const stages = Array.isArray(unit.stages) ? unit.stages : [];
-    const { next: _next, averageResultPct: _avg, ...rest } = unit;
-    if (unit !== focus || stages.length === 0) {
-      return { ...rest, stages: stages.map((stage) => ({ ...stage, state: 'LOCKED' as const })) };
-    }
-    const first = stages[0]!;
-    return {
-      ...rest,
-      ...(average === undefined ? {} : { averageResultPct: average }),
-      started: done > 0,
-      stagesCompleted: complete ? 1 : 0,
-      stages: stages.map((stage, index) => ({
-        ...stage,
-        state: index === 0 ? (complete ? ('COMPLETED' as const) : ('CURRENT' as const)) : ('LOCKED' as const),
-      })),
-      ...(complete
-        ? {}
-        : {
-            next: {
-              stageKey: first.stageKey,
-              activityKey: firstPending ?? unit.next?.activityKey ?? '',
-              position: Math.min(done + 1, Math.max(total, 1)),
-              total: total || (unit.next?.total ?? 0),
-            },
-          }),
-    };
-  });
-  return { ...data, units, xpTotal: totalXp(entries) };
 }

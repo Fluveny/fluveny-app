@@ -1,7 +1,7 @@
 // Termos de uso provisórios (1.21; conta na 2.1). A idade mínima para usar e a
 // licença do conteúdo ficam "a definir" até a versão final [ASSUMPTION: PRD §11
-// Q7 e Q13]; o texto só diz a regra que o cadastro aplica hoje (12 e 18 anos,
-// [ASSUMPTION] da API). Mudou o texto: mude a versão (`versions.ts`) e a data.
+// Q7 e Q13]; o texto só diz a regra que o cadastro aplica hoje (18 anos ou
+// mais, FR-2). Mudou o texto: mude a versão (`versions.ts`) e a data.
 import type { LegalDocument } from './types';
 import { TERMS_VERSION } from './versions';
 
@@ -56,10 +56,7 @@ export const TERMS_OF_USE: LegalDocument = {
     },
     {
       title: 'Idade mínima',
-      paragraphs: [
-        'Por enquanto, só quem tem 18 anos ou mais pode criar conta. Quem tem menos de 12 anos não pode criar conta.',
-        'A idade mínima para usar o Fluveny e o cadastro de quem tem de 12 a 17 anos, com a autorização de um responsável, serão definidos na versão final destes termos.',
-      ],
+      paragraphs: ['Só quem tem 18 anos ou mais pode criar conta.'],
     },
     {
       title: 'Mudanças nestes termos',

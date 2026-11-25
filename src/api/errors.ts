@@ -16,13 +16,6 @@ export const INVALID_CREDENTIALS = 'INVALID_CREDENTIALS';
 /** Tentativa, reveal ou conclusão do Aluno num Estágio que a sequência ainda não liberou (2.5). */
 export const STAGE_LOCKED = 'STAGE_LOCKED';
 
-/** Escrita de Progresso do adolescente à espera do responsável (2.11): 403. */
-export const GUARDIAN_CONSENT_PENDING = 'GUARDIAN_CONSENT_PENDING';
-/** O link do responsável não vale mais (2.11): 400. */
-export const GUARDIAN_CONSENT_TOKEN_INVALID = 'GUARDIAN_CONSENT_TOKEN_INVALID';
-/** Reenvio ao responsável de uma conta já ativa (2.11): 409. */
-export const GUARDIAN_CONSENT_NOT_PENDING = 'GUARDIAN_CONSENT_NOT_PENDING';
-
 export const GENERIC_MESSAGE = 'Tivemos um problema do nosso lado. Tente de novo daqui a pouco.';
 
 export const ERROR_MESSAGES: Readonly<Record<string, string>> = {
@@ -40,13 +33,7 @@ export const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   TOO_MANY_REQUESTS: 'Muitas tentativas seguidas. Espere um pouco e tente de novo.',
   // Cadastro (2.1). [ASSUMPTION] Textos propostos na 2.1, a revisar com UX.
   EMAIL_ALREADY_REGISTERED: 'Este e-mail já tem uma conta. Você pode entrar ou recuperar a senha.',
-  AGE_BELOW_MINIMUM: 'O Fluveny é para quem tem 12 anos ou mais.',
-  // Consentimento do responsável (2.11). [ASSUMPTION: copy] Textos propostos na 2.11, a revisar com UX.
-  // REVISÃO JURÍDICA (NFR24)
-  GUARDIAN_CONSENT_REQUIRED: 'Para quem tem de 12 a 17 anos, precisamos do e-mail do seu responsável.',
-  [GUARDIAN_CONSENT_PENDING]: 'Seu responsável ainda não confirmou. Seu progresso fica neste aparelho até lá.',
-  [GUARDIAN_CONSENT_TOKEN_INVALID]: 'Este link não vale mais. Peça ao estudante para reenviar o e-mail.',
-  [GUARDIAN_CONSENT_NOT_PENDING]: 'Seu responsável já confirmou a conta.',
+  AGE_BELOW_MINIMUM: 'Fluveny is for people 18 and older.',
   // Confirmação de e-mail (2.2). [ASSUMPTION] Textos propostos na 2.2, a revisar com UX.
   CONFIRMATION_LINK_INVALID: 'Este link não vale mais. Peça um novo e-mail de confirmação na tela inicial do Fluveny.',
   EMAIL_ALREADY_CONFIRMED: 'Seu e-mail já está confirmado.',

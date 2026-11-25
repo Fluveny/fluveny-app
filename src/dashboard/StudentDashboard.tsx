@@ -7,22 +7,17 @@ import { ApiError } from '../api/client';
 import { messageFor } from '../api/errors';
 import { ACCOUNT_PATH } from '../auth/accountPaths';
 import { ConfirmationBanner, studentGreeting } from '../auth/StudentHome';
-import { GuardianBanner } from '../auth/GuardianBanner';
-import { guardianPending } from '../auth/guardianConsent';
 import type { StudentProfile } from '../auth/student';
 import { useOnline } from '../network/useOnline';
 import { OFFLINE_LABEL, OFFLINE_TEXT } from '../network/text';
 import { playerHref } from '../player/playerRoute';
 import { reportReadFailure } from '../player/studentProgress';
-import { UNIT_KEY, useStage } from '../player/useStage';
 import { renderPlain, useRenderVars, type RenderContext } from '../renderer';
 import { Button, Card, Icon, Pressable3D, ProgressBar, StatusBanner, XpChip } from '../ui';
 import { color, fontFamily, size, spacing, typography } from '../ui/tokens';
-import { useVisitor } from '../visitor/useVisitor';
 import {
   comingSoonUnits,
   focusUnit,
-  pendingDashboard,
   useDashboard,
   type Dashboard,
   type DashboardStage,
@@ -96,20 +91,7 @@ export function StudentDashboard({ student }: { student: StudentProfile }) {
   const online = useOnline();
   const query = useDashboard();
   const context = useRenderVars();
-  const { data: serverData, error, isPending, refetch, isFetching } = query;
-  // O adolescente pendente (2.11) joga como Visitante: os números são os da loja do aparelho.
-  const pending = guardianPending(student);
-  const visitor = useVisitor();
-  // As Atividades do Estágio 1 (o mesmo cache do player do Visitante), só para o pendente.
-  const stageOne = useStage(UNIT_KEY, undefined, pending).stage;
-  const stageOneKeys = useMemo(
-    () => (Array.isArray(stageOne?.activities) ? stageOne.activities.map((entry) => entry.activityKey) : undefined),
-    [stageOne],
-  );
-  const data = useMemo(
-    () => (serverData && pending ? pendingDashboard(serverData, visitor.progress, stageOneKeys) : serverData),
-    [serverData, pending, visitor.progress, stageOneKeys],
-  );
+  const { data, error, isPending, refetch, isFetching } = query;
 
   // A falha da leitura vai ao Sentry (menos sem rede e o 401, que fica com o ponto único da 2.3).
   useEffect(() => {
@@ -162,7 +144,6 @@ export function StudentDashboard({ student }: { student: StudentProfile }) {
           </View>
         </SafeAreaView>
         <View style={styles.body}>
-          {pending ? <GuardianBanner ownEmail={student.email} /> : null}
           {student.emailConfirmed ? null : (
             <ConfirmationBanner email={student.email} overdue={student.emailConfirmationOverdue} />
           )}

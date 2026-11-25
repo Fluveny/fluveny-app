@@ -5,7 +5,7 @@
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 
 import { ApiError, get, getAt, postAccepted, type GetData } from '../api/client';
-import { GUARDIAN_CONSENT_PENDING, NETWORK_ERROR, STAGE_LOCKED } from '../api/errors';
+import { NETWORK_ERROR, STAGE_LOCKED } from '../api/errors';
 import { captureError } from '../observability/sentry';
 import type { Outcome, ProgressEntry } from '../visitor/types';
 
@@ -97,7 +97,7 @@ export function reportSaveFailure(error: unknown): void {
     captureError(error);
     return;
   }
-  if (error.code === STAGE_LOCKED || error.code === GUARDIAN_CONSENT_PENDING) return;
+  if (error.code === STAGE_LOCKED) return;
   if (error.status >= 400 && error.status < 500 && error.status !== 401 && error.status !== 429) captureError(error);
 }
 
@@ -130,9 +130,6 @@ export function sendStudentEvent(event: StudentEvent, online = true): void {
     versionId: event.versionId,
     activityKey: event.activityKey,
   }).catch((error: unknown) => {
-    // O adolescente pendente (2.11) não grava eventos de Aluno: a recusa é esperada.
-    if (!expected(error) && !(error instanceof ApiError && error.code === GUARDIAN_CONSENT_PENDING)) {
-      captureError(error);
-    }
+    if (!expected(error)) captureError(error);
   });
 }
